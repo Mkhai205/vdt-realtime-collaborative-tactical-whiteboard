@@ -58,6 +58,7 @@ pnpm-debug.log*
 .DS_Store
 *.pem
 
-apps/api/src/generated/
+packages/database/src/generated/
+packages/database/.prisma-generate.lock/
 
 /.docs
