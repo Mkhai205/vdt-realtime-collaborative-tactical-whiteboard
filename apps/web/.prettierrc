@@ -3,8 +3,7 @@
   "semi": false,
   "singleQuote": false,
   "tabWidth": 2,
-  "trailingComma": "es5",
-  "printWidth": 80,
+  "trailingComma": "all",
   "plugins": ["prettier-plugin-tailwindcss"],
   "tailwindStylesheet": "src/app/globals.css",
   "tailwindFunctions": ["cn", "cva"]

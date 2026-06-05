@@ -1,11 +1,36 @@
-import { BadRequestException, Injectable, PipeTransform } from "@nestjs/common"
-import { z, type ZodType } from "zod"
+import {
+  BadRequestException,
+  Body,
+  Injectable,
+  PipeTransform,
+  Query,
+} from "@nestjs/common"
+import { z } from "zod"
+
+export type ZodSchemaLike = {
+  safeParse: (value: unknown) =>
+    | {
+        success: true
+        data: unknown
+      }
+    | {
+        success: false
+        error: z.ZodError
+      }
+}
+
+type ZodSchemaOutput<TSchema extends ZodSchemaLike> = Extract<
+  ReturnType<TSchema["safeParse"]>,
+  { success: true }
+>["data"]
 
 @Injectable()
-export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
-  constructor(private readonly schema: ZodType<T>) {}
+export class ZodSchemaValidationPipe<
+  TSchema extends ZodSchemaLike,
+> implements PipeTransform<unknown, ZodSchemaOutput<TSchema>> {
+  constructor(private readonly schema: TSchema) {}
 
-  transform(value: unknown): T {
+  transform(value: unknown): ZodSchemaOutput<TSchema> {
     const result = this.schema.safeParse(value)
 
     if (!result.success) {
@@ -19,3 +44,13 @@ export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
     return result.data
   }
 }
+
+export class ZodValidationPipe<
+  TSchema extends ZodSchemaLike,
+> extends ZodSchemaValidationPipe<TSchema> {}
+
+export const ZodBody = <T extends ZodSchemaLike>(schema: T) =>
+  Body(new ZodSchemaValidationPipe(schema))
+
+export const ZodQuery = <T extends ZodSchemaLike>(schema: T) =>
+  Query(new ZodSchemaValidationPipe(schema))

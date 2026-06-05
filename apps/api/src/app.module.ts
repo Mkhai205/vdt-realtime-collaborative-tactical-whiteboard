@@ -4,6 +4,7 @@ import { AppService } from "./app.service"
 import { ConfigModule } from "@nestjs/config"
 import { validateEnv } from "./config"
 import { IdentityModule } from "./modules/identity/identity.module"
+import { RoomsModule } from "./modules/rooms"
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { IdentityModule } from "./modules/identity/identity.module"
       validate: validateEnv,
     }),
     IdentityModule,
+    RoomsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

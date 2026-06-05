@@ -13,6 +13,12 @@ enum IdentityType {
   GOOGLE
 }
 
+enum RoomRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   email        String?      @unique
@@ -22,4 +28,43 @@ model User {
   identityType IdentityType @default(GUEST)
   createdAt    DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+
+  createdRooms Room[]       @relation("RoomCreator")
+  memberships  RoomMember[]
+}
+
+model Room {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String    @db.VarChar(160)
+  description     String?   @db.Text
+  createdById     String    @db.Uuid
+  currentRevision BigInt    @default(0)
+  isPublic        Boolean   @default(true)
+  defaultJoinRole RoomRole  @default(EDITOR)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime? @db.Timestamptz(6)
+
+  createdBy User         @relation("RoomCreator", fields: [createdById], references: [id])
+  members   RoomMember[]
+
+  @@index([createdById])
+  @@index([isPublic])
+  @@index([deletedAt])
+}
+
+model RoomMember {
+  id        String    @id @default(uuid()) @db.Uuid
+  roomId    String    @db.Uuid
+  userId    String    @db.Uuid
+  role      RoomRole
+  joinedAt  DateTime  @default(now()) @db.Timestamptz(6)
+  removedAt DateTime? @db.Timestamptz(6)
+
+  room Room @relation(fields: [roomId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([roomId, role])
+  @@index([userId])
 }
