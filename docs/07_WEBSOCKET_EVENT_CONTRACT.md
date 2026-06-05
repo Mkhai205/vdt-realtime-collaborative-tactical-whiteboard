@@ -216,6 +216,7 @@ type SocketAuthPayload = {
   token?: string;
   guestName?: string;
   guestId?: string;
+  guestAvatarColor?: string;
 };
 ```
 

@@ -1,0 +1,137 @@
+import {
+  buildGuestRestHeaders,
+  buildGuestSocketAuth,
+  guestIdentitySchema,
+  guestIdentityStorageKey,
+  type GuestIdentity,
+  type GuestRestHeaders,
+  type SocketAuthPayload,
+} from "@rctw/shared-contracts"
+
+const guestIdentityChangeEvent = "rctw:guest-identity-change"
+let cachedRawGuestIdentity: string | null = null
+let cachedGuestIdentity: GuestIdentity | null = null
+
+const avatarPalette = [
+  "#3B82F6",
+  "#16A34A",
+  "#DC2626",
+  "#D97706",
+  "#7C3AED",
+  "#0891B2",
+  "#BE123C",
+  "#4F46E5",
+] as const
+
+export function createGuestIdentity(
+  displayName: string,
+  existingIdentity?: GuestIdentity | null
+): GuestIdentity {
+  const id = existingIdentity?.id ?? crypto.randomUUID()
+  const avatarColor =
+    existingIdentity?.avatarColor ?? generateGuestAvatarColor(id)
+
+  return guestIdentitySchema.parse({
+    id,
+    name: displayName,
+    avatarColor,
+  })
+}
+
+export function generateGuestAvatarColor(seed: string): string {
+  let hash = 0
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0
+  }
+
+  return avatarPalette[hash % avatarPalette.length] ?? avatarPalette[0]
+}
+
+export function readStoredGuestIdentity(): GuestIdentity | null {
+  if (!canUseLocalStorage()) {
+    return null
+  }
+
+  const rawValue = localStorage.getItem(guestIdentityStorageKey)
+
+  if (!rawValue) {
+    cachedRawGuestIdentity = null
+    cachedGuestIdentity = null
+    return null
+  }
+
+  if (rawValue === cachedRawGuestIdentity) {
+    return cachedGuestIdentity
+  }
+
+  try {
+    const parsed = guestIdentitySchema.safeParse(JSON.parse(rawValue))
+    cachedRawGuestIdentity = rawValue
+    cachedGuestIdentity = parsed.success ? parsed.data : null
+    return cachedGuestIdentity
+  } catch {
+    cachedRawGuestIdentity = rawValue
+    cachedGuestIdentity = null
+    return null
+  }
+}
+
+export function writeStoredGuestIdentity(identity: GuestIdentity): void {
+  if (!canUseLocalStorage()) {
+    return
+  }
+
+  const parsed = guestIdentitySchema.parse(identity)
+  localStorage.setItem(guestIdentityStorageKey, JSON.stringify(parsed))
+  emitGuestIdentityChange()
+}
+
+export function clearStoredGuestIdentity(): void {
+  if (!canUseLocalStorage()) {
+    return
+  }
+
+  localStorage.removeItem(guestIdentityStorageKey)
+  emitGuestIdentityChange()
+}
+
+export function getGuestRestHeaders():
+  | GuestRestHeaders
+  | Record<string, never> {
+  const identity = readStoredGuestIdentity()
+  return identity ? buildGuestRestHeaders(identity) : {}
+}
+
+export function getGuestSocketAuth():
+  | SocketAuthPayload
+  | Record<string, never> {
+  const identity = readStoredGuestIdentity()
+  return identity ? buildGuestSocketAuth(identity) : {}
+}
+
+export function subscribeStoredGuestIdentity(listener: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined
+  }
+
+  window.addEventListener("storage", listener)
+  window.addEventListener(guestIdentityChangeEvent, listener)
+
+  return () => {
+    window.removeEventListener("storage", listener)
+    window.removeEventListener(guestIdentityChangeEvent, listener)
+  }
+}
+
+function canUseLocalStorage(): boolean {
+  return typeof window !== "undefined" && "localStorage" in window
+}
+
+function emitGuestIdentityChange(): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.dispatchEvent(new Event(guestIdentityChangeEvent))
+}

@@ -1,8 +1,25 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum IdentityType {
+  GUEST
+  GOOGLE
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  email        String?      @unique
+  name         String       @db.VarChar(120)
+  avatarUrl    String?      @db.Text
+  avatarColor  String       @default("#3B82F6") @db.VarChar(20)
+  identityType IdentityType @default(GUEST)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
 }
