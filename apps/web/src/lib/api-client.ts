@@ -1,8 +1,7 @@
 import axios, { AxiosHeaders } from "axios"
+import { getAuthRestHeaders } from "@/features/identity/auth-token"
 import { getGuestRestHeaders } from "@/features/identity/guest-identity"
-
-const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api/v1"
+import { apiBaseUrl } from "./api-url"
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
@@ -10,8 +9,11 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   const headers = AxiosHeaders.from(config.headers)
+  const authHeaders = getAuthRestHeaders()
+  const identityHeaders =
+    "Authorization" in authHeaders ? authHeaders : getGuestRestHeaders()
 
-  for (const [name, value] of Object.entries(getGuestRestHeaders())) {
+  for (const [name, value] of Object.entries(identityHeaders)) {
     headers.set(name, value)
   }
 

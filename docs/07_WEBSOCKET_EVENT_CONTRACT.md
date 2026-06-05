@@ -207,12 +207,15 @@ The MVP assumes revisions stay within JavaScript's safe integer range.
 
 ## 5. Connection Authentication
 
-MVP supports guest identity. Google OAuth/JWT is should-have.
+The socket handshake supports the same identity precedence as REST. JWT token
+auth takes precedence over guest identity. The actual Socket.IO gateway is
+implemented later, but clients should prepare this auth payload now.
 
 Recommended handshake:
 
 ```ts
 type SocketAuthPayload = {
+  // Raw JWT access token, without the "Bearer " prefix.
   token?: string;
   guestName?: string;
   guestId?: string;
@@ -224,8 +227,10 @@ Rules:
 
 ```txt
 - If JWT token is provided, server resolves authenticated user.
+- If JWT token is provided but invalid, server rejects the connection and does not fall back to guest identity.
 - If guestName is provided, server creates/resolves guest identity.
 - If neither is valid, connection is rejected.
+- Frontend sends auth.token from localStorage key rctw.authToken.v1 when present; otherwise it sends guestId, guestName, and guestAvatarColor.
 ```
 
 ---

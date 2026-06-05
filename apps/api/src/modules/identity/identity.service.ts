@@ -1,8 +1,12 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common"
+import { ConfigService } from "@nestjs/config"
+import { JwtService } from "@nestjs/jwt"
 import {
+  authorizationHeaderName,
   guestIdentitySchema,
   guestRestHeaderNames,
   guestRestHeadersSchema,
+  jwtIdentityPayloadSchema,
   socketAuthPayloadSchema,
   type GuestIdentity,
   type UserSummary,
@@ -13,9 +17,19 @@ type HeaderBag = Record<string, unknown>
 
 @Injectable()
 export class IdentityService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async resolveRestIdentity(headers: HeaderBag): Promise<UserSummary> {
+    const bearerToken = this.readBearerToken(headers)
+
+    if (bearerToken) {
+      return this.resolveJwtIdentity(bearerToken)
+    }
+
     const parsed = guestRestHeadersSchema.safeParse({
       [guestRestHeaderNames.id]: this.readHeader(
         headers,
@@ -50,7 +64,7 @@ export class IdentityService {
     }
 
     if (parsed.data.token) {
-      throw this.unauthenticated("JWT socket identity is not enabled yet.")
+      return this.resolveJwtIdentity(parsed.data.token)
     }
 
     const guestIdentity = guestIdentitySchema.safeParse({
@@ -64,6 +78,50 @@ export class IdentityService {
     }
 
     return this.resolveGuestIdentity(guestIdentity.data)
+  }
+
+  async resolveJwtIdentity(token: string): Promise<UserSummary> {
+    const jwtSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
+
+    if (!jwtSecret) {
+      throw this.unauthenticated("JWT authentication is not configured.")
+    }
+
+    let decodedPayload: unknown
+
+    try {
+      decodedPayload = await this.jwtService.verifyAsync<
+        Record<string, unknown>
+      >(token, {
+        secret: jwtSecret,
+      })
+    } catch {
+      throw this.unauthenticated("Invalid access token.")
+    }
+
+    const parsedPayload = jwtIdentityPayloadSchema.safeParse(decodedPayload)
+
+    if (!parsedPayload.success) {
+      throw this.unauthenticated("Invalid access token.")
+    }
+
+    const user = await this.prismaService.client.user.findUnique({
+      where: {
+        id: parsedPayload.data.sub,
+      },
+      select: {
+        id: true,
+        name: true,
+        avatarUrl: true,
+        avatarColor: true,
+      },
+    })
+
+    if (!user) {
+      throw this.unauthenticated("Invalid access token.")
+    }
+
+    return user
   }
 
   private async resolveGuestIdentity(
@@ -106,6 +164,26 @@ export class IdentityService {
     }
 
     return undefined
+  }
+
+  private readBearerToken(headers: HeaderBag): string | null {
+    const authorization = this.readHeader(headers, authorizationHeaderName)
+
+    if (!authorization) {
+      return null
+    }
+
+    const [scheme, token] = authorization.trim().split(/\s+/, 2)
+
+    if (!scheme || scheme.toLowerCase() !== "bearer") {
+      return null
+    }
+
+    if (!token) {
+      throw this.unauthenticated("Bearer token is required.")
+    }
+
+    return token
   }
 
   private unauthenticated(message = "Guest identity is required.") {

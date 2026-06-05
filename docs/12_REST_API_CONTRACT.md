@@ -39,7 +39,8 @@ Response format: JSON
 
 ### 2.2 Identity
 
-MVP supports guest identity. Google OAuth/JWT is should-have.
+The identity foundation supports browser-local guests and Google OAuth users.
+JWT identity takes precedence over guest identity.
 
 REST requests that require a user must provide one of:
 
@@ -58,10 +59,57 @@ x-guest-avatar-color: <css color>
 Rules:
 
 ```txt
-- If JWT is provided, backend resolves authenticated user.
+- If a Bearer JWT is provided, backend resolves the authenticated user.
+- If a Bearer JWT is provided but invalid, backend returns 401 UNAUTHENTICATED and does not fall back to guest headers.
 - If guest headers are provided, backend creates or resolves a GUEST user.
 - If neither identity source is valid, backend returns 401 UNAUTHENTICATED.
 - guestId should be stable in localStorage for the browser session/demo.
+- frontend stores the OAuth access token in localStorage key rctw.authToken.v1.
+- frontend attaches Authorization: Bearer <jwt> to REST requests when a token exists; otherwise it attaches guest headers.
+```
+
+### 2.2.1 Google OAuth Login
+
+OAuth is backend-driven and does not use Passport or server sessions.
+
+```txt
+GET /api/v1/auth/google
+```
+
+Behavior:
+
+```txt
+- Validates GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL, and JWT_ACCESS_SECRET.
+- Creates a short-lived httpOnly state cookie.
+- Redirects to Google OAuth with openid email profile scopes.
+- If OAuth/JWT config is missing, returns a clear configuration error.
+```
+
+```txt
+GET /api/v1/auth/google/callback?code=<code>&state=<state>
+```
+
+Behavior:
+
+```txt
+- Validates state against the state cookie.
+- Exchanges the Google code and verifies the Google ID token.
+- Requires a verified email.
+- Creates or updates a GOOGLE user by email.
+- Issues a JWT access token.
+- Redirects to FRONTEND_LOGIN_SUCCESS_REDIRECT#accessToken=<jwt>.
+- On callback failure, redirects to FRONTEND_LOGIN_FAILURE_REDIRECT?reason=<code>.
+```
+
+JWT payload minimum:
+
+```ts
+type JwtIdentityPayload = {
+  sub: string;
+  email: string;
+  name: string;
+  identityType: "GOOGLE";
+};
 ```
 
 ### 2.3 Revision Serialization

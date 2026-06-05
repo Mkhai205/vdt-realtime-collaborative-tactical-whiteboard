@@ -22,12 +22,14 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@rctw/database": "workspace:*",
-    "@rctw/shared-contracts": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.0.1",
+    "@rctw/database": "workspace:*",
+    "@rctw/shared-contracts": "workspace:*",
+    "google-auth-library": "^10.7.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^4.1.13"

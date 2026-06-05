@@ -1,7 +1,14 @@
 "use client"
 
 import { FormEvent, useMemo, useState, useSyncExternalStore } from "react"
+import { authTokenStorageKey } from "@rctw/shared-contracts"
 import { Button } from "@/components/ui/button"
+import { googleOAuthStartUrl } from "@/lib/api-url"
+import {
+  clearStoredAuthToken,
+  readStoredAuthToken,
+  subscribeStoredAuthToken,
+} from "./auth-token"
 import {
   clearStoredGuestIdentity,
   createGuestIdentity,
@@ -14,6 +21,11 @@ import {
 const previewSeed = "rctw-preview"
 
 export function GuestIdentityGate() {
+  const authToken = useSyncExternalStore(
+    subscribeStoredAuthToken,
+    readStoredAuthToken,
+    () => null
+  )
   const identity = useSyncExternalStore(
     subscribeStoredGuestIdentity,
     readStoredGuestIdentity,
@@ -51,6 +63,10 @@ export function GuestIdentityGate() {
     setError("")
   }
 
+  function handleLogout() {
+    clearStoredAuthToken()
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center gap-8 px-6 py-10">
@@ -65,6 +81,7 @@ export function GuestIdentityGate() {
             <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
               Your name and color stay in this browser so room APIs and future
               realtime connections can resolve the same guest after refresh.
+              Google sign-in upgrades the session with a Bearer token.
             </p>
           </div>
         </div>
@@ -74,6 +91,30 @@ export function GuestIdentityGate() {
             onSubmit={handleSubmit}
             className="flex flex-col gap-5 rounded-lg border bg-card p-5 shadow-sm"
           >
+            <div className="flex flex-col gap-3 rounded-md border bg-muted/40 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium">
+                    {authToken ? "Google session active" : "Sign in with Google"}
+                  </p>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {authToken
+                      ? "REST and future socket auth will use the JWT before guest headers."
+                      : "Use a verified Google account for authenticated room identity."}
+                  </p>
+                </div>
+                {authToken ? (
+                  <Button type="button" variant="outline" onClick={handleLogout}>
+                    Log out
+                  </Button>
+                ) : (
+                  <Button asChild>
+                    <a href={googleOAuthStartUrl}>Continue with Google</a>
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="guest-display-name"
@@ -125,7 +166,8 @@ export function GuestIdentityGate() {
               </div>
               <p className="text-xs leading-5 text-muted-foreground">
                 Color is generated once per guest session and is reused for
-                presence, cursors, REST headers, and future socket auth.
+                presence, cursors, REST headers, and future socket auth when no
+                JWT is active.
               </p>
             </div>
 
@@ -155,9 +197,11 @@ export function GuestIdentityGate() {
                   aria-hidden="true"
                 />
                 <p className="text-sm text-muted-foreground">
-                  {identity
-                    ? "Guest identity is ready for room APIs."
-                    : "No guest identity saved yet."}
+                  {authToken
+                    ? "Google identity is ready; JWT takes precedence."
+                    : identity
+                      ? "Guest identity is ready for room APIs."
+                      : "No guest identity saved yet."}
                 </p>
               </div>
             </div>
@@ -166,13 +210,15 @@ export function GuestIdentityGate() {
               <div className="flex flex-col gap-1">
                 <dt className="text-muted-foreground">REST headers</dt>
                 <dd className="font-mono text-xs break-all">
-                  x-guest-id, x-guest-name, x-guest-avatar-color
+                  {authToken
+                    ? "Authorization: Bearer <token>"
+                    : "x-guest-id, x-guest-name, x-guest-avatar-color"}
                 </dd>
               </div>
               <div className="flex flex-col gap-1">
-                <dt className="text-muted-foreground">Storage key</dt>
+                <dt className="text-muted-foreground">Storage keys</dt>
                 <dd className="font-mono text-xs break-all">
-                  rctw.guestIdentity.v1
+                  {authTokenStorageKey}, rctw.guestIdentity.v1
                 </dd>
               </div>
             </dl>
