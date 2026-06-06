@@ -45,12 +45,14 @@ const toolbarItems = [
 
 export function WhiteboardPage({ roomId }: { roomId: string }) {
   const setRoomId = useWhiteboardStore((state) => state.setRoomId)
+  const seedDemoObjects = useWhiteboardStore((state) => state.seedDemoObjects)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
 
   useEffect(() => {
     setRoomId(roomId)
-  }, [roomId, setRoomId])
+    seedDemoObjects(roomId)
+  }, [roomId, seedDemoObjects, setRoomId])
 
   return (
     <main className="flex h-dvh min-h-screen flex-col overflow-hidden bg-background text-foreground">

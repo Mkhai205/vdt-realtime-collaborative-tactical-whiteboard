@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Layer, Line, Rect, Stage } from "react-konva"
 import { getVisibleWorldRect, type WorldRect } from "@/lib/canvas-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import { WhiteboardObjectLayer } from "./whiteboard-object-layer"
 
 const smallGridStep = 32
 const majorGridStep = 160
@@ -17,12 +18,18 @@ type CanvasThemeColors = {
   background: string
   minorGrid: string
   majorGrid: string
+  foreground: string
+  primary: string
+  accent: string
 }
 
 const fallbackCanvasColors: CanvasThemeColors = {
   background: "#f7f7f1",
   minorGrid: "rgba(212, 218, 205, 0.58)",
   majorGrid: "rgba(63, 125, 81, 0.5)",
+  foreground: "#172018",
+  primary: "#14532d",
+  accent: "#533707",
 }
 
 export function WhiteboardStage() {
@@ -107,6 +114,13 @@ export function WhiteboardStage() {
               listening={false}
             />
           ))}
+          <WhiteboardObjectLayer
+            defaultColors={{
+              foreground: colors.foreground,
+              primary: colors.primary,
+              accent: colors.accent,
+            }}
+          />
         </Layer>
       </Stage>
     </div>
@@ -174,6 +188,9 @@ function useCanvasThemeColors(): CanvasThemeColors {
     function updateColors() {
       const styles = getComputedStyle(document.documentElement)
       const background = styles.getPropertyValue("--background").trim()
+      const foreground = styles.getPropertyValue("--foreground").trim()
+      const primary = styles.getPropertyValue("--primary").trim()
+      const accent = styles.getPropertyValue("--accent-foreground").trim()
       const border = styles.getPropertyValue("--border").trim()
       const ring = styles.getPropertyValue("--ring").trim()
 
@@ -181,6 +198,9 @@ function useCanvasThemeColors(): CanvasThemeColors {
         background: background || fallbackCanvasColors.background,
         minorGrid: withAlpha(border, 0.58) || fallbackCanvasColors.minorGrid,
         majorGrid: withAlpha(ring, 0.5) || fallbackCanvasColors.majorGrid,
+        foreground: foreground || fallbackCanvasColors.foreground,
+        primary: primary || fallbackCanvasColors.primary,
+        accent: accent || fallbackCanvasColors.accent,
       })
     }
 
