@@ -10,10 +10,14 @@ import {
   UseGuards,
 } from "@nestjs/common"
 import {
+  addRoomMemberRequestSchema,
   createRoomRequestSchema,
   listRoomsQuerySchema,
+  roomMemberIdParamsSchema,
   roomIdParamsSchema,
+  updateRoomMemberRoleRequestSchema,
   updateRoomRequestSchema,
+  type AddRoomMemberRequest,
   type CreateRoomRequest,
   type CreateRoomResponse,
   type GetRoomMembersResponse,
@@ -21,7 +25,10 @@ import {
   type JoinRoomResponse,
   type ListRoomsQuery,
   type ListRoomsResponse,
+  type RoomMemberIdParams,
+  type RoomMemberMutationResponse,
   type RoomIdParams,
+  type UpdateRoomMemberRoleRequest,
   type UpdateRoomRequest,
   type UpdateRoomResponse,
   type UserSummary,
@@ -73,6 +80,31 @@ export class RoomsController {
     @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
   ): Promise<GetRoomMembersResponse> {
     return this.roomsService.getRoomMembers(currentUser, params.roomId)
+  }
+
+  @Post(":roomId/members")
+  async addRoomMember(
+    @CurrentUser() currentUser: UserSummary,
+    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodBody(addRoomMemberRequestSchema) request: AddRoomMemberRequest,
+  ): Promise<RoomMemberMutationResponse> {
+    return this.roomsService.addRoomMember(currentUser, params.roomId, request)
+  }
+
+  @Patch(":roomId/members/:memberId")
+  async updateRoomMemberRole(
+    @CurrentUser() currentUser: UserSummary,
+    @Param(new ZodValidationPipe(roomMemberIdParamsSchema))
+    params: RoomMemberIdParams,
+    @ZodBody(updateRoomMemberRoleRequestSchema)
+    request: UpdateRoomMemberRoleRequest,
+  ): Promise<RoomMemberMutationResponse> {
+    return this.roomsService.updateRoomMemberRole(
+      currentUser,
+      params.roomId,
+      params.memberId,
+      request,
+    )
   }
 
   @Patch(":roomId")

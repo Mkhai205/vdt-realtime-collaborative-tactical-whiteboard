@@ -3,9 +3,14 @@ import { roomRoleSchema } from "./identity.js";
 import { userSummarySchema } from "./common.js";
 
 export const defaultJoinRoleSchema = z.enum(["EDITOR", "VIEWER"]);
+export const memberRoleInputSchema = z.enum(["EDITOR", "VIEWER"]);
 
 export const roomIdParamsSchema = z.object({
     roomId: z.uuid(),
+});
+
+export const roomMemberIdParamsSchema = roomIdParamsSchema.extend({
+    memberId: z.uuid(),
 });
 
 export const roomSummarySchema = z.object({
@@ -69,6 +74,19 @@ export const getRoomMembersResponseSchema = z.object({
     members: z.array(roomMemberSummarySchema),
 });
 
+export const addRoomMemberRequestSchema = z.object({
+    userId: z.uuid(),
+    role: memberRoleInputSchema,
+});
+
+export const updateRoomMemberRoleRequestSchema = z.object({
+    role: memberRoleInputSchema,
+});
+
+export const roomMemberMutationResponseSchema = z.object({
+    member: roomMemberSummarySchema,
+});
+
 export const updateRoomRequestSchema = z
     .object({
         name: z.string().trim().min(1).max(160).optional(),
@@ -85,7 +103,9 @@ export const updateRoomResponseSchema = z.object({
 });
 
 export type DefaultJoinRole = z.infer<typeof defaultJoinRoleSchema>;
+export type MemberRoleInput = z.infer<typeof memberRoleInputSchema>;
 export type RoomIdParams = z.infer<typeof roomIdParamsSchema>;
+export type RoomMemberIdParams = z.infer<typeof roomMemberIdParamsSchema>;
 export type RoomSummary = z.infer<typeof roomSummarySchema>;
 export type RoomMemberSummary = z.infer<typeof roomMemberSummarySchema>;
 export type CreateRoomRequest = z.infer<typeof createRoomRequestSchema>;
@@ -96,6 +116,13 @@ export type GetRoomResponse = z.infer<typeof getRoomResponseSchema>;
 export type JoinRoomResponse = z.infer<typeof joinRoomResponseSchema>;
 export type GetRoomMembersResponse = z.infer<
     typeof getRoomMembersResponseSchema
+>;
+export type AddRoomMemberRequest = z.infer<typeof addRoomMemberRequestSchema>;
+export type UpdateRoomMemberRoleRequest = z.infer<
+    typeof updateRoomMemberRoleRequestSchema
+>;
+export type RoomMemberMutationResponse = z.infer<
+    typeof roomMemberMutationResponseSchema
 >;
 export type UpdateRoomRequest = z.infer<typeof updateRoomRequestSchema>;
 export type UpdateRoomResponse = z.infer<typeof updateRoomResponseSchema>;

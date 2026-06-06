@@ -137,7 +137,7 @@ Support room creation, room listing, joining by link, basic membership, and role
 |---|---|---:|---|---|
 | T03.03.01 | Add `isPublic` to room | P0 | T03.01.01 | Room can be public/private |
 | T03.03.02 | Reject non-member joining private room | P1 | T03.03.01 | Private room cannot be joined directly |
-| T03.03.03 | Implement simple invite member endpoint | P1 | T03.02 | Owner can add member |
+| T03.03.03 | Implement simple direct userId invite member endpoint | P1 | T03.02 | Owner can add existing user as member |
 | T03.03.04 | Build member management UI | P1 | T03.03.03 | Owner can view/change roles |
 
 ---

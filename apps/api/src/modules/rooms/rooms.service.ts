@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common"
 import type {
+  AddRoomMemberRequest,
   CreateRoomRequest,
   CreateRoomResponse,
   GetRoomMembersResponse,
@@ -12,6 +14,8 @@ import type {
   ListRoomsQuery,
   ListRoomsResponse,
   RoomRole,
+  RoomMemberMutationResponse,
+  UpdateRoomMemberRoleRequest,
   UpdateRoomRequest,
   UpdateRoomResponse,
   UserSummary,
@@ -255,6 +259,136 @@ export class RoomsService {
     }
   }
 
+  async addRoomMember(
+    currentUser: UserSummary,
+    roomId: string,
+    request: AddRoomMemberRequest,
+  ): Promise<RoomMemberMutationResponse> {
+    await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
+
+    const member = await this.prismaService.client.$transaction(async (tx) => {
+      const targetUser = await tx.user.findUnique({
+        where: {
+          id: request.userId,
+        },
+        select: userSummarySelect,
+      })
+
+      if (!targetUser) {
+        throw this.memberNotFound("Target user not found.")
+      }
+
+      const existingMember = await tx.roomMember.findUnique({
+        where: {
+          roomId_userId: {
+            roomId,
+            userId: request.userId,
+          },
+        },
+        select: {
+          id: true,
+          role: true,
+          removedAt: true,
+        },
+      })
+
+      if (existingMember?.role === "OWNER") {
+        throw this.validationError("Owner membership cannot be modified.")
+      }
+
+      if (existingMember) {
+        const reactivationData =
+          existingMember.removedAt === null
+            ? {}
+            : {
+                joinedAt: new Date(),
+                removedAt: null,
+              }
+
+        return tx.roomMember.update({
+          where: {
+            id: existingMember.id,
+          },
+          data: {
+            ...reactivationData,
+            role: request.role,
+          },
+          include: {
+            user: {
+              select: userSummarySelect,
+            },
+          },
+        })
+      }
+
+      return tx.roomMember.create({
+        data: {
+          roomId,
+          userId: request.userId,
+          role: request.role,
+        },
+        include: {
+          user: {
+            select: userSummarySelect,
+          },
+        },
+      })
+    })
+
+    return {
+      member: toRoomMemberSummary(member),
+    }
+  }
+
+  async updateRoomMemberRole(
+    currentUser: UserSummary,
+    roomId: string,
+    memberId: string,
+    request: UpdateRoomMemberRoleRequest,
+  ): Promise<RoomMemberMutationResponse> {
+    await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
+
+    const member = await this.prismaService.client.$transaction(async (tx) => {
+      const existingMember = await tx.roomMember.findFirst({
+        where: {
+          id: memberId,
+          roomId,
+          removedAt: null,
+        },
+        select: {
+          id: true,
+          role: true,
+        },
+      })
+
+      if (!existingMember) {
+        throw this.memberNotFound()
+      }
+
+      if (existingMember.role === "OWNER") {
+        throw this.validationError("Owner membership cannot be modified.")
+      }
+
+      return tx.roomMember.update({
+        where: {
+          id: memberId,
+        },
+        data: {
+          role: request.role,
+        },
+        include: {
+          user: {
+            select: userSummarySelect,
+          },
+        },
+      })
+    })
+
+    return {
+      member: toRoomMemberSummary(member),
+    }
+  }
+
   async updateRoom(
     currentUser: UserSummary,
     roomId: string,
@@ -342,6 +476,20 @@ export class RoomsService {
     return new NotFoundException({
       code: "ROOM_NOT_FOUND",
       message: "Room not found.",
+    })
+  }
+
+  private memberNotFound(message = "Room member not found.") {
+    return new NotFoundException({
+      code: "MEMBER_NOT_FOUND",
+      message,
+    })
+  }
+
+  private validationError(message: string) {
+    return new BadRequestException({
+      code: "VALIDATION_ERROR",
+      message,
     })
   }
 

@@ -184,6 +184,8 @@ type RoomMemberSummary = {
   joinedAt: string;
 };
 
+type MemberRoleInput = "EDITOR" | "VIEWER";
+
 type WhiteboardObject = {
   id: string;
   roomId: string;
@@ -534,7 +536,7 @@ type GetRoomMembersResponse = {
 ```txt
 - Exclude removed members.
 - Public guest join creates or resolves a RoomMember using room.defaultJoinRole.
-- Role management UI is should-have and may add more member mutation endpoints later.
+- Role management UI uses direct userId invite for the should-have private room flow.
 ```
 
 ### Errors
@@ -543,6 +545,98 @@ type GetRoomMembersResponse = {
 401 UNAUTHENTICATED
 403 PERMISSION_DENIED
 404 ROOM_NOT_FOUND
+```
+
+---
+
+## 7.2 `POST /rooms/:roomId/members`
+
+Add an existing user as a room member, or update/reactivate an existing non-owner member.
+
+### Permission
+
+Owner only.
+
+### Request Body
+
+```ts
+type AddRoomMemberRequest = {
+  userId: string;
+  role: MemberRoleInput;
+};
+```
+
+### Response `201`
+
+```ts
+type RoomMemberMutationResponse = {
+  member: RoomMemberSummary;
+};
+```
+
+### Rules
+
+```txt
+- Target user must already exist.
+- Existing active non-owner member is updated to the requested role.
+- Removed non-owner member is reactivated with the requested role.
+- OWNER membership cannot be created or modified by this endpoint.
+- This endpoint does not create invite tokens or send email.
+```
+
+### Errors
+
+```txt
+400 VALIDATION_ERROR
+401 UNAUTHENTICATED
+403 PERMISSION_DENIED
+404 ROOM_NOT_FOUND
+404 MEMBER_NOT_FOUND
+```
+
+---
+
+## 7.3 `PATCH /rooms/:roomId/members/:memberId`
+
+Change an active non-owner member's role.
+
+### Permission
+
+Owner only.
+
+### Request Body
+
+```ts
+type UpdateRoomMemberRoleRequest = {
+  role: MemberRoleInput;
+};
+```
+
+### Response `200`
+
+```ts
+type RoomMemberMutationResponse = {
+  member: RoomMemberSummary;
+};
+```
+
+### Rules
+
+```txt
+- Only EDITOR and VIEWER can be assigned.
+- Removed members cannot be updated.
+- OWNER membership cannot be modified by this endpoint.
+- Owner transfer is out of scope for the MVP.
+```
+
+### Errors
+
+```txt
+400 VALIDATION_ERROR
+401 UNAUTHENTICATED
+403 PERMISSION_DENIED
+404 ROOM_NOT_FOUND
+404 MEMBER_NOT_FOUND
 ```
 
 ---

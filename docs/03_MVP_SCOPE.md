@@ -232,6 +232,8 @@ DELETE /rooms/:roomId       # should-have if time-limited
 GET    /rooms/:roomId/objects
 GET    /rooms/:roomId/operations?limit=50
 GET    /rooms/:roomId/members
+POST   /rooms/:roomId/members
+PATCH  /rooms/:roomId/members/:memberId
 ```
 
 Detailed REST request/response, status code, error, and permission rules are defined in `12_REST_API_CONTRACT.md`.
