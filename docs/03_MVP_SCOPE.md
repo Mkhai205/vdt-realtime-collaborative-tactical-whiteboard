@@ -226,6 +226,7 @@ The MVP requires the following core entities:
 POST   /rooms
 GET    /rooms
 GET    /rooms/:roomId
+POST   /rooms/:roomId/join
 PATCH  /rooms/:roomId
 DELETE /rooms/:roomId       # should-have if time-limited
 GET    /rooms/:roomId/objects

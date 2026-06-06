@@ -16,7 +16,9 @@ import {
   updateRoomRequestSchema,
   type CreateRoomRequest,
   type CreateRoomResponse,
+  type GetRoomMembersResponse,
   type GetRoomResponse,
+  type JoinRoomResponse,
   type ListRoomsQuery,
   type ListRoomsResponse,
   type RoomIdParams,
@@ -55,6 +57,22 @@ export class RoomsController {
     @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
   ): Promise<GetRoomResponse> {
     return this.roomsService.getRoom(currentUser, params.roomId)
+  }
+
+  @Post(":roomId/join")
+  async joinRoom(
+    @CurrentUser() currentUser: UserSummary,
+    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+  ): Promise<JoinRoomResponse> {
+    return this.roomsService.joinRoom(currentUser, params.roomId)
+  }
+
+  @Get(":roomId/members")
+  async getRoomMembers(
+    @CurrentUser() currentUser: UserSummary,
+    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+  ): Promise<GetRoomMembersResponse> {
+    return this.roomsService.getRoomMembers(currentUser, params.roomId)
   }
 
   @Patch(":roomId")

@@ -57,6 +57,18 @@ export const getRoomResponseSchema = z.object({
     }),
 });
 
+export const joinRoomResponseSchema = z.object({
+    room: roomSummarySchema,
+    currentUser: userSummarySchema.extend({
+        role: roomRoleSchema,
+    }),
+});
+
+export const getRoomMembersResponseSchema = z.object({
+    roomId: z.uuid(),
+    members: z.array(roomMemberSummarySchema),
+});
+
 export const updateRoomRequestSchema = z
     .object({
         name: z.string().trim().min(1).max(160).optional(),
@@ -81,5 +93,9 @@ export type CreateRoomResponse = z.infer<typeof createRoomResponseSchema>;
 export type ListRoomsQuery = z.infer<typeof listRoomsQuerySchema>;
 export type ListRoomsResponse = z.infer<typeof listRoomsResponseSchema>;
 export type GetRoomResponse = z.infer<typeof getRoomResponseSchema>;
+export type JoinRoomResponse = z.infer<typeof joinRoomResponseSchema>;
+export type GetRoomMembersResponse = z.infer<
+    typeof getRoomMembersResponseSchema
+>;
 export type UpdateRoomRequest = z.infer<typeof updateRoomRequestSchema>;
 export type UpdateRoomResponse = z.infer<typeof updateRoomResponseSchema>;

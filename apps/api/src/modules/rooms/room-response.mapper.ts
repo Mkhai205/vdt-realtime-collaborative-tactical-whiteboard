@@ -1,5 +1,7 @@
 import type {
   DefaultJoinRole,
+  RoomMemberSummary,
+  RoomRole,
   RoomSummary,
   UserSummary,
 } from "@rctw/shared-contracts"
@@ -16,6 +18,14 @@ type RoomRecord = {
   updatedAt: Date | string
 }
 
+type RoomMemberRecord = {
+  id: string
+  roomId: string
+  user: UserSummary
+  role: string
+  joinedAt: Date | string
+}
+
 export function toRoomSummary(room: RoomRecord): RoomSummary {
   return {
     id: room.id,
@@ -30,8 +40,28 @@ export function toRoomSummary(room: RoomRecord): RoomSummary {
   }
 }
 
+export function toRoomMemberSummary(
+  member: RoomMemberRecord,
+): RoomMemberSummary {
+  return {
+    id: member.id,
+    roomId: member.roomId,
+    user: member.user,
+    role: toRoomRole(member.role),
+    joinedAt: toIsoString(member.joinedAt),
+  }
+}
+
 export function toDefaultJoinRole(role: string): DefaultJoinRole {
   return role === "VIEWER" ? "VIEWER" : "EDITOR"
+}
+
+export function toRoomRole(role: string): RoomRole {
+  if (role === "OWNER" || role === "VIEWER") {
+    return role
+  }
+
+  return "EDITOR"
 }
 
 function toIsoString(value: Date | string): string {

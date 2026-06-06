@@ -325,7 +325,46 @@ type GetRoomResponse = {
 
 ---
 
-## 4.4 `PATCH /rooms/:roomId`
+## 4.4 `POST /rooms/:roomId/join`
+
+Join a public room by link or resolve the current user's existing membership.
+
+### Permission
+
+Any resolved guest or authenticated user. Private rooms require existing active membership.
+
+### Response `201`
+
+```ts
+type JoinRoomResponse = {
+  room: RoomSummary;
+  currentUser: UserSummary & {
+    role: RoomRole;
+  };
+};
+```
+
+### Rules
+
+```txt
+- Existing active members keep their current role.
+- Public non-members become active members using room.defaultJoinRole.
+- Removed public members are reactivated using room.defaultJoinRole.
+- Private non-members are rejected.
+- This is the only REST room metadata endpoint that creates membership.
+```
+
+### Errors
+
+```txt
+401 UNAUTHENTICATED
+403 PERMISSION_DENIED
+404 ROOM_NOT_FOUND
+```
+
+---
+
+## 4.5 `PATCH /rooms/:roomId`
 
 Update room metadata.
 
@@ -363,7 +402,7 @@ type UpdateRoomResponse = {
 
 ---
 
-## 4.5 `DELETE /rooms/:roomId`
+## 4.6 `DELETE /rooms/:roomId`
 
 Soft delete a room.
 
