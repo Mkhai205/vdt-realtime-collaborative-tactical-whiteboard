@@ -11,9 +11,11 @@ import {
   MoveRightIcon,
   PanelRightIcon,
   SquareIcon,
+  Trash2Icon,
   TypeIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -55,11 +57,40 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
+  const deleteSelectedObject = useWhiteboardStore(
+    (state) => state.deleteSelectedObject,
+  )
 
   useEffect(() => {
     setRoomId(roomId)
     seedDemoObjects(roomId)
   }, [roomId, seedDemoObjects, setRoomId])
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (
+        (event.key !== "Delete" && event.key !== "Backspace") ||
+        isEditableEventTarget(event.target)
+      ) {
+        return
+      }
+
+      const selectedObjectId = useWhiteboardStore.getState().selectedObjectId
+
+      if (!selectedObjectId) {
+        return
+      }
+
+      event.preventDefault()
+      deleteSelectedObject()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [deleteSelectedObject])
 
   return (
     <main className="flex h-dvh min-h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -107,7 +138,12 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
 
 function ToolPalette() {
   const currentTool = useWhiteboardStore((state) => state.currentTool)
+  const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
+  const deleteSelectedObject = useWhiteboardStore(
+    (state) => state.deleteSelectedObject,
+  )
   const setTool = useWhiteboardStore((state) => state.setTool)
+  const canDelete = Boolean(selectedObjectId)
 
   return (
     <aside
@@ -140,11 +176,28 @@ function ToolPalette() {
           )
         })}
       </ToggleGroup>
+      <Button
+        type="button"
+        variant="destructive"
+        size="icon"
+        title="Delete selected object"
+        aria-label="Delete selected object"
+        disabled={!canDelete}
+        onClick={deleteSelectedObject}
+      >
+        <Trash2Icon data-icon="inline-start" />
+      </Button>
     </aside>
   )
 }
 
 function DetailPanelPlaceholder() {
+  const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
+  const deleteSelectedObject = useWhiteboardStore(
+    (state) => state.deleteSelectedObject,
+  )
+  const canDelete = Boolean(selectedObjectId)
+
   return (
     <Card className="min-h-0 shadow-sm" size="sm">
       <CardHeader>
@@ -165,7 +218,38 @@ function DetailPanelPlaceholder() {
           <dt className="text-muted-foreground">Rotation</dt>
           <dd className="font-mono text-xs text-foreground">-</dd>
         </dl>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          className="mt-4 w-full"
+          disabled={!canDelete}
+          onClick={deleteSelectedObject}
+        >
+          <Trash2Icon data-icon="inline-start" />
+          Delete object
+        </Button>
       </CardContent>
     </Card>
   )
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (target.isContentEditable) {
+    return true
+  }
+
+  const tagName = target.tagName.toLowerCase()
+
+  if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+    return true
+  }
+
+  const role = target.getAttribute("role")
+
+  return role === "textbox" || Boolean(target.closest("[contenteditable=true]"))
 }

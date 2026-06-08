@@ -35,6 +35,7 @@ type WhiteboardState = {
     patch: ObjectMutablePatch,
   ) => void
   removeObject: (objectId: string) => void
+  deleteSelectedObject: () => void
   createLocalObject: (input: LocalObjectInput) => WhiteboardObject | null
   seedDemoObjects: (roomId: string) => void
   setStageSize: (stageSize: StageSize) => void
@@ -313,6 +314,28 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         objects: nextObjects,
         selectedObjectId:
           state.selectedObjectId === objectId ? null : state.selectedObjectId,
+      }
+    }),
+  deleteSelectedObject: () =>
+    set((state) => {
+      if (!state.selectedObjectId) {
+        return state
+      }
+
+      const selectedObject = state.objects[state.selectedObjectId]
+
+      if (!selectedObject || selectedObject.deletedAt) {
+        return {
+          selectedObjectId: null,
+        }
+      }
+
+      const nextObjects = { ...state.objects }
+      delete nextObjects[state.selectedObjectId]
+
+      return {
+        objects: nextObjects,
+        selectedObjectId: null,
       }
     }),
   createLocalObject: (input) => {
