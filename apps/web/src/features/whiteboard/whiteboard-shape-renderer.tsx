@@ -21,9 +21,14 @@ export type ShapeDefaultColors = {
 type WhiteboardShapeRendererProps = {
   object: WhiteboardObject
   defaultColors: ShapeDefaultColors
+  draggable?: boolean
   onObjectPointerDown?: (
     objectId: string,
     event: KonvaEventObject<PointerEvent>,
+  ) => void
+  onObjectDragEnd?: (
+    objectId: string,
+    event: KonvaEventObject<DragEvent>,
   ) => void
   registerObjectNode?: (objectId: string, node: Konva.Node | null) => void
 }
@@ -31,7 +36,9 @@ type WhiteboardShapeRendererProps = {
 export function WhiteboardShapeRenderer({
   object,
   defaultColors,
+  draggable = false,
   onObjectPointerDown,
+  onObjectDragEnd,
   registerObjectNode,
 }: WhiteboardShapeRendererProps) {
   const setNodeRef = useCallback<RefCallback<Konva.Node>>(
@@ -45,6 +52,12 @@ export function WhiteboardShapeRenderer({
       onObjectPointerDown?.(object.id, event)
     },
     [object.id, onObjectPointerDown],
+  )
+  const handleDragEnd = useCallback(
+    (event: KonvaEventObject<DragEvent>) => {
+      onObjectDragEnd?.(object.id, event)
+    },
+    [object.id, onObjectDragEnd],
   )
 
   switch (object.type) {
@@ -61,7 +74,9 @@ export function WhiteboardShapeRenderer({
           stroke={object.style.stroke ?? defaultColors.primary}
           strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
           opacity={object.style.opacity ?? 1}
+          draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragEnd={handleDragEnd}
         />
       )
     case "CIRCLE": {
@@ -80,7 +95,9 @@ export function WhiteboardShapeRenderer({
           stroke={object.style.stroke ?? defaultColors.accent}
           strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
           opacity={object.style.opacity ?? 1}
+          draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragEnd={handleDragEnd}
         />
       )
     }
@@ -98,7 +115,9 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           pointerAtBeginning={object.style.arrowStart ?? false}
           pointerAtEnding={object.style.arrowEnd ?? true}
+          draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragEnd={handleDragEnd}
         />
       )
     case "TEXT":
@@ -118,7 +137,9 @@ export function WhiteboardShapeRenderer({
           fontFamily={object.style.fontFamily ?? "sans-serif"}
           fontStyle={object.style.fontWeight ?? "normal"}
           opacity={object.style.opacity ?? 1}
+          draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragEnd={handleDragEnd}
         />
       )
   }

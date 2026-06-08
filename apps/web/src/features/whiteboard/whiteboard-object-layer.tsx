@@ -12,16 +12,23 @@ import {
 
 type WhiteboardObjectLayerProps = {
   defaultColors: ShapeDefaultColors
+  draggable?: boolean
   onObjectPointerDown?: (
     objectId: string,
     event: KonvaEventObject<PointerEvent>,
+  ) => void
+  onObjectDragEnd?: (
+    objectId: string,
+    event: KonvaEventObject<DragEvent>,
   ) => void
   registerObjectNode?: (objectId: string, node: Konva.Node | null) => void
 }
 
 export function WhiteboardObjectLayer({
   defaultColors,
+  draggable = false,
   onObjectPointerDown,
+  onObjectDragEnd,
   registerObjectNode,
 }: WhiteboardObjectLayerProps) {
   const objects = useWhiteboardStore((state) => state.objects)
@@ -41,7 +48,9 @@ export function WhiteboardObjectLayer({
           key={object.id}
           object={object}
           defaultColors={defaultColors}
+          draggable={draggable}
           onObjectPointerDown={onObjectPointerDown}
+          onObjectDragEnd={onObjectDragEnd}
           registerObjectNode={registerObjectNode}
         />
       ))}

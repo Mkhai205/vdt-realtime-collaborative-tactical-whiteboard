@@ -1,9 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Tool } from "@rctw/shared-contracts"
+import type {
+  ObjectMutablePatch,
+  Tool,
+  WhiteboardObject,
+} from "@rctw/shared-contracts"
 import type Konva from "konva"
 import type { KonvaEventObject } from "konva/lib/Node"
+import type { Box } from "konva/lib/shapes/Transformer"
 import { Arrow, Layer, Line, Rect, Stage, Transformer } from "react-konva"
 import {
   getVisibleWorldRect,
@@ -22,11 +27,27 @@ const circleSize = 128
 const textWidth = 220
 const textHeight = 72
 const minLineLength = 8
+const minObjectTransformSize = 16
+const minLineTransformLength = 8
+const canvasValuePrecision = 100
+
+const transformerAnchors = [
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+]
 
 type GridLine = {
   id: string
   points: [number, number, number, number]
 }
+
+type LinePoints = [number, number, number, number]
 
 type LineDraft = {
   start: CanvasPoint
@@ -71,6 +92,7 @@ export function WhiteboardStage() {
     (state) => state.updateObjectPatch,
   )
   const colors = useCanvasThemeColors()
+  const isTransformToolActive = currentTool === "SELECT"
 
   useEffect(() => {
     const container = containerRef.current
@@ -121,13 +143,13 @@ export function WhiteboardStage() {
       return
     }
 
-    const selectedNode = selectedObjectId
+    const selectedNode = isTransformToolActive && selectedObjectId
       ? objectNodesRef.current.get(selectedObjectId)
       : null
 
     transformer.nodes(selectedNode ? [selectedNode] : [])
     transformer.getLayer()?.batchDraw()
-  }, [selectedObjectId])
+  }, [isTransformToolActive, selectedObjectId])
 
   const registerObjectNode = useCallback(
     (objectId: string, node: Konva.Node | null) => {
@@ -153,8 +175,54 @@ export function WhiteboardStage() {
     [currentTool, selectObject],
   )
 
+  const handleObjectDragEnd = useCallback(
+    (objectId: string, event: KonvaEventObject<DragEvent>) => {
+      if (currentTool !== "SELECT") {
+        return
+      }
+
+      const currentObject = useWhiteboardStore.getState().objects[objectId]
+
+      if (!currentObject || currentObject.deletedAt) {
+        return
+      }
+
+      event.cancelBubble = true
+      updateObjectPatch(
+        objectId,
+        buildDragPatch(currentObject, event.target),
+      )
+      transformerRef.current?.forceUpdate()
+    },
+    [currentTool, updateObjectPatch],
+  )
+
+  const handleTransformerBoundBox = useCallback(
+    (oldBox: Box, newBox: Box): Box => {
+      const currentObject = selectedObjectId
+        ? useWhiteboardStore.getState().objects[selectedObjectId]
+        : null
+
+      if (currentObject?.type === "LINE") {
+        return Math.hypot(newBox.width, newBox.height) < minLineTransformLength
+          ? oldBox
+          : newBox
+      }
+
+      if (
+        Math.abs(newBox.width) < minObjectTransformSize ||
+        Math.abs(newBox.height) < minObjectTransformSize
+      ) {
+        return oldBox
+      }
+
+      return newBox
+    },
+    [selectedObjectId],
+  )
+
   const handleTransformEnd = useCallback(() => {
-    if (!selectedObjectId) {
+    if (!isTransformToolActive || !selectedObjectId) {
       return
     }
 
@@ -164,20 +232,19 @@ export function WhiteboardStage() {
       return
     }
 
-    const rotation = normalizeRotationDegrees(selectedNode.rotation())
     const currentObject =
       useWhiteboardStore.getState().objects[selectedObjectId]
 
-    if (
-      !currentObject ||
-      rotation === normalizeRotationDegrees(currentObject.rotation)
-    ) {
+    if (!currentObject || currentObject.deletedAt) {
       return
     }
 
-    selectedNode.rotation(rotation)
-    updateObjectPatch(selectedObjectId, { rotation })
-  }, [selectedObjectId, updateObjectPatch])
+    const patch = buildTransformPatch(currentObject, selectedNode)
+
+    applyCommittedPatchToNode(currentObject, selectedNode, patch)
+    updateObjectPatch(selectedObjectId, patch)
+    transformerRef.current?.forceUpdate()
+  }, [isTransformToolActive, selectedObjectId, updateObjectPatch])
 
   function handlePointerDown(event: KonvaEventObject<PointerEvent>) {
     if (currentTool === "SELECT") {
@@ -294,7 +361,9 @@ export function WhiteboardStage() {
               primary: colors.primary,
               accent: colors.accent,
             }}
+            draggable={isTransformToolActive}
             onObjectPointerDown={handleObjectPointerDown}
+            onObjectDragEnd={handleObjectDragEnd}
             registerObjectNode={registerObjectNode}
           />
           {activeLineDraft ? (
@@ -318,9 +387,14 @@ export function WhiteboardStage() {
           ) : null}
           <Transformer
             ref={transformerRef}
-            resizeEnabled={false}
+            visible={isTransformToolActive && Boolean(selectedObjectId)}
+            listening={isTransformToolActive}
+            resizeEnabled
             rotateEnabled
-            enabledAnchors={[]}
+            enabledAnchors={transformerAnchors}
+            keepRatio={false}
+            flipEnabled={false}
+            boundBoxFunc={handleTransformerBoundBox}
             useSingleNodeRotation
             anchorSize={10 / viewport.scale}
             anchorFill={colors.background}
@@ -336,6 +410,205 @@ export function WhiteboardStage() {
       </Stage>
     </div>
   )
+}
+
+function buildDragPatch(
+  object: WhiteboardObject,
+  node: Konva.Node,
+): ObjectMutablePatch {
+  if (object.type === "CIRCLE") {
+    const { width, height } = getStoredObjectSize(object)
+
+    return {
+      x: roundCanvasValue(node.x() - width / 2),
+      y: roundCanvasValue(node.y() - height / 2),
+    }
+  }
+
+  return {
+    x: roundCanvasValue(node.x()),
+    y: roundCanvasValue(node.y()),
+  }
+}
+
+function buildTransformPatch(
+  object: WhiteboardObject,
+  node: Konva.Node,
+): ObjectMutablePatch {
+  const rotation = normalizeRotationDegrees(node.rotation())
+
+  switch (object.type) {
+    case "RECTANGLE": {
+      const rectNode = node as Konva.Rect
+
+      return {
+        x: roundCanvasValue(rectNode.x()),
+        y: roundCanvasValue(rectNode.y()),
+        width: toStoredDimension(rectNode.width() * rectNode.scaleX()),
+        height: toStoredDimension(rectNode.height() * rectNode.scaleY()),
+        rotation,
+      }
+    }
+    case "CIRCLE": {
+      const ellipseNode = node as Konva.Ellipse
+      const width = toStoredDimension(
+        ellipseNode.radiusX() * 2 * ellipseNode.scaleX(),
+      )
+      const height = toStoredDimension(
+        ellipseNode.radiusY() * 2 * ellipseNode.scaleY(),
+      )
+
+      return {
+        x: roundCanvasValue(ellipseNode.x() - width / 2),
+        y: roundCanvasValue(ellipseNode.y() - height / 2),
+        width,
+        height,
+        rotation,
+      }
+    }
+    case "LINE": {
+      const arrowNode = node as Konva.Arrow
+      const points = getLinePoints(arrowNode.points())
+      const scaleX = arrowNode.scaleX()
+      const scaleY = arrowNode.scaleY()
+
+      return {
+        x: roundCanvasValue(arrowNode.x()),
+        y: roundCanvasValue(arrowNode.y()),
+        points: [
+          roundCanvasValue(points[0] * scaleX),
+          roundCanvasValue(points[1] * scaleY),
+          roundCanvasValue(points[2] * scaleX),
+          roundCanvasValue(points[3] * scaleY),
+        ],
+        rotation,
+      }
+    }
+    case "TEXT": {
+      const textNode = node as Konva.Text
+
+      return {
+        x: roundCanvasValue(textNode.x()),
+        y: roundCanvasValue(textNode.y()),
+        width: toStoredDimension(textNode.width() * textNode.scaleX()),
+        height: toStoredDimension(textNode.height() * textNode.scaleY()),
+        rotation,
+      }
+    }
+  }
+}
+
+function applyCommittedPatchToNode(
+  object: WhiteboardObject,
+  node: Konva.Node,
+  patch: ObjectMutablePatch,
+) {
+  node.scaleX(1)
+  node.scaleY(1)
+
+  if (typeof patch.rotation === "number") {
+    node.rotation(patch.rotation)
+  }
+
+  switch (object.type) {
+    case "RECTANGLE": {
+      const rectNode = node as Konva.Rect
+
+      rectNode.x(patch.x ?? rectNode.x())
+      rectNode.y(patch.y ?? rectNode.y())
+      rectNode.width(patch.width ?? rectNode.width())
+      rectNode.height(patch.height ?? rectNode.height())
+      return
+    }
+    case "CIRCLE": {
+      const ellipseNode = node as Konva.Ellipse
+      const { width, height } = getPatchedObjectSize(object, patch)
+
+      ellipseNode.x((patch.x ?? object.x) + width / 2)
+      ellipseNode.y((patch.y ?? object.y) + height / 2)
+      ellipseNode.radiusX(width / 2)
+      ellipseNode.radiusY(height / 2)
+      return
+    }
+    case "LINE": {
+      const arrowNode = node as Konva.Arrow
+
+      arrowNode.x(patch.x ?? arrowNode.x())
+      arrowNode.y(patch.y ?? arrowNode.y())
+
+      if (patch.points) {
+        arrowNode.points(patch.points)
+      }
+
+      return
+    }
+    case "TEXT": {
+      const textNode = node as Konva.Text
+
+      textNode.x(patch.x ?? textNode.x())
+      textNode.y(patch.y ?? textNode.y())
+      textNode.width(patch.width ?? textNode.width())
+      textNode.height(patch.height ?? textNode.height())
+      return
+    }
+  }
+}
+
+function getPatchedObjectSize(
+  object: WhiteboardObject,
+  patch: ObjectMutablePatch,
+): { width: number; height: number } {
+  const currentSize = getStoredObjectSize(object)
+
+  return {
+    width: patch.width ?? currentSize.width,
+    height: patch.height ?? currentSize.height,
+  }
+}
+
+function getStoredObjectSize(object: WhiteboardObject): {
+  width: number
+  height: number
+} {
+  switch (object.type) {
+    case "CIRCLE":
+      return {
+        width: object.width ?? circleSize,
+        height: object.height ?? circleSize,
+      }
+    case "TEXT":
+      return {
+        width: object.width ?? textWidth,
+        height: object.height ?? textHeight,
+      }
+    case "RECTANGLE":
+    case "LINE":
+      return {
+        width: object.width ?? rectangleWidth,
+        height: object.height ?? rectangleHeight,
+      }
+  }
+}
+
+function getLinePoints(points: number[] | null | undefined): LinePoints {
+  if (!points || points.length < 4) {
+    return [0, 0, rectangleWidth, 0]
+  }
+
+  return [
+    points[0] ?? 0,
+    points[1] ?? 0,
+    points[2] ?? rectangleWidth,
+    points[3] ?? 0,
+  ]
+}
+
+function toStoredDimension(value: number): number {
+  if (!Number.isFinite(value)) {
+    return minObjectTransformSize
+  }
+
+  return Math.max(minObjectTransformSize, roundCanvasValue(Math.abs(value)))
 }
 
 function buildGridLines(visibleWorldRect: WorldRect): {
@@ -392,12 +665,20 @@ function isMajorLine(value: number): boolean {
   return Math.abs(value % majorGridStep) < 0.001
 }
 
+function roundCanvasValue(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.round(value * canvasValuePrecision) / canvasValuePrecision
+}
+
 function normalizeRotationDegrees(rotation: number): number {
   if (!Number.isFinite(rotation)) {
     return 0
   }
 
-  return Math.round((((rotation % 360) + 360) % 360) * 100) / 100
+  return roundCanvasValue(((rotation % 360) + 360) % 360)
 }
 
 function getWorldPointer(
