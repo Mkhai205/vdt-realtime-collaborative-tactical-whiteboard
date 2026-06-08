@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Tool } from "@rctw/shared-contracts"
+import type Konva from "konva"
 import type { KonvaEventObject } from "konva/lib/Node"
-import { Arrow, Layer, Line, Rect, Stage } from "react-konva"
+import { Arrow, Layer, Line, Rect, Stage, Transformer } from "react-konva"
 import {
   getVisibleWorldRect,
   screenToWorld,
@@ -53,15 +54,22 @@ const fallbackCanvasColors: CanvasThemeColors = {
 
 export function WhiteboardStage() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const objectNodesRef = useRef(new Map<string, Konva.Node>())
+  const transformerRef = useRef<Konva.Transformer>(null)
   const [lineDraft, setLineDraft] = useState<LineDraft | null>(null)
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const toolRevision = useWhiteboardStore((state) => state.toolRevision)
+  const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
   const createLocalObject = useWhiteboardStore(
     (state) => state.createLocalObject,
   )
+  const selectObject = useWhiteboardStore((state) => state.selectObject)
   const setStageSize = useWhiteboardStore((state) => state.setStageSize)
+  const updateObjectPatch = useWhiteboardStore(
+    (state) => state.updateObjectPatch,
+  )
   const colors = useCanvasThemeColors()
 
   useEffect(() => {
@@ -106,7 +114,80 @@ export function WhiteboardStage() {
       ? lineDraft
       : null
 
+  useEffect(() => {
+    const transformer = transformerRef.current
+
+    if (!transformer) {
+      return
+    }
+
+    const selectedNode = selectedObjectId
+      ? objectNodesRef.current.get(selectedObjectId)
+      : null
+
+    transformer.nodes(selectedNode ? [selectedNode] : [])
+    transformer.getLayer()?.batchDraw()
+  }, [selectedObjectId])
+
+  const registerObjectNode = useCallback(
+    (objectId: string, node: Konva.Node | null) => {
+      if (node) {
+        objectNodesRef.current.set(objectId, node)
+        return
+      }
+
+      objectNodesRef.current.delete(objectId)
+    },
+    [],
+  )
+
+  const handleObjectPointerDown = useCallback(
+    (objectId: string, event: KonvaEventObject<PointerEvent>) => {
+      if (currentTool !== "SELECT") {
+        return
+      }
+
+      event.cancelBubble = true
+      selectObject(objectId)
+    },
+    [currentTool, selectObject],
+  )
+
+  const handleTransformEnd = useCallback(() => {
+    if (!selectedObjectId) {
+      return
+    }
+
+    const selectedNode = objectNodesRef.current.get(selectedObjectId)
+
+    if (!selectedNode) {
+      return
+    }
+
+    const rotation = normalizeRotationDegrees(selectedNode.rotation())
+    const currentObject =
+      useWhiteboardStore.getState().objects[selectedObjectId]
+
+    if (
+      !currentObject ||
+      rotation === normalizeRotationDegrees(currentObject.rotation)
+    ) {
+      return
+    }
+
+    selectedNode.rotation(rotation)
+    updateObjectPatch(selectedObjectId, { rotation })
+  }, [selectedObjectId, updateObjectPatch])
+
   function handlePointerDown(event: KonvaEventObject<PointerEvent>) {
+    if (currentTool === "SELECT") {
+      if (event.target === event.target.getStage()) {
+        selectObject(null)
+      }
+
+      return
+    }
+
     const point = getWorldPointer(event, viewport)
 
     if (!point) {
@@ -213,6 +294,8 @@ export function WhiteboardStage() {
               primary: colors.primary,
               accent: colors.accent,
             }}
+            onObjectPointerDown={handleObjectPointerDown}
+            registerObjectNode={registerObjectNode}
           />
           {activeLineDraft ? (
             <Arrow
@@ -233,6 +316,22 @@ export function WhiteboardStage() {
               listening={false}
             />
           ) : null}
+          <Transformer
+            ref={transformerRef}
+            resizeEnabled={false}
+            rotateEnabled
+            enabledAnchors={[]}
+            useSingleNodeRotation
+            anchorSize={10 / viewport.scale}
+            anchorFill={colors.background}
+            anchorStroke={colors.primary}
+            anchorStrokeWidth={1.5 / viewport.scale}
+            anchorCornerRadius={2 / viewport.scale}
+            borderStroke={colors.primary}
+            borderStrokeWidth={1 / viewport.scale}
+            rotateAnchorOffset={36 / viewport.scale}
+            onTransformEnd={handleTransformEnd}
+          />
         </Layer>
       </Stage>
     </div>
@@ -291,6 +390,14 @@ function alignToStep(value: number, step: number): number {
 
 function isMajorLine(value: number): boolean {
   return Math.abs(value % majorGridStep) < 0.001
+}
+
+function normalizeRotationDegrees(rotation: number): number {
+  if (!Number.isFinite(rotation)) {
+    return 0
+  }
+
+  return Math.round((((rotation % 360) + 360) % 360) * 100) / 100
 }
 
 function getWorldPointer(

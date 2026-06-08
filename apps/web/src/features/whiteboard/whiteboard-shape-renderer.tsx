@@ -1,6 +1,9 @@
 "use client"
 
+import { useCallback, type RefCallback } from "react"
 import type { WhiteboardObject } from "@rctw/shared-contracts"
+import type Konva from "konva"
+import type { KonvaEventObject } from "konva/lib/Node"
 import { Arrow, Ellipse, Rect, Text } from "react-konva"
 
 const defaultShapeWidth = 160
@@ -18,16 +21,37 @@ export type ShapeDefaultColors = {
 type WhiteboardShapeRendererProps = {
   object: WhiteboardObject
   defaultColors: ShapeDefaultColors
+  onObjectPointerDown?: (
+    objectId: string,
+    event: KonvaEventObject<PointerEvent>,
+  ) => void
+  registerObjectNode?: (objectId: string, node: Konva.Node | null) => void
 }
 
 export function WhiteboardShapeRenderer({
   object,
   defaultColors,
+  onObjectPointerDown,
+  registerObjectNode,
 }: WhiteboardShapeRendererProps) {
+  const setNodeRef = useCallback<RefCallback<Konva.Node>>(
+    (node) => {
+      registerObjectNode?.(object.id, node)
+    },
+    [object.id, registerObjectNode],
+  )
+  const handlePointerDown = useCallback(
+    (event: KonvaEventObject<PointerEvent>) => {
+      onObjectPointerDown?.(object.id, event)
+    },
+    [object.id, onObjectPointerDown],
+  )
+
   switch (object.type) {
     case "RECTANGLE":
       return (
         <Rect
+          ref={setNodeRef}
           x={object.x}
           y={object.y}
           width={object.width ?? defaultShapeWidth}
@@ -37,7 +61,7 @@ export function WhiteboardShapeRenderer({
           stroke={object.style.stroke ?? defaultColors.primary}
           strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
           opacity={object.style.opacity ?? 1}
-          listening={false}
+          onPointerDown={handlePointerDown}
         />
       )
     case "CIRCLE": {
@@ -46,6 +70,7 @@ export function WhiteboardShapeRenderer({
 
       return (
         <Ellipse
+          ref={setNodeRef}
           x={object.x + width / 2}
           y={object.y + height / 2}
           radiusX={width / 2}
@@ -55,13 +80,14 @@ export function WhiteboardShapeRenderer({
           stroke={object.style.stroke ?? defaultColors.accent}
           strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
           opacity={object.style.opacity ?? 1}
-          listening={false}
+          onPointerDown={handlePointerDown}
         />
       )
     }
     case "LINE":
       return (
         <Arrow
+          ref={setNodeRef}
           x={object.x}
           y={object.y}
           points={normalizeLinePoints(object.points)}
@@ -72,12 +98,13 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           pointerAtBeginning={object.style.arrowStart ?? false}
           pointerAtEnding={object.style.arrowEnd ?? true}
-          listening={false}
+          onPointerDown={handlePointerDown}
         />
       )
     case "TEXT":
       return (
         <Text
+          ref={setNodeRef}
           x={object.x}
           y={object.y}
           width={object.width ?? 220}
@@ -91,7 +118,7 @@ export function WhiteboardShapeRenderer({
           fontFamily={object.style.fontFamily ?? "sans-serif"}
           fontStyle={object.style.fontWeight ?? "normal"}
           opacity={object.style.opacity ?? 1}
-          listening={false}
+          onPointerDown={handlePointerDown}
         />
       )
   }

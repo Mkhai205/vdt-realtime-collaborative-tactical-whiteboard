@@ -1,6 +1,7 @@
 "use client"
 
 import type {
+  ObjectMutablePatch,
   ObjectType,
   ShapeStyle,
   Tool,
@@ -19,14 +20,20 @@ import {
 type WhiteboardState = {
   roomId: string | null
   objects: Record<string, WhiteboardObject>
+  selectedObjectId: string | null
   currentTool: Tool
   toolRevision: number
   viewport: Viewport
   stageSize: StageSize
   setRoomId: (roomId: string) => void
+  selectObject: (objectId: string | null) => void
   setTool: (tool: Tool) => void
   setObjects: (objects: WhiteboardObject[]) => void
   upsertObject: (object: WhiteboardObject) => void
+  updateObjectPatch: (
+    objectId: string,
+    patch: ObjectMutablePatch,
+  ) => void
   removeObject: (objectId: string) => void
   createLocalObject: (input: LocalObjectInput) => WhiteboardObject | null
   seedDemoObjects: (roomId: string) => void
@@ -208,6 +215,7 @@ function createDemoObjects(roomId: string): WhiteboardObject[] {
 export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   roomId: null,
   objects: {},
+  selectedObjectId: null,
   currentTool: "SELECT",
   toolRevision: 0,
   viewport: initialViewport,
@@ -221,8 +229,25 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       return {
         roomId,
         objects: {},
+        selectedObjectId: null,
         viewport: getCenteredViewport(state.stageSize),
       }
+    }),
+  selectObject: (objectId) =>
+    set((state) => {
+      if (!objectId) {
+        return state.selectedObjectId === null
+          ? state
+          : { selectedObjectId: null }
+      }
+
+      const object = state.objects[objectId]
+
+      if (!object || object.deletedAt || state.selectedObjectId === objectId) {
+        return state
+      }
+
+      return { selectedObjectId: objectId }
     }),
   setTool: (tool) =>
     set((state) =>
@@ -233,7 +258,21 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
             toolRevision: state.toolRevision + 1,
           },
     ),
-  setObjects: (objects) => set({ objects: toObjectRecord(objects) }),
+  setObjects: (objects) =>
+    set((state) => {
+      const nextObjects = toObjectRecord(objects)
+      const selectedObject = state.selectedObjectId
+        ? nextObjects[state.selectedObjectId]
+        : null
+
+      return {
+        objects: nextObjects,
+        selectedObjectId:
+          selectedObject && !selectedObject.deletedAt
+            ? state.selectedObjectId
+            : null,
+      }
+    }),
   upsertObject: (object) =>
     set((state) => ({
       objects: {
@@ -241,6 +280,30 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         [object.id]: object,
       },
     })),
+  updateObjectPatch: (objectId, patch) =>
+    set((state) => {
+      const object = state.objects[objectId]
+
+      if (!object || object.deletedAt) {
+        return state
+      }
+
+      return {
+        objects: {
+          ...state.objects,
+          [objectId]: {
+            ...object,
+            ...patch,
+            style: patch.style
+              ? {
+                  ...object.style,
+                  ...patch.style,
+                }
+              : object.style,
+          },
+        },
+      }
+    }),
   removeObject: (objectId) =>
     set((state) => {
       const nextObjects = { ...state.objects }
@@ -248,6 +311,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
+        selectedObjectId:
+          state.selectedObjectId === objectId ? null : state.selectedObjectId,
       }
     }),
   createLocalObject: (input) => {

@@ -2,6 +2,8 @@
 
 import { useMemo } from "react"
 import type { WhiteboardObject } from "@rctw/shared-contracts"
+import type Konva from "konva"
+import type { KonvaEventObject } from "konva/lib/Node"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 import {
   WhiteboardShapeRenderer,
@@ -10,10 +12,17 @@ import {
 
 type WhiteboardObjectLayerProps = {
   defaultColors: ShapeDefaultColors
+  onObjectPointerDown?: (
+    objectId: string,
+    event: KonvaEventObject<PointerEvent>,
+  ) => void
+  registerObjectNode?: (objectId: string, node: Konva.Node | null) => void
 }
 
 export function WhiteboardObjectLayer({
   defaultColors,
+  onObjectPointerDown,
+  registerObjectNode,
 }: WhiteboardObjectLayerProps) {
   const objects = useWhiteboardStore((state) => state.objects)
 
@@ -32,6 +41,8 @@ export function WhiteboardObjectLayer({
           key={object.id}
           object={object}
           defaultColors={defaultColors}
+          onObjectPointerDown={onObjectPointerDown}
+          registerObjectNode={registerObjectNode}
         />
       ))}
     </>
