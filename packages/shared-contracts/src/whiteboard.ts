@@ -1,6 +1,14 @@
 import { z } from "zod"
 
 export const objectTypeSchema = z.enum(["RECTANGLE", "CIRCLE", "LINE", "TEXT"])
+export const toolSchema = z.enum([
+  "SELECT",
+  "HAND",
+  "RECTANGLE",
+  "CIRCLE",
+  "LINE",
+  "TEXT",
+])
 export const operationTypeSchema = z.enum([
   "OBJECT_CREATE",
   "OBJECT_UPDATE",
@@ -57,6 +65,7 @@ export const objectMutablePatchSchema = z.object({
 })
 
 export type ObjectType = z.infer<typeof objectTypeSchema>
+export type Tool = z.infer<typeof toolSchema>
 export type OperationType = z.infer<typeof operationTypeSchema>
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>
 export type WhiteboardObject = z.infer<typeof whiteboardObjectSchema>

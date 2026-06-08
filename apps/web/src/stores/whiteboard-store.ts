@@ -1,7 +1,13 @@
 "use client"
 
-import type { WhiteboardObject } from "@rctw/shared-contracts"
+import type {
+  ObjectType,
+  ShapeStyle,
+  Tool,
+  WhiteboardObject,
+} from "@rctw/shared-contracts"
 import { create } from "zustand"
+import { readStoredGuestIdentity } from "@/features/identity/guest-identity"
 import {
   clampScale,
   getCenteredViewport,
@@ -13,16 +19,32 @@ import {
 type WhiteboardState = {
   roomId: string | null
   objects: Record<string, WhiteboardObject>
+  currentTool: Tool
+  toolRevision: number
   viewport: Viewport
   stageSize: StageSize
   setRoomId: (roomId: string) => void
+  setTool: (tool: Tool) => void
   setObjects: (objects: WhiteboardObject[]) => void
   upsertObject: (object: WhiteboardObject) => void
   removeObject: (objectId: string) => void
+  createLocalObject: (input: LocalObjectInput) => WhiteboardObject | null
   seedDemoObjects: (roomId: string) => void
   setStageSize: (stageSize: StageSize) => void
   setViewport: (viewport: Viewport) => void
   resetViewport: () => void
+}
+
+export type LocalObjectInput = {
+  type: ObjectType
+  x: number
+  y: number
+  width?: number
+  height?: number
+  points?: number[]
+  text?: string
+  rotation?: number
+  style: ShapeStyle
 }
 
 const emptyStageSize: StageSize = {
@@ -31,6 +53,7 @@ const emptyStageSize: StageSize = {
 }
 
 const demoActorId = "00000000-0000-4000-8000-000000000401"
+const localFallbackActorId = "00000000-0000-4000-8000-000000000402"
 const demoTimestamp = "2026-06-06T00:00:00.000Z"
 
 function normalizeStageSize(stageSize: StageSize): StageSize {
@@ -51,6 +74,45 @@ function toObjectRecord(
   objects: WhiteboardObject[],
 ): Record<string, WhiteboardObject> {
   return Object.fromEntries(objects.map((object) => [object.id, object]))
+}
+
+function getNextZIndex(objects: Record<string, WhiteboardObject>): number {
+  const maxZIndex = Object.values(objects)
+    .filter((object) => !object.deletedAt)
+    .reduce((max, object) => Math.max(max, object.zIndex), 0)
+
+  return maxZIndex + 10
+}
+
+function getLocalActorId(): string {
+  return readStoredGuestIdentity()?.id ?? localFallbackActorId
+}
+
+function createLocalObjectRecord(
+  roomId: string,
+  input: LocalObjectInput,
+  zIndex: number,
+): WhiteboardObject {
+  const timestamp = new Date().toISOString()
+
+  return {
+    id: crypto.randomUUID(),
+    roomId,
+    type: input.type,
+    x: input.x,
+    y: input.y,
+    width: input.width,
+    height: input.height,
+    points: input.points,
+    text: input.text,
+    rotation: input.rotation ?? 0,
+    style: input.style,
+    zIndex,
+    version: 1,
+    createdById: getLocalActorId(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
 }
 
 function createDemoObjects(roomId: string): WhiteboardObject[] {
@@ -143,9 +205,11 @@ function createDemoObjects(roomId: string): WhiteboardObject[] {
   ]
 }
 
-export const useWhiteboardStore = create<WhiteboardState>((set) => ({
+export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   roomId: null,
   objects: {},
+  currentTool: "SELECT",
+  toolRevision: 0,
   viewport: initialViewport,
   stageSize: emptyStageSize,
   setRoomId: (roomId) =>
@@ -160,6 +224,15 @@ export const useWhiteboardStore = create<WhiteboardState>((set) => ({
         viewport: getCenteredViewport(state.stageSize),
       }
     }),
+  setTool: (tool) =>
+    set((state) =>
+      state.currentTool === tool
+        ? state
+        : {
+            currentTool: tool,
+            toolRevision: state.toolRevision + 1,
+          },
+    ),
   setObjects: (objects) => set({ objects: toObjectRecord(objects) }),
   upsertObject: (object) =>
     set((state) => ({
@@ -177,6 +250,28 @@ export const useWhiteboardStore = create<WhiteboardState>((set) => ({
         objects: nextObjects,
       }
     }),
+  createLocalObject: (input) => {
+    const state = get()
+
+    if (!state.roomId) {
+      return null
+    }
+
+    const object = createLocalObjectRecord(
+      state.roomId,
+      input,
+      getNextZIndex(state.objects),
+    )
+
+    set((currentState) => ({
+      objects: {
+        ...currentState.objects,
+        [object.id]: object,
+      },
+    }))
+
+    return object
+  },
   seedDemoObjects: (roomId) =>
     set((state) => {
       const hasRoomObjects = Object.values(state.objects).some(

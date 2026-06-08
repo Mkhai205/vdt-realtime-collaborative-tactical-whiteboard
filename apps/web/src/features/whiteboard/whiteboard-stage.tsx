@@ -1,17 +1,36 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Layer, Line, Rect, Stage } from "react-konva"
-import { getVisibleWorldRect, type WorldRect } from "@/lib/canvas-utils"
+import type { Tool } from "@rctw/shared-contracts"
+import type { KonvaEventObject } from "konva/lib/Node"
+import { Arrow, Layer, Line, Rect, Stage } from "react-konva"
+import {
+  getVisibleWorldRect,
+  screenToWorld,
+  type CanvasPoint,
+  type WorldRect,
+} from "@/lib/canvas-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 import { WhiteboardObjectLayer } from "./whiteboard-object-layer"
 
 const smallGridStep = 32
 const majorGridStep = 160
+const rectangleWidth = 160
+const rectangleHeight = 96
+const circleSize = 128
+const textWidth = 220
+const textHeight = 72
+const minLineLength = 8
 
 type GridLine = {
   id: string
   points: [number, number, number, number]
+}
+
+type LineDraft = {
+  start: CanvasPoint
+  end: CanvasPoint
+  toolRevision: number
 }
 
 type CanvasThemeColors = {
@@ -34,8 +53,14 @@ const fallbackCanvasColors: CanvasThemeColors = {
 
 export function WhiteboardStage() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [lineDraft, setLineDraft] = useState<LineDraft | null>(null)
+  const currentTool = useWhiteboardStore((state) => state.currentTool)
+  const toolRevision = useWhiteboardStore((state) => state.toolRevision)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
+  const createLocalObject = useWhiteboardStore(
+    (state) => state.createLocalObject,
+  )
   const setStageSize = useWhiteboardStore((state) => state.setStageSize)
   const colors = useCanvasThemeColors()
 
@@ -76,11 +101,79 @@ export function WhiteboardStage() {
     [visibleWorldRect],
   )
 
+  const activeLineDraft =
+    currentTool === "LINE" && lineDraft?.toolRevision === toolRevision
+      ? lineDraft
+      : null
+
+  function handlePointerDown(event: KonvaEventObject<PointerEvent>) {
+    const point = getWorldPointer(event, viewport)
+
+    if (!point) {
+      return
+    }
+
+    if (currentTool === "LINE") {
+      setLineDraft({ start: point, end: point, toolRevision })
+      return
+    }
+
+    createObjectForTool(currentTool, point, createLocalObject)
+  }
+
+  function handlePointerMove(event: KonvaEventObject<PointerEvent>) {
+    if (!activeLineDraft) {
+      return
+    }
+
+    const point = getWorldPointer(event, viewport)
+
+    if (!point) {
+      return
+    }
+
+    setLineDraft((currentDraft) =>
+      currentDraft?.toolRevision === toolRevision
+        ? { ...currentDraft, end: point }
+        : currentDraft,
+    )
+  }
+
+  function handlePointerUp() {
+    if (!activeLineDraft) {
+      setLineDraft(null)
+      return
+    }
+
+    const dx = activeLineDraft.end.x - activeLineDraft.start.x
+    const dy = activeLineDraft.end.y - activeLineDraft.start.y
+
+    if (Math.hypot(dx, dy) >= minLineLength) {
+      createLocalObject({
+        type: "LINE",
+        x: activeLineDraft.start.x,
+        y: activeLineDraft.start.y,
+        points: [0, 0, dx, dy],
+        style: {
+          stroke: colors.primary,
+          strokeWidth: 5,
+          opacity: 1,
+          arrowEnd: true,
+        },
+      })
+    }
+
+    setLineDraft(null)
+  }
+
   return (
     <div ref={containerRef} className="h-full min-h-[24rem] w-full">
       <Stage
         width={Math.max(1, stageSize.width)}
         height={Math.max(1, stageSize.height)}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
       >
         <Layer
           x={viewport.x}
@@ -121,6 +214,25 @@ export function WhiteboardStage() {
               accent: colors.accent,
             }}
           />
+          {activeLineDraft ? (
+            <Arrow
+              x={activeLineDraft.start.x}
+              y={activeLineDraft.start.y}
+              points={[
+                0,
+                0,
+                activeLineDraft.end.x - activeLineDraft.start.x,
+                activeLineDraft.end.y - activeLineDraft.start.y,
+              ]}
+              stroke={colors.primary}
+              fill={colors.primary}
+              strokeWidth={4}
+              opacity={0.72}
+              pointerAtEnding
+              dash={[12, 8]}
+              listening={false}
+            />
+          ) : null}
         </Layer>
       </Stage>
     </div>
@@ -179,6 +291,77 @@ function alignToStep(value: number, step: number): number {
 
 function isMajorLine(value: number): boolean {
   return Math.abs(value % majorGridStep) < 0.001
+}
+
+function getWorldPointer(
+  event: KonvaEventObject<PointerEvent>,
+  viewport: Parameters<typeof screenToWorld>[1],
+): CanvasPoint | null {
+  const pointer = event.target.getStage()?.getPointerPosition()
+
+  return pointer ? screenToWorld(pointer, viewport) : null
+}
+
+function createObjectForTool(
+  tool: Tool,
+  point: CanvasPoint,
+  createLocalObject: ReturnType<
+    typeof useWhiteboardStore.getState
+  >["createLocalObject"],
+) {
+  switch (tool) {
+    case "RECTANGLE":
+      createLocalObject({
+        type: "RECTANGLE",
+        x: point.x - rectangleWidth / 2,
+        y: point.y - rectangleHeight / 2,
+        width: rectangleWidth,
+        height: rectangleHeight,
+        style: {
+          fill: "rgba(134, 239, 172, 0.18)",
+          stroke: "#14532d",
+          strokeWidth: 3,
+          opacity: 1,
+        },
+      })
+      return
+    case "CIRCLE":
+      createLocalObject({
+        type: "CIRCLE",
+        x: point.x - circleSize / 2,
+        y: point.y - circleSize / 2,
+        width: circleSize,
+        height: circleSize,
+        style: {
+          fill: "rgba(243, 220, 164, 0.28)",
+          stroke: "#533707",
+          strokeWidth: 3,
+          opacity: 1,
+        },
+      })
+      return
+    case "TEXT":
+      createLocalObject({
+        type: "TEXT",
+        x: point.x,
+        y: point.y,
+        width: textWidth,
+        height: textHeight,
+        text: "Text note",
+        style: {
+          color: "#172018",
+          fontSize: 24,
+          fontFamily: "sans-serif",
+          fontWeight: "bold",
+          opacity: 1,
+        },
+      })
+      return
+    case "SELECT":
+    case "HAND":
+    case "LINE":
+      return
+  }
 }
 
 function useCanvasThemeColors(): CanvasThemeColors {

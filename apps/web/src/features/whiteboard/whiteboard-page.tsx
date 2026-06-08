@@ -2,9 +2,11 @@
 
 import dynamic from "next/dynamic"
 import { useEffect } from "react"
+import type { Tool } from "@rctw/shared-contracts"
 import {
   CircleIcon,
   HandIcon,
+  type LucideIcon,
   MousePointer2Icon,
   MoveRightIcon,
   PanelRightIcon,
@@ -12,7 +14,6 @@ import {
   TypeIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -20,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 
 const WhiteboardStage = dynamic(
@@ -35,17 +37,22 @@ const WhiteboardStage = dynamic(
 )
 
 const toolbarItems = [
-  { label: "Select", icon: MousePointer2Icon },
-  { label: "Rectangle", icon: SquareIcon },
-  { label: "Circle", icon: CircleIcon },
-  { label: "Line", icon: MoveRightIcon },
-  { label: "Text", icon: TypeIcon },
-  { label: "Hand", icon: HandIcon },
-] as const
+  { value: "SELECT", label: "Select", icon: MousePointer2Icon },
+  { value: "RECTANGLE", label: "Rectangle", icon: SquareIcon },
+  { value: "CIRCLE", label: "Circle", icon: CircleIcon },
+  { value: "LINE", label: "Line", icon: MoveRightIcon },
+  { value: "TEXT", label: "Text", icon: TypeIcon },
+  { value: "HAND", label: "Hand", icon: HandIcon },
+] as const satisfies ReadonlyArray<{
+  value: Tool
+  label: string
+  icon: LucideIcon
+}>
 
 export function WhiteboardPage({ roomId }: { roomId: string }) {
   const setRoomId = useWhiteboardStore((state) => state.setRoomId)
   const seedDemoObjects = useWhiteboardStore((state) => state.seedDemoObjects)
+  const currentTool = useWhiteboardStore((state) => state.currentTool)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
 
@@ -61,6 +68,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">Whiteboard</Badge>
             <Badge variant="outline">Ready</Badge>
+            <Badge variant="outline">{currentTool}</Badge>
           </div>
           <div className="flex min-w-0 items-baseline gap-3">
             <h1 className="truncate text-lg leading-tight font-semibold">
@@ -82,7 +90,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
       </header>
 
       <section className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[3.5rem_minmax(0,1fr)_20rem]">
-        <ToolbarPlaceholder />
+        <ToolPalette />
 
         <section
           className="min-h-[24rem] overflow-hidden rounded-lg border bg-background shadow-sm lg:min-h-0"
@@ -97,29 +105,41 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
   )
 }
 
-function ToolbarPlaceholder() {
+function ToolPalette() {
+  const currentTool = useWhiteboardStore((state) => state.currentTool)
+  const setTool = useWhiteboardStore((state) => state.setTool)
+
   return (
     <aside
       className="flex items-center gap-2 rounded-lg border bg-card p-2 shadow-sm lg:flex-col"
       aria-label="Whiteboard tools"
     >
-      {toolbarItems.map((item) => {
-        const Icon = item.icon
+      <ToggleGroup
+        type="single"
+        value={currentTool}
+        aria-label="Whiteboard tool"
+        className="gap-2 lg:flex-col"
+        onValueChange={(value) => {
+          if (value) {
+            setTool(value as Tool)
+          }
+        }}
+      >
+        {toolbarItems.map((item) => {
+          const Icon = item.icon
 
-        return (
-          <Button
-            key={item.label}
-            type="button"
-            variant="outline"
-            size="icon"
-            disabled
-            title={item.label}
-            aria-label={item.label}
-          >
-            <Icon data-icon="inline-start" />
-          </Button>
-        )
-      })}
+          return (
+            <ToggleGroupItem
+              key={item.value}
+              value={item.value}
+              title={item.label}
+              aria-label={item.label}
+            >
+              <Icon data-icon="inline-start" />
+            </ToggleGroupItem>
+          )
+        })}
+      </ToggleGroup>
     </aside>
   )
 }
