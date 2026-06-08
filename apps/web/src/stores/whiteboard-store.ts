@@ -10,9 +10,13 @@ import type {
 import { create } from "zustand"
 import { readStoredGuestIdentity } from "@/features/identity/guest-identity"
 import {
+  clampViewport,
   clampScale,
   getCenteredViewport,
   initialViewport,
+  panViewportBy,
+  zoomViewportBy,
+  type CanvasPoint,
   type StageSize,
   type Viewport,
 } from "@/lib/canvas-utils"
@@ -40,6 +44,8 @@ type WhiteboardState = {
   seedDemoObjects: (roomId: string) => void
   setStageSize: (stageSize: StageSize) => void
   setViewport: (viewport: Viewport) => void
+  panViewportBy: (delta: CanvasPoint) => void
+  zoomViewportBy: (factor: number, anchor?: CanvasPoint) => void
   resetViewport: () => void
 }
 
@@ -73,8 +79,16 @@ function normalizeStageSize(stageSize: StageSize): StageSize {
 
 function normalizeViewport(viewport: Viewport): Viewport {
   return {
-    ...viewport,
+    x: Number.isFinite(viewport.x) ? viewport.x : initialViewport.x,
+    y: Number.isFinite(viewport.y) ? viewport.y : initialViewport.y,
     scale: clampScale(viewport.scale),
+  }
+}
+
+function getStageCenter(stageSize: StageSize): CanvasPoint {
+  return {
+    x: stageSize.width / 2,
+    y: stageSize.height / 2,
   }
 }
 
@@ -384,10 +398,26 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         stageSize: nextStageSize,
         viewport: shouldCenterViewport
           ? getCenteredViewport(nextStageSize)
-          : state.viewport,
+          : clampViewport(state.viewport, nextStageSize),
       }
     }),
-  setViewport: (viewport) => set({ viewport: normalizeViewport(viewport) }),
+  setViewport: (viewport) =>
+    set((state) => ({
+      viewport: clampViewport(normalizeViewport(viewport), state.stageSize),
+    })),
+  panViewportBy: (delta) =>
+    set((state) => ({
+      viewport: panViewportBy(state.viewport, delta, state.stageSize),
+    })),
+  zoomViewportBy: (factor, anchor) =>
+    set((state) => ({
+      viewport: zoomViewportBy(
+        state.viewport,
+        factor,
+        anchor ?? getStageCenter(state.stageSize),
+        state.stageSize,
+      ),
+    })),
   resetViewport: () =>
     set((state) => ({
       viewport: getCenteredViewport(state.stageSize),

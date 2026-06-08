@@ -37,6 +37,7 @@ export const initialViewport: Viewport = {
 
 export const minViewportScale = 0.2
 export const maxViewportScale = 4
+export const viewportZoomStep = 1.2
 
 export function clampScale(scale: number): number {
   return Math.min(Math.max(scale, minViewportScale), maxViewportScale)
@@ -103,4 +104,87 @@ export function getCenteredViewport(
     y: stageSize.height / 2 - (bounds.height / 2) * nextScale,
     scale: nextScale,
   }
+}
+
+export function clampViewport(
+  viewport: Viewport,
+  stageSize: StageSize,
+  bounds: VirtualCanvasBounds = virtualCanvasBounds,
+): Viewport {
+  const scale = clampScale(viewport.scale)
+
+  return {
+    x: clampAxisOffset(viewport.x, stageSize.width, bounds.width, scale),
+    y: clampAxisOffset(viewport.y, stageSize.height, bounds.height, scale),
+    scale,
+  }
+}
+
+export function panViewportBy(
+  viewport: Viewport,
+  delta: CanvasPoint,
+  stageSize: StageSize,
+  bounds: VirtualCanvasBounds = virtualCanvasBounds,
+): Viewport {
+  return clampViewport(
+    {
+      ...viewport,
+      x: viewport.x + delta.x,
+      y: viewport.y + delta.y,
+    },
+    stageSize,
+    bounds,
+  )
+}
+
+export function zoomViewportBy(
+  viewport: Viewport,
+  factor: number,
+  anchor: CanvasPoint,
+  stageSize: StageSize,
+  bounds: VirtualCanvasBounds = virtualCanvasBounds,
+): Viewport {
+  const currentScale = clampScale(viewport.scale)
+  const nextScale = clampScale(currentScale * factor)
+  const currentViewport = {
+    ...viewport,
+    scale: currentScale,
+  }
+
+  if (!Number.isFinite(factor) || factor <= 0 || nextScale === currentScale) {
+    return clampViewport(currentViewport, stageSize, bounds)
+  }
+
+  const anchorWorldPoint = screenToWorld(anchor, currentViewport)
+
+  return clampViewport(
+    {
+      x: anchor.x - anchorWorldPoint.x * nextScale,
+      y: anchor.y - anchorWorldPoint.y * nextScale,
+      scale: nextScale,
+    },
+    stageSize,
+    bounds,
+  )
+}
+
+function clampAxisOffset(
+  offset: number,
+  stageLength: number,
+  worldLength: number,
+  scale: number,
+): number {
+  const safeOffset = Number.isFinite(offset) ? offset : 0
+
+  if (stageLength <= 0 || worldLength <= 0) {
+    return safeOffset
+  }
+
+  const scaledWorldLength = worldLength * scale
+
+  if (scaledWorldLength <= stageLength) {
+    return (stageLength - scaledWorldLength) / 2
+  }
+
+  return Math.min(Math.max(safeOffset, stageLength - scaledWorldLength), 0)
 }

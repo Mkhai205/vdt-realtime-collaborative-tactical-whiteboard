@@ -7,9 +7,11 @@ import {
   CircleIcon,
   HandIcon,
   type LucideIcon,
+  MinusIcon,
   MousePointer2Icon,
   MoveRightIcon,
   PanelRightIcon,
+  PlusIcon,
   SquareIcon,
   Trash2Icon,
   TypeIcon,
@@ -24,6 +26,11 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import {
+  maxViewportScale,
+  minViewportScale,
+  viewportZoomStep,
+} from "@/lib/canvas-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 
 const WhiteboardStage = dynamic(
@@ -50,6 +57,8 @@ const toolbarItems = [
   label: string
   icon: LucideIcon
 }>
+
+const viewportScaleEpsilon = 0.001
 
 export function WhiteboardPage({ roomId }: { roomId: string }) {
   const setRoomId = useWhiteboardStore((state) => state.setRoomId)
@@ -124,15 +133,56 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         <ToolPalette />
 
         <section
-          className="min-h-[24rem] overflow-hidden rounded-lg border bg-background shadow-sm lg:min-h-0"
+          className="relative min-h-[24rem] overflow-hidden rounded-lg border bg-background shadow-sm lg:min-h-0"
           aria-label="Whiteboard canvas"
         >
           <WhiteboardStage />
+          <ZoomControls />
         </section>
 
         <DetailPanelPlaceholder />
       </section>
     </main>
+  )
+}
+
+function ZoomControls() {
+  const scale = useWhiteboardStore((state) => state.viewport.scale)
+  const zoomViewportBy = useWhiteboardStore((state) => state.zoomViewportBy)
+  const canZoomOut = scale > minViewportScale + viewportScaleEpsilon
+  const canZoomIn = scale < maxViewportScale - viewportScaleEpsilon
+
+  return (
+    <div
+      className="absolute right-3 bottom-3 flex items-center gap-1 rounded-lg border bg-background/95 p-1 shadow-sm backdrop-blur"
+      aria-label="Zoom controls"
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        title="Zoom out"
+        aria-label="Zoom out"
+        disabled={!canZoomOut}
+        onClick={() => zoomViewportBy(1 / viewportZoomStep)}
+      >
+        <MinusIcon data-icon="inline-start" />
+      </Button>
+      <span className="min-w-12 text-center font-mono text-xs text-muted-foreground">
+        {Math.round(scale * 100)}%
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        title="Zoom in"
+        aria-label="Zoom in"
+        disabled={!canZoomIn}
+        onClick={() => zoomViewportBy(viewportZoomStep)}
+      >
+        <PlusIcon data-icon="inline-start" />
+      </Button>
+    </div>
   )
 }
 

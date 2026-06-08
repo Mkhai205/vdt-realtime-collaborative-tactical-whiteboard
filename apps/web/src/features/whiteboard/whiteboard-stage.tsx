@@ -13,9 +13,11 @@ import { Arrow, Layer, Line, Rect, Stage, Transformer } from "react-konva"
 import {
   getVisibleWorldRect,
   screenToWorld,
+  viewportZoomStep,
   type CanvasPoint,
   type WorldRect,
 } from "@/lib/canvas-utils"
+import { cn } from "@/lib/utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 import { WhiteboardObjectLayer } from "./whiteboard-object-layer"
 
@@ -55,6 +57,10 @@ type LineDraft = {
   toolRevision: number
 }
 
+type PanDrag = {
+  lastPointer: CanvasPoint
+}
+
 type CanvasThemeColors = {
   background: string
   minorGrid: string
@@ -76,8 +82,11 @@ const fallbackCanvasColors: CanvasThemeColors = {
 export function WhiteboardStage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const objectNodesRef = useRef(new Map<string, Konva.Node>())
+  const panDragRef = useRef<PanDrag | null>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const [lineDraft, setLineDraft] = useState<LineDraft | null>(null)
+  const [isSpacePanning, setIsSpacePanning] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const toolRevision = useWhiteboardStore((state) => state.toolRevision)
   const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
@@ -88,11 +97,19 @@ export function WhiteboardStage() {
   )
   const selectObject = useWhiteboardStore((state) => state.selectObject)
   const setStageSize = useWhiteboardStore((state) => state.setStageSize)
+  const panViewportBy = useWhiteboardStore((state) => state.panViewportBy)
+  const zoomViewportBy = useWhiteboardStore((state) => state.zoomViewportBy)
   const updateObjectPatch = useWhiteboardStore(
     (state) => state.updateObjectPatch,
   )
   const colors = useCanvasThemeColors()
   const isTransformToolActive = currentTool === "SELECT"
+  const isPanningModeActive = currentTool === "HAND" || isSpacePanning
+
+  const clearPanDrag = useCallback(() => {
+    panDragRef.current = null
+    setIsPanning(false)
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
@@ -121,6 +138,49 @@ export function WhiteboardStage() {
       observer.disconnect()
     }
   }, [setStageSize])
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.code !== "Space" ||
+        event.repeat ||
+        isEditableEventTarget(event.target)
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      setIsSpacePanning(true)
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      if (event.code !== "Space") {
+        return
+      }
+
+      if (!isEditableEventTarget(event.target)) {
+        event.preventDefault()
+      }
+
+      setIsSpacePanning(false)
+      clearPanDrag()
+    }
+
+    function handleWindowBlur() {
+      setIsSpacePanning(false)
+      clearPanDrag()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    window.addEventListener("keyup", handleKeyUp)
+    window.addEventListener("blur", handleWindowBlur)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+      window.removeEventListener("blur", handleWindowBlur)
+    }
+  }, [clearPanDrag])
 
   const visibleWorldRect = useMemo(
     () => getVisibleWorldRect(viewport, stageSize),
@@ -165,14 +225,14 @@ export function WhiteboardStage() {
 
   const handleObjectPointerDown = useCallback(
     (objectId: string, event: KonvaEventObject<PointerEvent>) => {
-      if (currentTool !== "SELECT") {
+      if (isPanningModeActive || currentTool !== "SELECT") {
         return
       }
 
       event.cancelBubble = true
       selectObject(objectId)
     },
-    [currentTool, selectObject],
+    [currentTool, isPanningModeActive, selectObject],
   )
 
   const handleObjectDragEnd = useCallback(
@@ -246,7 +306,36 @@ export function WhiteboardStage() {
     transformerRef.current?.forceUpdate()
   }, [isTransformToolActive, selectedObjectId, updateObjectPatch])
 
+  function handleWheel(event: KonvaEventObject<WheelEvent>) {
+    const pointer = getStagePointer(event)
+
+    if (!pointer) {
+      return
+    }
+
+    event.evt.preventDefault()
+    zoomViewportBy(
+      event.evt.deltaY < 0 ? viewportZoomStep : 1 / viewportZoomStep,
+      pointer,
+    )
+  }
+
   function handlePointerDown(event: KonvaEventObject<PointerEvent>) {
+    if (isPanningModeActive) {
+      const pointer = getStagePointer(event)
+
+      if (!pointer) {
+        return
+      }
+
+      event.evt.preventDefault()
+      event.cancelBubble = true
+      panDragRef.current = { lastPointer: pointer }
+      setIsPanning(true)
+      setLineDraft(null)
+      return
+    }
+
     if (currentTool === "SELECT") {
       if (event.target === event.target.getStage()) {
         selectObject(null)
@@ -270,6 +359,26 @@ export function WhiteboardStage() {
   }
 
   function handlePointerMove(event: KonvaEventObject<PointerEvent>) {
+    if (panDragRef.current) {
+      const pointer = getStagePointer(event)
+
+      if (!pointer) {
+        return
+      }
+
+      event.evt.preventDefault()
+      panViewportBy({
+        x: pointer.x - panDragRef.current.lastPointer.x,
+        y: pointer.y - panDragRef.current.lastPointer.y,
+      })
+      panDragRef.current = { lastPointer: pointer }
+      return
+    }
+
+    if (isPanningModeActive) {
+      return
+    }
+
     if (!activeLineDraft) {
       return
     }
@@ -287,7 +396,18 @@ export function WhiteboardStage() {
     )
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(event: KonvaEventObject<PointerEvent>) {
+    if (panDragRef.current) {
+      event.evt.preventDefault()
+      clearPanDrag()
+      return
+    }
+
+    if (isPanningModeActive) {
+      setLineDraft(null)
+      return
+    }
+
     if (!activeLineDraft) {
       setLineDraft(null)
       return
@@ -314,14 +434,31 @@ export function WhiteboardStage() {
     setLineDraft(null)
   }
 
+  function handlePointerCancel() {
+    clearPanDrag()
+    setLineDraft(null)
+  }
+
   return (
-    <div ref={containerRef} className="h-full min-h-[24rem] w-full">
+    <div
+      ref={containerRef}
+      className={cn(
+        "h-full min-h-[24rem] w-full",
+        isPanningModeActive
+          ? isPanning
+            ? "cursor-grabbing"
+            : "cursor-grab"
+          : null,
+      )}
+    >
       <Stage
         width={Math.max(1, stageSize.width)}
         height={Math.max(1, stageSize.height)}
+        onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       >
         <Layer
           x={viewport.x}
@@ -361,7 +498,7 @@ export function WhiteboardStage() {
               primary: colors.primary,
               accent: colors.accent,
             }}
-            draggable={isTransformToolActive}
+            draggable={isTransformToolActive && !isPanningModeActive}
             onObjectPointerDown={handleObjectPointerDown}
             onObjectDragEnd={handleObjectDragEnd}
             registerObjectNode={registerObjectNode}
@@ -388,7 +525,7 @@ export function WhiteboardStage() {
           <Transformer
             ref={transformerRef}
             visible={isTransformToolActive && Boolean(selectedObjectId)}
-            listening={isTransformToolActive}
+            listening={isTransformToolActive && !isPanningModeActive}
             resizeEnabled
             rotateEnabled
             enabledAnchors={transformerAnchors}
@@ -685,9 +822,17 @@ function getWorldPointer(
   event: KonvaEventObject<PointerEvent>,
   viewport: Parameters<typeof screenToWorld>[1],
 ): CanvasPoint | null {
-  const pointer = event.target.getStage()?.getPointerPosition()
+  const pointer = getStagePointer(event)
 
   return pointer ? screenToWorld(pointer, viewport) : null
+}
+
+function getStagePointer(
+  event: KonvaEventObject<PointerEvent | WheelEvent>,
+): CanvasPoint | null {
+  const pointer = event.target.getStage()?.getPointerPosition()
+
+  return pointer ? { x: pointer.x, y: pointer.y } : null
 }
 
 function createObjectForTool(
@@ -817,4 +962,24 @@ function withAlpha(color: string, alpha: number): string {
   }
 
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  if (target.isContentEditable) {
+    return true
+  }
+
+  const tagName = target.tagName.toLowerCase()
+
+  if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+    return true
+  }
+
+  const role = target.getAttribute("role")
+
+  return role === "textbox" || Boolean(target.closest("[contenteditable=true]"))
 }
