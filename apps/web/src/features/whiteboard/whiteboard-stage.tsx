@@ -90,6 +90,9 @@ export function WhiteboardStage() {
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const toolRevision = useWhiteboardStore((state) => state.toolRevision)
   const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
+  const selectedObject = useWhiteboardStore((state) =>
+    state.selectedObjectId ? state.objects[state.selectedObjectId] : null,
+  )
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
   const createLocalObject = useWhiteboardStore(
@@ -203,13 +206,14 @@ export function WhiteboardStage() {
       return
     }
 
-    const selectedNode = isTransformToolActive && selectedObjectId
+    const selectedNode = isTransformToolActive && selectedObject && selectedObjectId
       ? objectNodesRef.current.get(selectedObjectId)
       : null
 
     transformer.nodes(selectedNode ? [selectedNode] : [])
+    transformer.forceUpdate()
     transformer.getLayer()?.batchDraw()
-  }, [isTransformToolActive, selectedObjectId])
+  }, [isTransformToolActive, selectedObject, selectedObjectId])
 
   const registerObjectNode = useCallback(
     (objectId: string, node: Konva.Node | null) => {

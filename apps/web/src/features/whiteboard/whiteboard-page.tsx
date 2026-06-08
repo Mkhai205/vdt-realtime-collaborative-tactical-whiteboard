@@ -10,7 +10,6 @@ import {
   MinusIcon,
   MousePointer2Icon,
   MoveRightIcon,
-  PanelRightIcon,
   PlusIcon,
   SquareIcon,
   Trash2Icon,
@@ -18,13 +17,6 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   maxViewportScale,
@@ -32,6 +24,7 @@ import {
   viewportZoomStep,
 } from "@/lib/canvas-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import { ObjectDetailPanel } from "./object-detail-panel"
 
 const WhiteboardStage = dynamic(
   () => import("./whiteboard-stage").then((module) => module.WhiteboardStage),
@@ -129,7 +122,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         </div>
       </header>
 
-      <section className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[3.5rem_minmax(0,1fr)_20rem]">
+      <section className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[3.5rem_minmax(0,1fr)_20rem] lg:overflow-hidden">
         <ToolPalette />
 
         <section
@@ -140,7 +133,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           <ZoomControls />
         </section>
 
-        <DetailPanelPlaceholder />
+        <ObjectDetailPanel />
       </section>
     </main>
   )
@@ -238,49 +231,6 @@ function ToolPalette() {
         <Trash2Icon data-icon="inline-start" />
       </Button>
     </aside>
-  )
-}
-
-function DetailPanelPlaceholder() {
-  const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
-  const deleteSelectedObject = useWhiteboardStore(
-    (state) => state.deleteSelectedObject,
-  )
-  const canDelete = Boolean(selectedObjectId)
-
-  return (
-    <Card className="min-h-0 shadow-sm" size="sm">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <PanelRightIcon data-icon="inline-start" />
-          Details
-        </CardTitle>
-        <CardDescription>No object selected</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">Type</dt>
-          <dd className="text-foreground">-</dd>
-          <dt className="text-muted-foreground">Position</dt>
-          <dd className="font-mono text-xs text-foreground">-</dd>
-          <dt className="text-muted-foreground">Size</dt>
-          <dd className="font-mono text-xs text-foreground">-</dd>
-          <dt className="text-muted-foreground">Rotation</dt>
-          <dd className="font-mono text-xs text-foreground">-</dd>
-        </dl>
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="mt-4 w-full"
-          disabled={!canDelete}
-          onClick={deleteSelectedObject}
-        >
-          <Trash2Icon data-icon="inline-start" />
-          Delete object
-        </Button>
-      </CardContent>
-    </Card>
   )
 }
 
