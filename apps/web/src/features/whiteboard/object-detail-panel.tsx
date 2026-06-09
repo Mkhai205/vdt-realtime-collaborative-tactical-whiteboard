@@ -77,6 +77,7 @@ export function ObjectDetailPanel() {
   const selectedObject = useWhiteboardStore((state) =>
     state.selectedObjectId ? state.objects[state.selectedObjectId] : null,
   )
+  const currentUserRole = useWhiteboardStore((state) => state.currentUser?.role)
   const updateObjectPatch = useWhiteboardStore(
     (state) => state.updateObjectPatch,
   )
@@ -85,6 +86,8 @@ export function ObjectDetailPanel() {
   )
   const object =
     selectedObject && !selectedObject.deletedAt ? selectedObject : null
+  const canEdit =
+    currentUserRole === "OWNER" || currentUserRole === "EDITOR"
 
   if (!object) {
     return (
@@ -121,6 +124,10 @@ export function ObjectDetailPanel() {
   const objectId = object.id
 
   function patchObject(patch: ObjectMutablePatch) {
+    if (!canEdit) {
+      return
+    }
+
     updateObjectPatch(objectId, patch)
   }
 
@@ -147,19 +154,35 @@ export function ObjectDetailPanel() {
         <FieldGroup key={object.id} className="gap-4 pb-1">
           <MetadataSection object={object} />
           <FieldSeparator label="Geometry" />
-          <GeometryEditor object={object} patchObject={patchObject} />
+          <GeometryEditor
+            object={object}
+            patchObject={patchObject}
+            disabled={!canEdit}
+          />
           <FieldSeparator label="Style" />
-          <StyleEditor object={object} patchStyle={patchStyle} />
+          <StyleEditor
+            object={object}
+            patchStyle={patchStyle}
+            disabled={!canEdit}
+          />
           {object.type === "TEXT" ? (
             <>
               <FieldSeparator label="Text" />
-              <TextEditor object={object} patchObject={patchObject} />
+              <TextEditor
+                object={object}
+                patchObject={patchObject}
+                disabled={!canEdit}
+              />
             </>
           ) : null}
           {object.type === "LINE" ? (
             <>
               <FieldSeparator label="Line" />
-              <LineEditor object={object} patchObject={patchObject} />
+              <LineEditor
+                object={object}
+                patchObject={patchObject}
+                disabled={!canEdit}
+              />
             </>
           ) : null}
         </FieldGroup>
@@ -171,6 +194,7 @@ export function ObjectDetailPanel() {
           variant="destructive"
           size="sm"
           className="w-full"
+          disabled={!canEdit}
           onClick={deleteSelectedObject}
         >
           <Trash2Icon data-icon="inline-start" />
@@ -216,9 +240,11 @@ function MetadataSection({ object }: { object: WhiteboardObject }) {
 function GeometryEditor({
   object,
   patchObject,
+  disabled,
 }: {
   object: WhiteboardObject
   patchObject: (patch: ObjectMutablePatch) => void
+  disabled?: boolean
 }) {
   return (
     <FieldSet>
@@ -227,12 +253,14 @@ function GeometryEditor({
         <NumericField
           label="X"
           value={object.x}
+          disabled={disabled}
           step={1}
           onCommit={(x) => patchObject({ x: roundCanvasValue(x) })}
         />
         <NumericField
           label="Y"
           value={object.y}
+          disabled={disabled}
           step={1}
           onCommit={(y) => patchObject({ y: roundCanvasValue(y) })}
         />
@@ -240,6 +268,7 @@ function GeometryEditor({
       <NumericField
         label="Rotation"
         value={object.rotation}
+        disabled={disabled}
         step={1}
         onCommit={(rotation) =>
           patchObject({ rotation: normalizeRotationDegrees(rotation) })
@@ -250,6 +279,7 @@ function GeometryEditor({
           <NumericField
             label="Width"
             value={getObjectDimensions(object).width}
+            disabled={disabled}
             min={minimumObjectSize}
             step={1}
             onCommit={(width) =>
@@ -259,6 +289,7 @@ function GeometryEditor({
           <NumericField
             label="Height"
             value={getObjectDimensions(object).height}
+            disabled={disabled}
             min={minimumObjectSize}
             step={1}
             onCommit={(height) =>
@@ -274,9 +305,11 @@ function GeometryEditor({
 function StyleEditor({
   object,
   patchStyle,
+  disabled,
 }: {
   object: WhiteboardObject
   patchStyle: (style: ShapeStyle) => void
+  disabled?: boolean
 }) {
   return (
     <FieldSet>
@@ -289,6 +322,7 @@ function StyleEditor({
           label="Text color"
           value={object.style.color ?? object.style.fill}
           fallback={fallbackColors.text}
+          disabled={disabled}
           onCommit={(color) => patchStyle({ color })}
         />
       ) : null}
@@ -297,6 +331,7 @@ function StyleEditor({
           label="Fill"
           value={object.style.fill}
           fallback={fallbackColors.fill}
+          disabled={disabled}
           onCommit={(fill) => patchStyle({ fill })}
         />
       ) : null}
@@ -306,11 +341,13 @@ function StyleEditor({
             label="Stroke"
             value={object.style.stroke}
             fallback={fallbackColors.stroke}
+            disabled={disabled}
             onCommit={(stroke) => patchStyle({ stroke })}
           />
           <NumericField
             label="Stroke width"
             value={object.style.strokeWidth ?? (object.type === "LINE" ? 4 : 2)}
+            disabled={disabled}
             min={minimumStrokeWidth}
             step={1}
             onCommit={(strokeWidth) =>
@@ -327,6 +364,7 @@ function StyleEditor({
       <NumericField
         label="Opacity"
         value={object.style.opacity ?? 1}
+        disabled={disabled}
         min={0}
         max={1}
         step={0.05}
@@ -339,9 +377,11 @@ function StyleEditor({
 function TextEditor({
   object,
   patchObject,
+  disabled,
 }: {
   object: WhiteboardObject
   patchObject: (patch: ObjectMutablePatch) => void
+  disabled?: boolean
 }) {
   const fontWeight = object.style.fontWeight ?? "normal"
   const fontFamily = object.style.fontFamily ?? "sans-serif"
@@ -358,12 +398,14 @@ function TextEditor({
           id={`${object.id}-text`}
           value={object.text ?? ""}
           rows={3}
+          disabled={disabled}
           onChange={(event) => patchObject({ text: event.target.value })}
         />
       </Field>
       <NumericField
         label="Font size"
         value={object.style.fontSize ?? 24}
+        disabled={disabled}
         min={minimumFontSize}
         step={1}
         onCommit={(fontSize) =>
@@ -378,6 +420,7 @@ function TextEditor({
         <FieldLabel htmlFor={`${object.id}-font-weight`}>Weight</FieldLabel>
         <Select
           value={fontWeight}
+          disabled={disabled}
           onValueChange={(value) =>
             patchObject({
               style: {
@@ -401,6 +444,7 @@ function TextEditor({
         <FieldLabel htmlFor={`${object.id}-font-family`}>Family</FieldLabel>
         <Select
           value={fontFamily}
+          disabled={disabled}
           onValueChange={(fontFamilyValue) =>
             patchObject({ style: { fontFamily: fontFamilyValue } })
           }
@@ -426,9 +470,11 @@ function TextEditor({
 function LineEditor({
   object,
   patchObject,
+  disabled,
 }: {
   object: WhiteboardObject
   patchObject: (patch: ObjectMutablePatch) => void
+  disabled?: boolean
 }) {
   const points = getLinePoints(object.points)
 
@@ -445,24 +491,28 @@ function LineEditor({
         <NumericField
           label="X1"
           value={points[0]}
+          disabled={disabled}
           step={1}
           onCommit={(value) => patchPoint(0, value)}
         />
         <NumericField
           label="Y1"
           value={points[1]}
+          disabled={disabled}
           step={1}
           onCommit={(value) => patchPoint(1, value)}
         />
         <NumericField
           label="X2"
           value={points[2]}
+          disabled={disabled}
           step={1}
           onCommit={(value) => patchPoint(2, value)}
         />
         <NumericField
           label="Y2"
           value={points[3]}
+          disabled={disabled}
           step={1}
           onCommit={(value) => patchPoint(3, value)}
         />
@@ -471,6 +521,7 @@ function LineEditor({
         <CheckboxField
           label="Arrow start"
           checked={object.style.arrowStart ?? false}
+          disabled={disabled}
           onCheckedChange={(arrowStart) =>
             patchObject({ style: { arrowStart } })
           }
@@ -478,6 +529,7 @@ function LineEditor({
         <CheckboxField
           label="Arrow end"
           checked={object.style.arrowEnd ?? true}
+          disabled={disabled}
           onCheckedChange={(arrowEnd) => patchObject({ style: { arrowEnd } })}
         />
       </FieldGroup>
@@ -488,6 +540,7 @@ function LineEditor({
 function NumericField({
   label,
   value,
+  disabled,
   min,
   max,
   step,
@@ -495,6 +548,7 @@ function NumericField({
 }: {
   label: string
   value: number
+  disabled?: boolean
   min?: number
   max?: number
   step?: number
@@ -543,6 +597,7 @@ function NumericField({
         type="number"
         inputMode="decimal"
         value={draft}
+        disabled={disabled}
         min={min}
         max={max}
         step={step}
@@ -568,11 +623,13 @@ function ColorField({
   label,
   value,
   fallback,
+  disabled,
   onCommit,
 }: {
   label: string
   value: string | undefined
   fallback: string
+  disabled?: boolean
   onCommit: (value: string) => void
 }) {
   const inputId = label.toLowerCase().replaceAll(" ", "-")
@@ -609,6 +666,7 @@ function ColorField({
           id={inputId}
           type="color"
           value={normalizedValue}
+          disabled={disabled}
           className="p-1"
           onChange={(event) => {
             const nextColor = event.target.value
@@ -619,6 +677,7 @@ function ColorField({
         <Input
           value={draft}
           spellCheck={false}
+          disabled={disabled}
           className="font-mono text-xs"
           onBlur={() => {
             const committedColor = commitColor(draft)
@@ -643,16 +702,19 @@ function ColorField({
 function CheckboxField({
   label,
   checked,
+  disabled,
   onCheckedChange,
 }: {
   label: string
   checked: boolean
+  disabled?: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
     <Field orientation="horizontal">
       <Checkbox
         checked={checked}
+        disabled={disabled}
         onCheckedChange={(value) => onCheckedChange(value === true)}
       />
       <FieldContent>

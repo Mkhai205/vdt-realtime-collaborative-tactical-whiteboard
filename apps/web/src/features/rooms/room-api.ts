@@ -4,6 +4,7 @@ import {
   type AddRoomMemberRequest,
   type GetRoomMembersResponse,
   type GetRoomResponse,
+  type JoinRoomResponse,
   type RoomMemberMutationResponse,
   type UpdateRoomMemberRoleRequest,
 } from "@rctw/shared-contracts"
@@ -11,6 +12,14 @@ import { apiClient } from "@/lib/api-client"
 
 export async function getRoom(roomId: string): Promise<GetRoomResponse> {
   const response = await apiClient.get<GetRoomResponse>(`/rooms/${roomId}`)
+
+  return response.data
+}
+
+export async function joinRoom(roomId: string): Promise<JoinRoomResponse> {
+  const response = await apiClient.post<JoinRoomResponse>(
+    `/rooms/${roomId}/join`
+  )
 
   return response.data
 }

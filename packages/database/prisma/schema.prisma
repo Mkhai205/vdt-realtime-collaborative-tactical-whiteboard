@@ -19,6 +19,20 @@ enum RoomRole {
   VIEWER
 }
 
+enum ObjectType {
+  RECTANGLE
+  CIRCLE
+  LINE
+  TEXT
+}
+
+enum OperationType {
+  OBJECT_CREATE
+  OBJECT_UPDATE
+  OBJECT_DELETE
+  OBJECT_RESTORE
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   email        String?      @unique
@@ -29,8 +43,11 @@ model User {
   createdAt    DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
 
-  createdRooms Room[]       @relation("RoomCreator")
-  memberships  RoomMember[]
+  createdRooms   Room[]                @relation("RoomCreator")
+  memberships    RoomMember[]
+  operations     WhiteboardOperation[]
+  objectsCreated WhiteboardObject[]    @relation("ObjectCreator")
+  objectsUpdated WhiteboardObject[]    @relation("ObjectUpdater")
 }
 
 model Room {
@@ -45,8 +62,10 @@ model Room {
   updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt       DateTime? @db.Timestamptz(6)
 
-  createdBy User         @relation("RoomCreator", fields: [createdById], references: [id])
-  members   RoomMember[]
+  createdBy  User                  @relation("RoomCreator", fields: [createdById], references: [id])
+  members    RoomMember[]
+  objects    WhiteboardObject[]
+  operations WhiteboardOperation[]
 
   @@index([createdById])
   @@index([isPublic])
@@ -67,4 +86,60 @@ model RoomMember {
   @@unique([roomId, userId])
   @@index([roomId, role])
   @@index([userId])
+}
+
+model WhiteboardObject {
+  id          String     @id @default(uuid()) @db.Uuid
+  roomId      String     @db.Uuid
+  type        ObjectType
+  x           Float
+  y           Float
+  width       Float?
+  height      Float?
+  points      Json?
+  text        String?    @db.Text
+  rotation    Float      @default(0)
+  style       Json
+  zIndex      Int        @default(0)
+  version     Int        @default(1)
+  createdById String     @db.Uuid
+  updatedById String?    @db.Uuid
+  createdAt   DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?  @db.Timestamptz(6)
+
+  room       Room                  @relation(fields: [roomId], references: [id])
+  createdBy  User                  @relation("ObjectCreator", fields: [createdById], references: [id])
+  updatedBy  User?                 @relation("ObjectUpdater", fields: [updatedById], references: [id])
+  operations WhiteboardOperation[]
+
+  @@index([roomId])
+  @@index([roomId, deletedAt])
+  @@index([roomId, zIndex])
+  @@index([createdById])
+}
+
+model WhiteboardOperation {
+  id                String        @id @default(uuid()) @db.Uuid
+  clientOpId        String        @db.VarChar(120)
+  roomId            String        @db.Uuid
+  actorId           String        @db.Uuid
+  objectId          String?       @db.Uuid
+  revision          BigInt
+  type              OperationType
+  baseObjectVersion Int?
+  payload           Json
+  inversePayload    Json?
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+
+  room   Room              @relation(fields: [roomId], references: [id])
+  actor  User              @relation(fields: [actorId], references: [id])
+  object WhiteboardObject? @relation(fields: [objectId], references: [id])
+
+  @@unique([roomId, clientOpId])
+  @@unique([roomId, revision])
+  @@index([roomId, revision])
+  @@index([objectId])
+  @@index([actorId])
+  @@index([createdAt])
 }

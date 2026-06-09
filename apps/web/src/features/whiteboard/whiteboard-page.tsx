@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import type { Tool } from "@rctw/shared-contracts"
 import {
   CircleIcon,
@@ -24,7 +24,12 @@ import {
   viewportZoomStep,
 } from "@/lib/canvas-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import { joinRoom } from "../rooms/room-api"
 import { ObjectDetailPanel } from "./object-detail-panel"
+import {
+  getRoomObjects,
+  getWhiteboardApiErrorMessage,
+} from "./whiteboard-api"
 
 const WhiteboardStage = dynamic(
   () => import("./whiteboard-stage").then((module) => module.WhiteboardStage),
@@ -52,21 +57,70 @@ const toolbarItems = [
 }>
 
 const viewportScaleEpsilon = 0.001
+type LoadState = "loading" | "ready" | "error"
 
 export function WhiteboardPage({ roomId }: { roomId: string }) {
   const setRoomId = useWhiteboardStore((state) => state.setRoomId)
-  const seedDemoObjects = useWhiteboardStore((state) => state.seedDemoObjects)
+  const setLoadedRoomState = useWhiteboardStore(
+    (state) => state.setLoadedRoomState,
+  )
+  const room = useWhiteboardStore((state) => state.room)
+  const currentUser = useWhiteboardStore((state) => state.currentUser)
+  const currentRevision = useWhiteboardStore((state) => state.currentRevision)
+  const mutationError = useWhiteboardStore((state) => state.mutationError)
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
   const deleteSelectedObject = useWhiteboardStore(
     (state) => state.deleteSelectedObject,
   )
+  const [loadState, setLoadState] = useState<LoadState>("loading")
+  const [loadError, setLoadError] = useState("")
+
+  useEffect(() => {
+    let isCurrent = true
+
+    async function loadWhiteboardState() {
+      setLoadState("loading")
+      setLoadError("")
+
+      try {
+        setRoomId(roomId)
+
+        const joinResponse = await joinRoom(roomId)
+        const objectsResponse = await getRoomObjects(roomId)
+
+        if (!isCurrent) {
+          return
+        }
+
+        setLoadedRoomState({
+          room: joinResponse.room,
+          currentUser: joinResponse.currentUser,
+          currentRevision: objectsResponse.currentRevision,
+          objects: objectsResponse.objects,
+        })
+        setLoadState("ready")
+      } catch (error) {
+        if (!isCurrent) {
+          return
+        }
+
+        setLoadError(getWhiteboardApiErrorMessage(error))
+        setLoadState("error")
+      }
+    }
+
+    void loadWhiteboardState()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [roomId, setLoadedRoomState, setRoomId])
 
   useEffect(() => {
     setRoomId(roomId)
-    seedDemoObjects(roomId)
-  }, [roomId, seedDemoObjects, setRoomId])
+  }, [roomId, setRoomId])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -78,8 +132,9 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
       }
 
       const selectedObjectId = useWhiteboardStore.getState().selectedObjectId
+      const role = useWhiteboardStore.getState().currentUser?.role
 
-      if (!selectedObjectId) {
+      if (!selectedObjectId || !canEditRole(role)) {
         return
       }
 
@@ -100,12 +155,19 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">Whiteboard</Badge>
-            <Badge variant="outline">Ready</Badge>
+            <Badge variant="outline">
+              {loadState === "loading"
+                ? "Loading"
+                : loadState === "error"
+                  ? "Error"
+                  : "Ready"}
+            </Badge>
+            {currentUser ? <Badge variant="outline">{currentUser.role}</Badge> : null}
             <Badge variant="outline">{currentTool}</Badge>
           </div>
           <div className="flex min-w-0 items-baseline gap-3">
             <h1 className="truncate text-lg leading-tight font-semibold">
-              Tactical room
+              {room?.name ?? "Tactical room"}
             </h1>
             <p className="truncate font-mono text-xs text-muted-foreground">
               {roomId}
@@ -119,6 +181,8 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           </span>
           <span aria-hidden="true">/</span>
           <span>{Math.round(viewport.scale * 100)}%</span>
+          <span aria-hidden="true">/</span>
+          <span>rev {currentRevision}</span>
         </div>
       </header>
 
@@ -131,11 +195,30 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         >
           <WhiteboardStage />
           <ZoomControls />
+          {loadState === "loading" ? (
+            <StatusOverlay message="Loading room objects" />
+          ) : null}
+          {loadState === "error" ? <StatusOverlay message={loadError} /> : null}
+          {mutationError ? (
+            <div className="absolute top-3 left-3 max-w-md rounded-lg border border-destructive/40 bg-background/95 px-3 py-2 text-sm text-destructive shadow-sm backdrop-blur">
+              {mutationError}
+            </div>
+          ) : null}
         </section>
 
         <ObjectDetailPanel />
       </section>
     </main>
+  )
+}
+
+function StatusOverlay({ message }: { message: string }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-background/70 p-6 text-sm text-muted-foreground backdrop-blur-sm">
+      <div className="rounded-lg border bg-background px-4 py-3 shadow-sm">
+        {message}
+      </div>
+    </div>
   )
 }
 
@@ -182,11 +265,13 @@ function ZoomControls() {
 function ToolPalette() {
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
+  const role = useWhiteboardStore((state) => state.currentUser?.role)
   const deleteSelectedObject = useWhiteboardStore(
     (state) => state.deleteSelectedObject,
   )
   const setTool = useWhiteboardStore((state) => state.setTool)
-  const canDelete = Boolean(selectedObjectId)
+  const canEdit = canEditRole(role)
+  const canDelete = canEdit && Boolean(selectedObjectId)
 
   return (
     <aside
@@ -213,6 +298,7 @@ function ToolPalette() {
               value={item.value}
               title={item.label}
               aria-label={item.label}
+              disabled={!canEdit && isEditTool(item.value)}
             >
               <Icon data-icon="inline-start" />
             </ToggleGroupItem>
@@ -232,6 +318,14 @@ function ToolPalette() {
       </Button>
     </aside>
   )
+}
+
+function canEditRole(role: string | null | undefined): boolean {
+  return role === "OWNER" || role === "EDITOR"
+}
+
+function isEditTool(tool: Tool): boolean {
+  return tool === "RECTANGLE" || tool === "CIRCLE" || tool === "LINE" || tool === "TEXT"
 }
 
 function isEditableEventTarget(target: EventTarget | null): boolean {

@@ -93,6 +93,7 @@ export function WhiteboardStage() {
   const selectedObject = useWhiteboardStore((state) =>
     state.selectedObjectId ? state.objects[state.selectedObjectId] : null,
   )
+  const currentUserRole = useWhiteboardStore((state) => state.currentUser?.role)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
   const createLocalObject = useWhiteboardStore(
@@ -106,8 +107,10 @@ export function WhiteboardStage() {
     (state) => state.updateObjectPatch,
   )
   const colors = useCanvasThemeColors()
+  const canEdit = currentUserRole === "OWNER" || currentUserRole === "EDITOR"
   const isTransformToolActive = currentTool === "SELECT"
   const isPanningModeActive = currentTool === "HAND" || isSpacePanning
+  const canTransformObjects = canEdit && isTransformToolActive
 
   const clearPanDrag = useCallback(() => {
     panDragRef.current = null
@@ -206,14 +209,14 @@ export function WhiteboardStage() {
       return
     }
 
-    const selectedNode = isTransformToolActive && selectedObject && selectedObjectId
+    const selectedNode = canTransformObjects && selectedObject && selectedObjectId
       ? objectNodesRef.current.get(selectedObjectId)
       : null
 
     transformer.nodes(selectedNode ? [selectedNode] : [])
     transformer.forceUpdate()
     transformer.getLayer()?.batchDraw()
-  }, [isTransformToolActive, selectedObject, selectedObjectId])
+  }, [canTransformObjects, selectedObject, selectedObjectId])
 
   const registerObjectNode = useCallback(
     (objectId: string, node: Konva.Node | null) => {
@@ -241,7 +244,7 @@ export function WhiteboardStage() {
 
   const handleObjectDragEnd = useCallback(
     (objectId: string, event: KonvaEventObject<DragEvent>) => {
-      if (currentTool !== "SELECT") {
+      if (!canEdit || currentTool !== "SELECT") {
         return
       }
 
@@ -258,7 +261,7 @@ export function WhiteboardStage() {
       )
       transformerRef.current?.forceUpdate()
     },
-    [currentTool, updateObjectPatch],
+    [canEdit, currentTool, updateObjectPatch],
   )
 
   const handleTransformerBoundBox = useCallback(
@@ -286,7 +289,7 @@ export function WhiteboardStage() {
   )
 
   const handleTransformEnd = useCallback(() => {
-    if (!isTransformToolActive || !selectedObjectId) {
+    if (!canTransformObjects || !selectedObjectId) {
       return
     }
 
@@ -308,7 +311,7 @@ export function WhiteboardStage() {
     applyCommittedPatchToNode(currentObject, selectedNode, patch)
     updateObjectPatch(selectedObjectId, patch)
     transformerRef.current?.forceUpdate()
-  }, [isTransformToolActive, selectedObjectId, updateObjectPatch])
+  }, [canTransformObjects, selectedObjectId, updateObjectPatch])
 
   function handleWheel(event: KonvaEventObject<WheelEvent>) {
     const pointer = getStagePointer(event)
@@ -351,6 +354,10 @@ export function WhiteboardStage() {
     const point = getWorldPointer(event, viewport)
 
     if (!point) {
+      return
+    }
+
+    if (!canEdit) {
       return
     }
 
@@ -498,11 +505,11 @@ export function WhiteboardStage() {
           ))}
           <WhiteboardObjectLayer
             defaultColors={{
-              foreground: colors.foreground,
-              primary: colors.primary,
-              accent: colors.accent,
-            }}
-            draggable={isTransformToolActive && !isPanningModeActive}
+            foreground: colors.foreground,
+            primary: colors.primary,
+            accent: colors.accent,
+          }}
+            draggable={canTransformObjects && !isPanningModeActive}
             onObjectPointerDown={handleObjectPointerDown}
             onObjectDragEnd={handleObjectDragEnd}
             registerObjectNode={registerObjectNode}
@@ -528,8 +535,8 @@ export function WhiteboardStage() {
           ) : null}
           <Transformer
             ref={transformerRef}
-            visible={isTransformToolActive && Boolean(selectedObjectId)}
-            listening={isTransformToolActive && !isPanningModeActive}
+            visible={canTransformObjects && Boolean(selectedObjectId)}
+            listening={canTransformObjects && !isPanningModeActive}
             resizeEnabled
             rotateEnabled
             enabledAnchors={transformerAnchors}

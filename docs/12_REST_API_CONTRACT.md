@@ -130,6 +130,10 @@ type ApiError = {
     | "VALIDATION_ERROR"
     | "ROOM_NOT_FOUND"
     | "OBJECT_NOT_FOUND"
+    | "OBJECT_ALREADY_DELETED"
+    | "OBJECT_VERSION_CONFLICT"
+    | "DUPLICATE_OPERATION"
+    | "INVALID_OPERATION_PAYLOAD"
     | "MEMBER_NOT_FOUND"
     | "INTERNAL_ERROR";
   message: string;
@@ -462,6 +466,162 @@ type GetRoomObjectsResponse = {
 401 UNAUTHENTICATED
 403 PERMISSION_DENIED
 404 ROOM_NOT_FOUND
+```
+
+## 5.2 `POST /rooms/:roomId/objects`
+
+Create a whiteboard object through the REST persistence bridge.
+
+### Permission
+
+Owner or editor only.
+
+### Request Body
+
+```ts
+type ObjectCreateRequest = {
+  clientOpId: string;
+  baseRoomRevision?: number;
+  object: {
+    type: "RECTANGLE" | "CIRCLE" | "LINE" | "TEXT";
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    points?: number[];
+    text?: string;
+    rotation?: number;
+    style?: ShapeStyle;
+    zIndex?: number;
+  };
+};
+```
+
+### Response `201`
+
+```ts
+type OperationAppliedEvent = {
+  operationId: string;
+  clientOpId: string;
+  roomId: string;
+  revision: number;
+  type: "OBJECT_CREATE" | "OBJECT_UPDATE" | "OBJECT_DELETE" | "OBJECT_RESTORE";
+  objectId?: string | null;
+  actor: UserSummary;
+  payload: unknown;
+  resultingObject?: WhiteboardObject | null;
+  createdAt: string;
+};
+```
+
+### Rules
+
+```txt
+- Server creates the object id.
+- Object starts at version 1.
+- Room currentRevision is incremented in the same transaction.
+- A WhiteboardOperation row is inserted with type OBJECT_CREATE.
+- Duplicate clientOpId in the same room returns 409 DUPLICATE_OPERATION.
+```
+
+### Errors
+
+```txt
+400 VALIDATION_ERROR
+401 UNAUTHENTICATED
+403 PERMISSION_DENIED
+404 ROOM_NOT_FOUND
+409 DUPLICATE_OPERATION
+```
+
+## 5.3 `PATCH /rooms/:roomId/objects/:objectId`
+
+Update mutable object fields through the REST persistence bridge.
+
+### Permission
+
+Owner or editor only.
+
+### Request Body
+
+```ts
+type ObjectUpdateRequest = {
+  clientOpId: string;
+  baseRoomRevision?: number;
+  baseObjectVersion: number;
+  patch: ObjectMutablePatch;
+};
+```
+
+### Response `200`
+
+Returns `OperationAppliedEvent` with `type: "OBJECT_UPDATE"` and the updated object in `resultingObject`.
+
+### Rules
+
+```txt
+- Only mutable canvas fields are accepted in patch.
+- style patches are merged with existing style.
+- baseObjectVersion must match current object.version.
+- Object version and room currentRevision increment in the same transaction.
+- A WhiteboardOperation row is inserted with previousValues and resultingObject.
+```
+
+### Errors
+
+```txt
+400 VALIDATION_ERROR
+401 UNAUTHENTICATED
+403 PERMISSION_DENIED
+404 ROOM_NOT_FOUND
+404 OBJECT_NOT_FOUND
+409 OBJECT_ALREADY_DELETED
+409 OBJECT_VERSION_CONFLICT
+409 DUPLICATE_OPERATION
+```
+
+## 5.4 `DELETE /rooms/:roomId/objects/:objectId`
+
+Soft delete a whiteboard object through the REST persistence bridge.
+
+### Permission
+
+Owner or editor only.
+
+### Request Body
+
+```ts
+type ObjectDeleteRequest = {
+  clientOpId: string;
+  baseRoomRevision?: number;
+  baseObjectVersion: number;
+};
+```
+
+### Response `200`
+
+Returns `OperationAppliedEvent` with `type: "OBJECT_DELETE"` and the soft-deleted object in `resultingObject`.
+
+### Rules
+
+```txt
+- deletedAt is set instead of hard deleting the row.
+- baseObjectVersion must match current object.version.
+- Object version and room currentRevision increment in the same transaction.
+- A WhiteboardOperation row is inserted with previousObject for history/undo candidates.
+```
+
+### Errors
+
+```txt
+400 VALIDATION_ERROR
+401 UNAUTHENTICATED
+403 PERMISSION_DENIED
+404 ROOM_NOT_FOUND
+404 OBJECT_NOT_FOUND
+409 OBJECT_ALREADY_DELETED
+409 OBJECT_VERSION_CONFLICT
+409 DUPLICATE_OPERATION
 ```
 
 ---
