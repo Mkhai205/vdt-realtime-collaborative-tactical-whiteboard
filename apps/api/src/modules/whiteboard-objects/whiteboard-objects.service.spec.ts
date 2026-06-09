@@ -77,6 +77,25 @@ describe("WhiteboardObjectsService", () => {
   }
   let service: WhiteboardObjectsService
 
+  function expectMutationTransactionUsed() {
+    expect(prismaClient.$transaction).toHaveBeenCalledTimes(1)
+    expect(prismaClient.$transaction).toHaveBeenCalledWith(expect.any(Function))
+  }
+
+  function expectRoomRevisionIncrementedOnce() {
+    expect(tx.room.update).toHaveBeenCalledTimes(1)
+    expect(tx.room.update).toHaveBeenCalledWith({
+      where: { id: roomId },
+      data: { currentRevision: { increment: 1 } },
+      select: { currentRevision: true },
+    })
+  }
+
+  function expectNoRevisionWrite() {
+    expect(tx.room.update).not.toHaveBeenCalled()
+    expect(tx.whiteboardOperation.create).not.toHaveBeenCalled()
+  }
+
   beforeEach(() => {
     jest.clearAllMocks()
 
@@ -138,7 +157,9 @@ describe("WhiteboardObjectsService", () => {
       orderBy: [{ zIndex: "asc" }, { createdAt: "asc" }],
     })
     expect(response.currentRevision).toBe(6)
+    expect(typeof response.currentRevision).toBe("number")
     expect(response.objects).toHaveLength(2)
+    expect(prismaClient.$transaction).not.toHaveBeenCalled()
   })
 
   it("persists created objects and records an operation", async () => {
@@ -166,11 +187,8 @@ describe("WhiteboardObjectsService", () => {
         createdById: userId,
       }),
     })
-    expect(tx.room.update).toHaveBeenCalledWith({
-      where: { id: roomId },
-      data: { currentRevision: { increment: 1 } },
-      select: { currentRevision: true },
-    })
+    expectMutationTransactionUsed()
+    expectRoomRevisionIncrementedOnce()
     expect(tx.whiteboardOperation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         clientOpId,
@@ -179,10 +197,15 @@ describe("WhiteboardObjectsService", () => {
         objectId,
         revision: 7n,
         type: "OBJECT_CREATE",
+        inversePayload: {
+          objectId,
+        },
       }),
     })
+    expect(tx.whiteboardOperation.create).toHaveBeenCalledTimes(1)
     expect(response.type).toBe("OBJECT_CREATE")
     expect(response.revision).toBe(7)
+    expect(typeof response.revision).toBe("number")
     expect(response.resultingObject?.id).toBe(objectId)
   })
 
@@ -229,8 +252,11 @@ describe("WhiteboardObjectsService", () => {
         },
       }),
     })
+    expectMutationTransactionUsed()
+    expectRoomRevisionIncrementedOnce()
     expect(tx.whiteboardOperation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        revision: 7n,
         type: "OBJECT_UPDATE",
         baseObjectVersion: 3,
         payload: expect.objectContaining({
@@ -238,8 +264,22 @@ describe("WhiteboardObjectsService", () => {
             x: 100,
           }),
         }),
+        inversePayload: {
+          objectId,
+          patch: expect.objectContaining({
+            x: 100,
+            style: {
+              fill: "#86efac",
+              stroke: "#14532d",
+              strokeWidth: 3,
+            },
+          }),
+        },
       }),
     })
+    expect(tx.whiteboardOperation.create).toHaveBeenCalledTimes(1)
+    expect(response.revision).toBe(7)
+    expect(typeof response.revision).toBe("number")
     expect(response.resultingObject?.version).toBe(4)
   })
 
@@ -270,17 +310,30 @@ describe("WhiteboardObjectsService", () => {
         },
       }),
     })
+    expectMutationTransactionUsed()
+    expectRoomRevisionIncrementedOnce()
     expect(tx.whiteboardOperation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        revision: 7n,
         type: "OBJECT_DELETE",
         payload: expect.objectContaining({
           previousObject: expect.objectContaining({
             id: objectId,
           }),
         }),
+        inversePayload: {
+          objectId,
+          restoredObject: expect.objectContaining({
+            id: objectId,
+            version: 3,
+          }),
+        },
       }),
     })
+    expect(tx.whiteboardOperation.create).toHaveBeenCalledTimes(1)
     expect(response.type).toBe("OBJECT_DELETE")
+    expect(response.revision).toBe(7)
+    expect(typeof response.revision).toBe("number")
     expect(response.resultingObject?.deletedAt).toBe(now.toISOString())
   })
 
@@ -301,6 +354,7 @@ describe("WhiteboardObjectsService", () => {
       }),
     ).rejects.toThrow(ForbiddenException)
     expect(tx.whiteboardObject.create).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
   })
 
   it("rejects stale object updates with the latest object", async () => {
@@ -316,6 +370,7 @@ describe("WhiteboardObjectsService", () => {
       }),
     ).rejects.toThrow(ConflictException)
     expect(tx.whiteboardObject.update).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
   })
 
   it("rejects updates to soft-deleted objects", async () => {
@@ -335,6 +390,7 @@ describe("WhiteboardObjectsService", () => {
       }),
     ).rejects.toThrow(ConflictException)
     expect(tx.whiteboardObject.update).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
   })
 
   it("rejects duplicate client operation ids", async () => {
@@ -349,5 +405,6 @@ describe("WhiteboardObjectsService", () => {
       }),
     ).rejects.toThrow(ConflictException)
     expect(tx.whiteboardObject.findFirst).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
   })
 })
