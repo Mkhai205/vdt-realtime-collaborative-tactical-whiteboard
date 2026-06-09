@@ -41,6 +41,7 @@ type WhiteboardState = {
   onlineUsers: OnlineUser[]
   mutationError: string | null
   objects: Record<string, WhiteboardObject>
+  appliedClientOpIds: Record<string, true>
   selectedObjectId: string | null
   currentTool: Tool
   toolRevision: number
@@ -62,7 +63,7 @@ type WhiteboardState = {
     currentRevision: number,
   ) => void
   upsertObject: (object: WhiteboardObject) => void
-  applyOperationResult: (
+  applyOperation: (
     operation: OperationAppliedEvent,
     options?: { removeObjectId?: string },
   ) => void
@@ -195,9 +196,20 @@ function applyOperationToObjects(
 
   if (operation.resultingObject) {
     nextObjects[operation.resultingObject.id] = operation.resultingObject
+  } else if (operation.type === "OBJECT_DELETE" && operation.objectId) {
+    delete nextObjects[operation.objectId]
   }
 
   return nextObjects
+}
+
+function getMonotonicRevision(
+  currentRevision: number,
+  nextRevision: number | undefined,
+): number {
+  return nextRevision === undefined
+    ? currentRevision
+    : Math.max(currentRevision, nextRevision)
 }
 
 function toCreateRequestObject(input: LocalObjectInput, zIndex: number) {
@@ -414,6 +426,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   onlineUsers: [],
   mutationError: null,
   objects: {},
+  appliedClientOpIds: {},
   selectedObjectId: null,
   currentTool: "SELECT",
   toolRevision: 0,
@@ -436,6 +449,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         onlineUsers: [],
         mutationError: null,
         objects: {},
+        appliedClientOpIds: {},
         selectedObjectId: null,
         currentTool: "SELECT",
         toolRevision: state.toolRevision + 1,
@@ -485,6 +499,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         onlineUsers: input.onlineUsers ?? state.onlineUsers,
         mutationError: null,
         objects: nextObjects,
+        appliedClientOpIds: {},
         selectedObjectId:
           selectedObject && !selectedObject.deletedAt
             ? state.selectedObjectId
@@ -552,9 +567,13 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         [object.id]: object,
       },
     })),
-  applyOperationResult: (operation, options) =>
+  applyOperation: (operation, options) =>
     set((state) => {
-      if (state.roomId !== operation.roomId) {
+      if (
+        state.roomId !== operation.roomId ||
+        state.appliedClientOpIds[operation.clientOpId] ||
+        operation.revision <= state.currentRevision
+      ) {
         return state
       }
 
@@ -569,6 +588,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
+        appliedClientOpIds: {
+          ...state.appliedClientOpIds,
+          [operation.clientOpId]: true,
+        },
         currentRevision: operation.revision,
         mutationError: null,
         selectedObjectId:
@@ -586,8 +609,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       if (!rejection.latestObject) {
         return {
           mutationError: rejection.message,
-          currentRevision:
-            rejection.currentRoomRevision ?? state.currentRevision,
+          currentRevision: getMonotonicRevision(
+            state.currentRevision,
+            rejection.currentRoomRevision,
+          ),
         }
       }
 
@@ -601,7 +626,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
-        currentRevision: rejection.currentRoomRevision ?? state.currentRevision,
+        currentRevision: getMonotonicRevision(
+          state.currentRevision,
+          rejection.currentRoomRevision,
+        ),
         mutationError: rejection.message,
         selectedObjectId:
           selectedObject && !selectedObject.deletedAt

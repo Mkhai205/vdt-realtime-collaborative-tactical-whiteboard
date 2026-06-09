@@ -33,9 +33,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   const setObjectOperationSender = useWhiteboardStore(
     (state) => state.setObjectOperationSender,
   )
-  const applyOperationResult = useWhiteboardStore(
-    (state) => state.applyOperationResult,
-  )
+  const applyOperation = useWhiteboardStore((state) => state.applyOperation)
   const applyOperationRejection = useWhiteboardStore(
     (state) => state.applyOperationRejection,
   )
@@ -98,7 +96,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       const pendingOperation = pendingOperations.get(event.clientOpId)
 
       pendingOperations.delete(event.clientOpId)
-      applyOperationResult(event, {
+      applyOperation(event, {
         removeObjectId: pendingOperation?.tempObjectId,
       })
       pendingOperation?.resolve(event)
@@ -204,7 +202,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     }
   }, [
     applyOperationRejection,
-    applyOperationResult,
+    applyOperation,
     roomId,
     setConnectionStatus,
     setLoadedRoomState,
