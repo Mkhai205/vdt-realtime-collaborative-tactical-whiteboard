@@ -2,12 +2,23 @@
 
 import { useEffect } from "react"
 import type {
+  OperationAppliedEvent,
+  OperationRejectedEvent,
   PresenceUpdateEvent,
   RoomStateEvent,
   SocketErrorEvent,
 } from "@rctw/shared-contracts"
 import { createWhiteboardSocket } from "@/lib/socket-client"
-import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import {
+  type WhiteboardOperationSender,
+  useWhiteboardStore,
+} from "@/stores/whiteboard-store"
+
+type PendingOperation = {
+  resolve: (event: OperationAppliedEvent) => void
+  reject: (event: OperationRejectedEvent | Error) => void
+  tempObjectId?: string
+}
 
 export function useWhiteboardRoomSocket(roomId: string): void {
   const setRoomId = useWhiteboardStore((state) => state.setRoomId)
@@ -19,13 +30,24 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   )
   const setSocketError = useWhiteboardStore((state) => state.setSocketError)
   const setOnlineUsers = useWhiteboardStore((state) => state.setOnlineUsers)
+  const setObjectOperationSender = useWhiteboardStore(
+    (state) => state.setObjectOperationSender,
+  )
+  const applyOperationResult = useWhiteboardStore(
+    (state) => state.applyOperationResult,
+  )
+  const applyOperationRejection = useWhiteboardStore(
+    (state) => state.applyOperationRejection,
+  )
 
   useEffect(() => {
     const socket = createWhiteboardSocket()
+    const pendingOperations = new Map<string, PendingOperation>()
 
     setRoomId(roomId)
     setConnectionStatus("connecting")
     setSocketError(null)
+    setObjectOperationSender(createOperationSender())
 
     function handleConnect() {
       setConnectionStatus("connected")
@@ -68,15 +90,104 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       setSocketError(event.message)
     }
 
+    function handleOperationApplied(event: OperationAppliedEvent) {
+      if (event.roomId !== roomId) {
+        return
+      }
+
+      const pendingOperation = pendingOperations.get(event.clientOpId)
+
+      pendingOperations.delete(event.clientOpId)
+      applyOperationResult(event, {
+        removeObjectId: pendingOperation?.tempObjectId,
+      })
+      pendingOperation?.resolve(event)
+    }
+
+    function handleOperationRejected(event: OperationRejectedEvent) {
+      if (event.roomId !== roomId) {
+        return
+      }
+
+      const pendingOperation = pendingOperations.get(event.clientOpId)
+
+      pendingOperations.delete(event.clientOpId)
+
+      if (pendingOperation) {
+        pendingOperation.reject(event)
+        return
+      }
+
+      applyOperationRejection(event)
+    }
+
+    function createOperationSender(): WhiteboardOperationSender {
+      return {
+        createObject: (request, options) =>
+          emitObjectOperation(
+            () => socket.emit("object:create", request),
+            request,
+            options,
+          ),
+        updateObject: (request) =>
+          emitObjectOperation(
+            () => socket.emit("object:update", request),
+            request,
+          ),
+        deleteObject: (request) =>
+          emitObjectOperation(
+            () => socket.emit("object:delete", request),
+            request,
+          ),
+      }
+    }
+
+    function emitObjectOperation(
+      emitOperation: () => void,
+      request: { clientOpId: string; roomId: string },
+      options?: { tempObjectId?: string },
+    ): Promise<OperationAppliedEvent> {
+      return new Promise((resolve, reject) => {
+        if (request.roomId !== roomId) {
+          reject(new Error("Object operation targets a different room."))
+          return
+        }
+
+        if (!socket.connected) {
+          reject(new Error("Realtime connection is not ready."))
+          return
+        }
+
+        pendingOperations.set(request.clientOpId, {
+          resolve,
+          reject,
+          tempObjectId: options?.tempObjectId,
+        })
+        emitOperation()
+      })
+    }
+
     socket.on("connect", handleConnect)
     socket.on("disconnect", handleDisconnect)
     socket.on("connect_error", handleConnectError)
     socket.on("room:state", handleRoomState)
     socket.on("presence:update", handlePresenceUpdate)
+    socket.on("operation:applied", handleOperationApplied)
+    socket.on("operation:rejected", handleOperationRejected)
     socket.on("error", handleSocketError)
     socket.connect()
 
     return () => {
+      setObjectOperationSender(null)
+
+      for (const pendingOperation of pendingOperations.values()) {
+        pendingOperation.reject(
+          new Error("Whiteboard socket closed before operation completed."),
+        )
+      }
+
+      pendingOperations.clear()
+
       if (socket.connected) {
         socket.emit("room:leave", { roomId })
       }
@@ -86,13 +197,18 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       socket.off("connect_error", handleConnectError)
       socket.off("room:state", handleRoomState)
       socket.off("presence:update", handlePresenceUpdate)
+      socket.off("operation:applied", handleOperationApplied)
+      socket.off("operation:rejected", handleOperationRejected)
       socket.off("error", handleSocketError)
       socket.disconnect()
     }
   }, [
+    applyOperationRejection,
+    applyOperationResult,
     roomId,
     setConnectionStatus,
     setLoadedRoomState,
+    setObjectOperationSender,
     setOnlineUsers,
     setRoomId,
     setSocketError,

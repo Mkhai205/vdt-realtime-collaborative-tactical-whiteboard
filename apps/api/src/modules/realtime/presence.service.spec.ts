@@ -53,6 +53,8 @@ describe("PresenceService", () => {
         status: "ONLINE",
       }),
     ])
+    expect(service.hasSocketInRoom("socket-1", roomId)).toBe(true)
+    expect(service.hasSocketInRoom("socket-1", otherRoomId)).toBe(false)
   })
 
   it("deduplicates the same user across multiple sockets", () => {

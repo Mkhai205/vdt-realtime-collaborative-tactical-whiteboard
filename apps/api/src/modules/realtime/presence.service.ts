@@ -82,6 +82,10 @@ export class PresenceService {
     )
   }
 
+  hasSocketInRoom(socketId: string, roomId: string): boolean {
+    return this.socketRooms.get(socketId)?.has(roomId) ?? false
+  }
+
   private getOrCreateRoom(roomId: string): Map<string, PresenceSession> {
     const existingRoom = this.roomSessions.get(roomId)
 

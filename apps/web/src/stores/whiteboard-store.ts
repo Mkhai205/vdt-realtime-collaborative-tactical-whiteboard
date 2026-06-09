@@ -1,10 +1,14 @@
 "use client"
 
 import type {
+  ObjectCreateSocketRequest,
+  ObjectDeleteSocketRequest,
   ObjectMutablePatch,
   ObjectType,
+  ObjectUpdateSocketRequest,
   OnlineUser,
   OperationAppliedEvent,
+  OperationRejectedEvent,
   RoomRole,
   RoomStateEvent,
   ShapeStyle,
@@ -14,13 +18,7 @@ import type {
 } from "@rctw/shared-contracts"
 import { create } from "zustand"
 import { readStoredGuestIdentity } from "@/features/identity/guest-identity"
-import {
-  createWhiteboardObject,
-  deleteWhiteboardObject,
-  getRoomObjects,
-  getWhiteboardApiErrorMessage,
-  updateWhiteboardObject,
-} from "@/features/whiteboard/whiteboard-api"
+import { getRoomObjects } from "@/features/whiteboard/whiteboard-api"
 import {
   clampViewport,
   clampScale,
@@ -46,6 +44,7 @@ type WhiteboardState = {
   selectedObjectId: string | null
   currentTool: Tool
   toolRevision: number
+  objectOperationSender: WhiteboardOperationSender | null
   viewport: Viewport
   stageSize: StageSize
   setRoomId: (roomId: string) => void
@@ -56,6 +55,7 @@ type WhiteboardState = {
   setSocketError: (message: string | null) => void
   setOnlineUsers: (onlineUsers: OnlineUser[]) => void
   setMutationError: (message: string | null) => void
+  setObjectOperationSender: (sender: WhiteboardOperationSender | null) => void
   setObjects: (objects: WhiteboardObject[]) => void
   setObjectsWithRevision: (
     objects: WhiteboardObject[],
@@ -66,6 +66,7 @@ type WhiteboardState = {
     operation: OperationAppliedEvent,
     options?: { removeObjectId?: string },
   ) => void
+  applyOperationRejection: (rejection: OperationRejectedEvent) => void
   updateObjectPatch: (
     objectId: string,
     patch: ObjectMutablePatch,
@@ -107,6 +108,19 @@ export type LocalObjectInput = {
   text?: string
   rotation?: number
   style: ShapeStyle
+}
+
+export type WhiteboardOperationSender = {
+  createObject: (
+    request: ObjectCreateSocketRequest,
+    options?: { tempObjectId?: string },
+  ) => Promise<OperationAppliedEvent>
+  updateObject: (
+    request: ObjectUpdateSocketRequest,
+  ) => Promise<OperationAppliedEvent>
+  deleteObject: (
+    request: ObjectDeleteSocketRequest,
+  ) => Promise<OperationAppliedEvent>
 }
 
 const emptyStageSize: StageSize = {
@@ -199,6 +213,62 @@ function toCreateRequestObject(input: LocalObjectInput, zIndex: number) {
     style: input.style,
     zIndex,
   }
+}
+
+function getOperationRejection(error: unknown): OperationRejectedEvent | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "clientOpId" in error &&
+    "roomId" in error &&
+    "reason" in error &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return error as OperationRejectedEvent
+  }
+
+  return null
+}
+
+function getWhiteboardOperationErrorMessage(error: unknown): string {
+  const rejection = getOperationRejection(error)
+
+  if (rejection) {
+    return rejection.message
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return "Whiteboard operation failed."
+}
+
+async function handleOperationFailure(
+  error: unknown,
+  get: () => WhiteboardState,
+  set: (
+    partial:
+      | Partial<WhiteboardState>
+      | ((state: WhiteboardState) => Partial<WhiteboardState>),
+  ) => void,
+) {
+  const rejection = getOperationRejection(error)
+
+  if (rejection) {
+    get().applyOperationRejection(rejection)
+
+    if (rejection.latestObject) {
+      return
+    }
+  } else {
+    set({
+      mutationError: getWhiteboardOperationErrorMessage(error),
+    })
+  }
+
+  await reloadObjectsSafely(get().roomId, get().setObjectsWithRevision)
 }
 
 async function reloadObjectsSafely(
@@ -347,6 +417,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   selectedObjectId: null,
   currentTool: "SELECT",
   toolRevision: 0,
+  objectOperationSender: null,
   viewport: initialViewport,
   stageSize: emptyStageSize,
   setRoomId: (roomId) =>
@@ -368,6 +439,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         selectedObjectId: null,
         currentTool: "SELECT",
         toolRevision: state.toolRevision + 1,
+        objectOperationSender: null,
         viewport: getCenteredViewport(state.stageSize),
       }
     }),
@@ -438,6 +510,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     set({
       mutationError: message,
     }),
+  setObjectOperationSender: (sender) =>
+    set({
+      objectOperationSender: sender,
+    }),
   setObjects: (objects) =>
     set((state) => {
       const nextObjects = toObjectRecord(objects)
@@ -501,6 +577,38 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
             : null,
       }
     }),
+  applyOperationRejection: (rejection) =>
+    set((state) => {
+      if (state.roomId !== rejection.roomId) {
+        return state
+      }
+
+      if (!rejection.latestObject) {
+        return {
+          mutationError: rejection.message,
+          currentRevision:
+            rejection.currentRoomRevision ?? state.currentRevision,
+        }
+      }
+
+      const nextObjects = {
+        ...state.objects,
+        [rejection.latestObject.id]: rejection.latestObject,
+      }
+      const selectedObject = state.selectedObjectId
+        ? nextObjects[state.selectedObjectId]
+        : null
+
+      return {
+        objects: nextObjects,
+        currentRevision: rejection.currentRoomRevision ?? state.currentRevision,
+        mutationError: rejection.message,
+        selectedObjectId:
+          selectedObject && !selectedObject.deletedAt
+            ? state.selectedObjectId
+            : null,
+      }
+    }),
   updateObjectPatch: (objectId, patch) => {
     const state = get()
 
@@ -544,23 +652,22 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       }
 
       try {
-        const operation = await updateWhiteboardObject(
-          queuedState.roomId,
-          objectId,
-          {
-            clientOpId: crypto.randomUUID(),
-            baseRoomRevision: queuedState.currentRevision,
-            baseObjectVersion: object.version,
-            patch,
-          },
-        )
+        const sender = queuedState.objectOperationSender
 
-        get().applyOperationResult(operation)
-      } catch (error) {
-        set({
-          mutationError: getWhiteboardApiErrorMessage(error),
+        if (!sender) {
+          throw new Error("Realtime connection is not ready.")
+        }
+
+        await sender.updateObject({
+          roomId: queuedState.roomId,
+          objectId,
+          clientOpId: crypto.randomUUID(),
+          baseRoomRevision: queuedState.currentRevision,
+          baseObjectVersion: object.version,
+          patch,
         })
-        await reloadObjectsSafely(get().roomId, get().setObjectsWithRevision)
+      } catch (error) {
+        await handleOperationFailure(error, get, set)
       }
     })
   },
@@ -619,22 +726,21 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       }
 
       try {
-        const operation = await deleteWhiteboardObject(
-          queuedState.roomId,
-          selectedObjectId,
-          {
-            clientOpId: crypto.randomUUID(),
-            baseRoomRevision: queuedState.currentRevision,
-            baseObjectVersion: object.version,
-          },
-        )
+        const sender = queuedState.objectOperationSender
 
-        get().applyOperationResult(operation)
-      } catch (error) {
-        set({
-          mutationError: getWhiteboardApiErrorMessage(error),
+        if (!sender) {
+          throw new Error("Realtime connection is not ready.")
+        }
+
+        await sender.deleteObject({
+          roomId: queuedState.roomId,
+          objectId: selectedObjectId,
+          clientOpId: crypto.randomUUID(),
+          baseRoomRevision: queuedState.currentRevision,
+          baseObjectVersion: object.version,
         })
-        await reloadObjectsSafely(get().roomId, get().setObjectsWithRevision)
+      } catch (error) {
+        await handleOperationFailure(error, get, set)
       }
     })
   },
@@ -674,20 +780,23 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       }
 
       try {
-        const operation = await createWhiteboardObject(queuedState.roomId, {
-          clientOpId: crypto.randomUUID(),
+        const sender = queuedState.objectOperationSender
+        const clientOpId = crypto.randomUUID()
+
+        if (!sender) {
+          throw new Error("Realtime connection is not ready.")
+        }
+
+        await sender.createObject({
+          roomId: queuedState.roomId,
+          clientOpId,
           baseRoomRevision: queuedState.currentRevision,
           object: toCreateRequestObject(input, zIndex),
-        })
-
-        get().applyOperationResult(operation, {
-          removeObjectId: object.id,
+        }, {
+          tempObjectId: object.id,
         })
       } catch (error) {
-        set({
-          mutationError: getWhiteboardApiErrorMessage(error),
-        })
-        await reloadObjectsSafely(get().roomId, get().setObjectsWithRevision)
+        await handleOperationFailure(error, get, set)
       }
     })
 

@@ -16,6 +16,17 @@ export const operationTypeSchema = z.enum([
   "OBJECT_DELETE",
   "OBJECT_RESTORE",
 ])
+export const operationRejectedReasonSchema = z.enum([
+  "PERMISSION_DENIED",
+  "ROOM_NOT_FOUND",
+  "USER_NOT_IN_ROOM",
+  "OBJECT_NOT_FOUND",
+  "OBJECT_ALREADY_DELETED",
+  "OBJECT_VERSION_CONFLICT",
+  "INVALID_OPERATION_PAYLOAD",
+  "DUPLICATE_OPERATION",
+  "INTERNAL_ERROR",
+])
 
 export const shapeStyleSchema = z
   .object({
@@ -139,6 +150,23 @@ export const objectDeleteRequestSchema = z.object({
   baseObjectVersion: z.number().int().positive(),
 })
 
+export const objectCreateSocketRequestSchema =
+  objectCreateRequestSchema.extend({
+    roomId: z.uuid(),
+  })
+
+export const objectUpdateSocketRequestSchema =
+  objectUpdateRequestSchema.extend({
+    roomId: z.uuid(),
+    objectId: z.uuid(),
+  })
+
+export const objectDeleteSocketRequestSchema =
+  objectDeleteRequestSchema.extend({
+    roomId: z.uuid(),
+    objectId: z.uuid(),
+  })
+
 export const getRoomObjectsResponseSchema = z.object({
   roomId: z.uuid(),
   currentRevision: z.number().int().nonnegative(),
@@ -158,6 +186,15 @@ export const operationAppliedEventSchema = z.object({
   createdAt: z.string(),
 })
 
+export const operationRejectedEventSchema = z.object({
+  clientOpId: clientOpIdSchema,
+  roomId: z.uuid(),
+  reason: operationRejectedReasonSchema,
+  message: z.string().min(1),
+  latestObject: whiteboardObjectSchema.nullable().optional(),
+  currentRoomRevision: z.number().int().nonnegative().optional(),
+})
+
 export const whiteboardObjectParamsSchema = z.object({
   roomId: z.uuid(),
   objectId: z.uuid(),
@@ -166,6 +203,9 @@ export const whiteboardObjectParamsSchema = z.object({
 export type ObjectType = z.infer<typeof objectTypeSchema>
 export type Tool = z.infer<typeof toolSchema>
 export type OperationType = z.infer<typeof operationTypeSchema>
+export type OperationRejectedReason = z.infer<
+  typeof operationRejectedReasonSchema
+>
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>
 export type WhiteboardObject = z.infer<typeof whiteboardObjectSchema>
 export type ObjectMutablePatch = z.infer<typeof objectMutablePatchSchema>
@@ -173,10 +213,22 @@ export type ObjectCreateInput = z.infer<typeof objectCreateInputSchema>
 export type ObjectCreateRequest = z.infer<typeof objectCreateRequestSchema>
 export type ObjectUpdateRequest = z.infer<typeof objectUpdateRequestSchema>
 export type ObjectDeleteRequest = z.infer<typeof objectDeleteRequestSchema>
+export type ObjectCreateSocketRequest = z.infer<
+  typeof objectCreateSocketRequestSchema
+>
+export type ObjectUpdateSocketRequest = z.infer<
+  typeof objectUpdateSocketRequestSchema
+>
+export type ObjectDeleteSocketRequest = z.infer<
+  typeof objectDeleteSocketRequestSchema
+>
 export type GetRoomObjectsResponse = z.infer<
   typeof getRoomObjectsResponseSchema
 >
 export type OperationAppliedEvent = z.infer<typeof operationAppliedEventSchema>
+export type OperationRejectedEvent = z.infer<
+  typeof operationRejectedEventSchema
+>
 export type WhiteboardObjectParams = z.infer<
   typeof whiteboardObjectParamsSchema
 >

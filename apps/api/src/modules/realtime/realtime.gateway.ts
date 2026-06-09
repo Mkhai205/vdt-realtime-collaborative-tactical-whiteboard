@@ -13,12 +13,22 @@ import {
   WebSocketServer,
 } from "@nestjs/websockets"
 import {
+  clientOpIdSchema,
+  objectCreateSocketRequestSchema,
+  objectDeleteSocketRequestSchema,
+  objectUpdateSocketRequestSchema,
+  operationRejectedReasonSchema,
   roomJoinRequestSchema,
   roomLeaveRequestSchema,
   toRoomSocketName,
+  whiteboardObjectSchema,
+  type OperationAppliedEvent,
+  type OperationRejectedEvent,
+  type OperationRejectedReason,
   type RoomStateEvent,
   type SocketErrorEvent,
   type UserSummary,
+  type WhiteboardObject,
 } from "@rctw/shared-contracts"
 import type { Server, Socket } from "socket.io"
 import { z } from "zod"
@@ -36,9 +46,19 @@ type RealtimeSocketData = {
   currentUser?: UserSummary
 }
 
+type OperationRejectionContext = {
+  clientOpId: string
+  roomId: string
+}
+
 export type RealtimeSocket = Socket & {
   data: RealtimeSocketData
 }
+
+const operationRejectionContextSchema = z.object({
+  clientOpId: clientOpIdSchema,
+  roomId: z.uuid(),
+})
 
 @WebSocketGateway({
   cors: {
@@ -147,11 +167,133 @@ export class RealtimeGateway
     this.emitPresenceUpdate(roomId)
   }
 
+  @SubscribeMessage("object:create")
+  async handleObjectCreate(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): Promise<void> {
+    const parsed = objectCreateSocketRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      this.emitInvalidOperationPayload(client, payload, parsed.error)
+      return
+    }
+
+    const { roomId, ...request } = parsed.data
+
+    await this.processObjectOperation(client, parsed.data, (currentUser) =>
+      this.whiteboardObjectsService.createObject(currentUser, roomId, request),
+    )
+  }
+
+  @SubscribeMessage("object:update")
+  async handleObjectUpdate(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): Promise<void> {
+    const parsed = objectUpdateSocketRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      this.emitInvalidOperationPayload(client, payload, parsed.error)
+      return
+    }
+
+    const { roomId, objectId, ...request } = parsed.data
+
+    await this.processObjectOperation(client, parsed.data, (currentUser) =>
+      this.whiteboardObjectsService.updateObject(
+        currentUser,
+        roomId,
+        objectId,
+        request,
+      ),
+    )
+  }
+
+  @SubscribeMessage("object:delete")
+  async handleObjectDelete(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): Promise<void> {
+    const parsed = objectDeleteSocketRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      this.emitInvalidOperationPayload(client, payload, parsed.error)
+      return
+    }
+
+    const { roomId, objectId, ...request } = parsed.data
+
+    await this.processObjectOperation(client, parsed.data, (currentUser) =>
+      this.whiteboardObjectsService.deleteObject(
+        currentUser,
+        roomId,
+        objectId,
+        request,
+      ),
+    )
+  }
+
   private emitPresenceUpdate(roomId: string): void {
     this.server.to(toRoomSocketName(roomId)).emit("presence:update", {
       roomId,
       onlineUsers: this.presenceService.getOnlineUsers(roomId),
     })
+  }
+
+  private async processObjectOperation(
+    client: RealtimeSocket,
+    context: OperationRejectionContext,
+    persistOperation: (
+      currentUser: UserSummary,
+    ) => Promise<OperationAppliedEvent>,
+  ): Promise<void> {
+    try {
+      const currentUser = this.requireCurrentUser(client)
+
+      if (!this.presenceService.hasSocketInRoom(client.id, context.roomId)) {
+        client.emit(
+          "operation:rejected",
+          this.operationRejected(context, {
+            reason: "USER_NOT_IN_ROOM",
+            message: "Join the room before sending object operations.",
+          }),
+        )
+        return
+      }
+
+      const operation = await persistOperation(currentUser)
+
+      this.server
+        .to(toRoomSocketName(context.roomId))
+        .emit("operation:applied", operation)
+    } catch (error) {
+      client.emit(
+        "operation:rejected",
+        this.toOperationRejectedEvent(error, context),
+      )
+    }
+  }
+
+  private emitInvalidOperationPayload(
+    client: RealtimeSocket,
+    payload: unknown,
+    error: z.ZodError,
+  ): void {
+    const context = this.parseOperationRejectionContext(payload)
+
+    if (!context) {
+      client.emit("error", this.validationError(error))
+      return
+    }
+
+    client.emit(
+      "operation:rejected",
+      this.operationRejected(context, {
+        reason: "INVALID_OPERATION_PAYLOAD",
+        message: "Invalid object operation payload.",
+      }),
+    )
   }
 
   private requireCurrentUser(client: RealtimeSocket): UserSummary {
@@ -173,6 +315,136 @@ export class RealtimeGateway
       message: "Invalid socket payload.",
       details: z.treeifyError(error),
     }
+  }
+
+  private toOperationRejectedEvent(
+    error: unknown,
+    context: OperationRejectionContext,
+  ): OperationRejectedEvent {
+    if (this.isHttpException(error)) {
+      const response = error.getResponse()
+
+      if (this.isErrorResponse(response)) {
+        return this.operationRejected(context, {
+          reason: this.toOperationRejectedReason(
+            response.code,
+            error.getStatus(),
+          ),
+          message: response.message,
+          latestObject: this.latestObjectFromDetails(response.details),
+          currentRoomRevision: this.currentRoomRevisionFromDetails(
+            response.details,
+          ),
+        })
+      }
+
+      return this.operationRejected(context, {
+        reason: this.toOperationRejectedReason(undefined, error.getStatus()),
+        message: error.message,
+      })
+    }
+
+    this.logger.error("Unexpected realtime operation error", error)
+
+    return this.operationRejected(context, {
+      reason: "INTERNAL_ERROR",
+      message: "Unexpected realtime operation error.",
+    })
+  }
+
+  private operationRejected(
+    context: OperationRejectionContext,
+    input: {
+      reason: OperationRejectedReason
+      message: string
+      latestObject?: WhiteboardObject | null
+      currentRoomRevision?: number
+    },
+  ): OperationRejectedEvent {
+    return {
+      clientOpId: context.clientOpId,
+      roomId: context.roomId,
+      reason: input.reason,
+      message: input.message,
+      latestObject: input.latestObject,
+      currentRoomRevision: input.currentRoomRevision,
+    }
+  }
+
+  private parseOperationRejectionContext(
+    payload: unknown,
+  ): OperationRejectionContext | null {
+    const parsed = operationRejectionContextSchema.safeParse(payload)
+
+    return parsed.success ? parsed.data : null
+  }
+
+  private toOperationRejectedReason(
+    code: string | undefined,
+    status: number,
+  ): OperationRejectedReason {
+    if (code && operationRejectedReasonSchema.safeParse(code).success) {
+      return code as OperationRejectedReason
+    }
+
+    if (code === "VALIDATION_ERROR") {
+      return "INVALID_OPERATION_PAYLOAD"
+    }
+
+    if (code === "UNAUTHENTICATED") {
+      return "PERMISSION_DENIED"
+    }
+
+    switch (status) {
+      case 400:
+        return "INVALID_OPERATION_PAYLOAD"
+      case 403:
+      case 401:
+        return "PERMISSION_DENIED"
+      case 404:
+        return "OBJECT_NOT_FOUND"
+      default:
+        return "INTERNAL_ERROR"
+    }
+  }
+
+  private latestObjectFromDetails(
+    details: unknown,
+  ): WhiteboardObject | null | undefined {
+    if (
+      typeof details !== "object" ||
+      details === null ||
+      !("latestObject" in details)
+    ) {
+      return undefined
+    }
+
+    const parsed = whiteboardObjectSchema
+      .nullable()
+      .safeParse((details as { latestObject?: unknown }).latestObject)
+
+    return parsed.success ? parsed.data : undefined
+  }
+
+  private currentRoomRevisionFromDetails(details: unknown): number | undefined {
+    if (
+      typeof details !== "object" ||
+      details === null ||
+      !("currentRoomRevision" in details)
+    ) {
+      return undefined
+    }
+
+    const revision = (details as { currentRoomRevision?: unknown })
+      .currentRoomRevision
+
+    if (typeof revision !== "number") {
+      return undefined
+    }
+
+    return Number.isSafeInteger(revision) && revision >= 0
+      ? revision
+      : undefined
   }
 
   private toSocketError(error: unknown): SocketErrorEvent {

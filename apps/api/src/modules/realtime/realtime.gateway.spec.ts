@@ -1,9 +1,15 @@
-import { ForbiddenException, UnauthorizedException } from "@nestjs/common"
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from "@nestjs/common"
 import type {
   GetRoomObjectsResponse,
   JoinRoomResponse,
   OnlineUser,
+  OperationAppliedEvent,
   UserSummary,
+  WhiteboardObject,
 } from "@rctw/shared-contracts"
 import { toRoomSocketName } from "@rctw/shared-contracts"
 import { IdentityService } from "../identity"
@@ -14,6 +20,9 @@ import { RealtimeGateway } from "./realtime.gateway"
 
 const roomId = "11111111-1111-4111-8111-111111111111"
 const userId = "22222222-2222-4222-8222-222222222222"
+const objectId = "33333333-3333-4333-8333-333333333333"
+const operationId = "44444444-4444-4444-8444-444444444444"
+const clientOpId = "55555555-5555-4555-8555-555555555555"
 const now = "2026-06-06T00:00:00.000Z"
 
 const currentUser: UserSummary = {
@@ -55,6 +64,46 @@ const objectsResponse: GetRoomObjectsResponse = {
   objects: [],
 }
 
+const whiteboardObject: WhiteboardObject = {
+  id: objectId,
+  roomId,
+  type: "RECTANGLE",
+  x: 100,
+  y: 200,
+  width: 160,
+  height: 96,
+  points: null,
+  text: null,
+  rotation: 0,
+  style: {
+    fill: "#86efac",
+    stroke: "#14532d",
+    strokeWidth: 3,
+  },
+  zIndex: 10,
+  version: 1,
+  createdById: userId,
+  updatedById: null,
+  createdAt: now,
+  updatedAt: now,
+  deletedAt: null,
+}
+
+const operationApplied: OperationAppliedEvent = {
+  operationId,
+  clientOpId,
+  roomId,
+  revision: 8,
+  type: "OBJECT_CREATE",
+  objectId,
+  actor: currentUser,
+  payload: {
+    object: whiteboardObject,
+  },
+  resultingObject: whiteboardObject,
+  createdAt: now,
+}
+
 type TestSocket = Parameters<RealtimeGateway["handleConnection"]>[0]
 
 type TestSocketMocks = {
@@ -87,6 +136,7 @@ describe("RealtimeGateway", () => {
     emit: jest.fn(),
   }
   const server = {
+    emit: jest.fn(),
     to: jest.fn(() => roomEmitter),
   }
   const identityService = {
@@ -96,10 +146,14 @@ describe("RealtimeGateway", () => {
     joinRoom: jest.fn(),
   }
   const whiteboardObjectsService = {
+    createObject: jest.fn(),
+    deleteObject: jest.fn(),
     getRoomObjects: jest.fn(),
+    updateObject: jest.fn(),
   }
   const presenceService = {
     getOnlineUsers: jest.fn(),
+    hasSocketInRoom: jest.fn(),
     joinRoom: jest.fn(),
     leaveAllRooms: jest.fn(),
     leaveRoom: jest.fn(),
@@ -111,8 +165,18 @@ describe("RealtimeGateway", () => {
 
     identityService.resolveSocketIdentity.mockResolvedValue(currentUser)
     roomsService.joinRoom.mockResolvedValue(joinResponse)
+    whiteboardObjectsService.createObject.mockResolvedValue(operationApplied)
+    whiteboardObjectsService.updateObject.mockResolvedValue({
+      ...operationApplied,
+      type: "OBJECT_UPDATE",
+    })
+    whiteboardObjectsService.deleteObject.mockResolvedValue({
+      ...operationApplied,
+      type: "OBJECT_DELETE",
+    })
     whiteboardObjectsService.getRoomObjects.mockResolvedValue(objectsResponse)
     presenceService.getOnlineUsers.mockReturnValue([onlineUser])
+    presenceService.hasSocketInRoom.mockReturnValue(true)
     presenceService.joinRoom.mockReturnValue([onlineUser])
     presenceService.leaveAllRooms.mockReturnValue([])
     presenceService.leaveRoom.mockReturnValue([])
@@ -261,5 +325,278 @@ describe("RealtimeGateway", () => {
       roomId,
       onlineUsers: [onlineUser],
     })
+  })
+
+  it("persists object:create and broadcasts the accepted operation to the room", async () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    await gateway.handleObjectCreate(socket, {
+      roomId,
+      clientOpId,
+      object: {
+        type: "RECTANGLE",
+        x: 100,
+        y: 200,
+        width: 160,
+        height: 96,
+      },
+    })
+
+    expect(presenceService.hasSocketInRoom).toHaveBeenCalledWith(
+      socket.id,
+      roomId,
+    )
+    expect(whiteboardObjectsService.createObject).toHaveBeenCalledWith(
+      currentUser,
+      roomId,
+      {
+        clientOpId,
+        object: {
+          type: "RECTANGLE",
+          x: 100,
+          y: 200,
+          width: 160,
+          height: 96,
+        },
+      },
+    )
+    expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(roomEmitter.emit).toHaveBeenCalledWith(
+      "operation:applied",
+      operationApplied,
+    )
+    expect(server.emit).not.toHaveBeenCalled()
+  })
+
+  it("persists object:update with object id and broadcasts the accepted operation", async () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    await gateway.handleObjectUpdate(socket, {
+      roomId,
+      objectId,
+      clientOpId,
+      baseObjectVersion: 1,
+      patch: {
+        x: 120,
+      },
+    })
+
+    expect(whiteboardObjectsService.updateObject).toHaveBeenCalledWith(
+      currentUser,
+      roomId,
+      objectId,
+      {
+        clientOpId,
+        baseObjectVersion: 1,
+        patch: {
+          x: 120,
+        },
+      },
+    )
+    expect(roomEmitter.emit).toHaveBeenCalledWith(
+      "operation:applied",
+      expect.objectContaining({
+        type: "OBJECT_UPDATE",
+      }),
+    )
+  })
+
+  it("persists object:delete with object id and broadcasts the accepted operation", async () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    await gateway.handleObjectDelete(socket, {
+      roomId,
+      objectId,
+      clientOpId,
+      baseObjectVersion: 1,
+    })
+
+    expect(whiteboardObjectsService.deleteObject).toHaveBeenCalledWith(
+      currentUser,
+      roomId,
+      objectId,
+      {
+        clientOpId,
+        baseObjectVersion: 1,
+      },
+    )
+    expect(roomEmitter.emit).toHaveBeenCalledWith(
+      "operation:applied",
+      expect.objectContaining({
+        type: "OBJECT_DELETE",
+      }),
+    )
+  })
+
+  it("emits operation:rejected for invalid object payloads when context is available", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    await gateway.handleObjectUpdate(socket, {
+      roomId,
+      objectId: "not-a-uuid",
+      clientOpId,
+      baseObjectVersion: 1,
+      patch: {
+        x: 120,
+      },
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("operation:rejected", {
+      clientOpId,
+      roomId,
+      reason: "INVALID_OPERATION_PAYLOAD",
+      message: "Invalid object operation payload.",
+      latestObject: undefined,
+      currentRoomRevision: undefined,
+    })
+    expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
+  })
+
+  it("emits generic socket validation errors when malformed object payloads lack operation context", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    await gateway.handleObjectCreate(socket, {})
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({
+        code: "VALIDATION_ERROR",
+      }),
+    )
+    expect(whiteboardObjectsService.createObject).not.toHaveBeenCalled()
+  })
+
+  it("rejects object operations from sockets that have not joined the room", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    presenceService.hasSocketInRoom.mockReturnValue(false)
+
+    await gateway.handleObjectDelete(socket, {
+      roomId,
+      objectId,
+      clientOpId,
+      baseObjectVersion: 1,
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("operation:rejected", {
+      clientOpId,
+      roomId,
+      reason: "USER_NOT_IN_ROOM",
+      message: "Join the room before sending object operations.",
+      latestObject: undefined,
+      currentRoomRevision: undefined,
+    })
+    expect(whiteboardObjectsService.deleteObject).not.toHaveBeenCalled()
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "operation:applied",
+      expect.anything(),
+    )
+  })
+
+  it.each([
+    [
+      "permission failures",
+      new ForbiddenException({
+        code: "PERMISSION_DENIED",
+        message: "Only room owners and editors can edit this room.",
+      }),
+      "PERMISSION_DENIED",
+    ],
+    [
+      "duplicate client operations",
+      new ConflictException({
+        code: "DUPLICATE_OPERATION",
+        message: "This client operation has already been processed.",
+      }),
+      "DUPLICATE_OPERATION",
+    ],
+    [
+      "deleted objects",
+      new ConflictException({
+        code: "OBJECT_ALREADY_DELETED",
+        message: "Whiteboard object has already been deleted.",
+      }),
+      "OBJECT_ALREADY_DELETED",
+    ],
+  ])(
+    "emits operation:rejected for %s",
+    async (_caseName, serviceError, expectedReason) => {
+      const socket = makeSocket()
+      const socketMocks = getSocketMocks(socket)
+      socket.data.currentUser = currentUser
+      whiteboardObjectsService.updateObject.mockRejectedValue(serviceError)
+
+      await gateway.handleObjectUpdate(socket, {
+        roomId,
+        objectId,
+        clientOpId,
+        baseObjectVersion: 1,
+        patch: {
+          x: 120,
+        },
+      })
+
+      expect(socketMocks.emit).toHaveBeenCalledWith(
+        "operation:rejected",
+        expect.objectContaining({
+          clientOpId,
+          roomId,
+          reason: expectedReason,
+        }),
+      )
+      expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+        "operation:applied",
+        expect.anything(),
+      )
+    },
+  )
+
+  it("includes the latest object on version conflict rejections", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    whiteboardObjectsService.updateObject.mockRejectedValue(
+      new ConflictException({
+        code: "OBJECT_VERSION_CONFLICT",
+        message: "Whiteboard object has changed since your last edit.",
+        details: {
+          latestObject: {
+            ...whiteboardObject,
+            version: 2,
+          },
+        },
+      }),
+    )
+
+    await gateway.handleObjectUpdate(socket, {
+      roomId,
+      objectId,
+      clientOpId,
+      baseObjectVersion: 1,
+      patch: {
+        x: 120,
+      },
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "operation:rejected",
+      expect.objectContaining({
+        clientOpId,
+        roomId,
+        reason: "OBJECT_VERSION_CONFLICT",
+        latestObject: expect.objectContaining({
+          id: objectId,
+          version: 2,
+        }),
+      }),
+    )
   })
 })
