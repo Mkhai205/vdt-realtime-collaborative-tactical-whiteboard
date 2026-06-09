@@ -3,9 +3,10 @@
 import type {
   ObjectMutablePatch,
   ObjectType,
+  OnlineUser,
   OperationAppliedEvent,
   RoomRole,
-  RoomSummary,
+  RoomStateEvent,
   ShapeStyle,
   Tool,
   UserSummary,
@@ -34,9 +35,12 @@ import {
 
 type WhiteboardState = {
   roomId: string | null
-  room: RoomSummary | null
+  room: WhiteboardRoomState | null
   currentUser: WhiteboardCurrentUser | null
   currentRevision: number
+  connectionStatus: ConnectionStatus
+  socketError: string | null
+  onlineUsers: OnlineUser[]
   mutationError: string | null
   objects: Record<string, WhiteboardObject>
   selectedObjectId: string | null
@@ -48,6 +52,9 @@ type WhiteboardState = {
   selectObject: (objectId: string | null) => void
   setTool: (tool: Tool) => void
   setLoadedRoomState: (input: LoadedRoomStateInput) => void
+  setConnectionStatus: (status: ConnectionStatus) => void
+  setSocketError: (message: string | null) => void
+  setOnlineUsers: (onlineUsers: OnlineUser[]) => void
   setMutationError: (message: string | null) => void
   setObjects: (objects: WhiteboardObject[]) => void
   setObjectsWithRevision: (
@@ -78,11 +85,16 @@ type WhiteboardCurrentUser = UserSummary & {
   role: RoomRole
 }
 
+type WhiteboardRoomState = RoomStateEvent["room"]
+
+type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected"
+
 type LoadedRoomStateInput = {
-  room: RoomSummary
+  room: WhiteboardRoomState
   currentUser: WhiteboardCurrentUser
   currentRevision: number
   objects: WhiteboardObject[]
+  onlineUsers?: OnlineUser[]
 }
 
 export type LocalObjectInput = {
@@ -327,6 +339,9 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   room: null,
   currentUser: null,
   currentRevision: 0,
+  connectionStatus: "idle",
+  socketError: null,
+  onlineUsers: [],
   mutationError: null,
   objects: {},
   selectedObjectId: null,
@@ -345,6 +360,9 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         room: null,
         currentUser: null,
         currentRevision: 0,
+        connectionStatus: "idle",
+        socketError: null,
+        onlineUsers: [],
         mutationError: null,
         objects: {},
         selectedObjectId: null,
@@ -390,6 +408,9 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         room: input.room,
         currentUser: input.currentUser,
         currentRevision: input.currentRevision,
+        connectionStatus: "connected",
+        socketError: null,
+        onlineUsers: input.onlineUsers ?? state.onlineUsers,
         mutationError: null,
         objects: nextObjects,
         selectedObjectId:
@@ -400,6 +421,18 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           ? state.currentTool
           : "SELECT",
       }
+    }),
+  setConnectionStatus: (status) =>
+    set({
+      connectionStatus: status,
+    }),
+  setSocketError: (message) =>
+    set({
+      socketError: message,
+    }),
+  setOnlineUsers: (onlineUsers) =>
+    set({
+      onlineUsers,
     }),
   setMutationError: (message) =>
     set({

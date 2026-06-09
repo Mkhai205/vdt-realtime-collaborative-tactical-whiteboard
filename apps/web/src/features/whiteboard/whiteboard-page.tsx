@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import type { Tool } from "@rctw/shared-contracts"
 import {
   CircleIcon,
@@ -24,12 +24,8 @@ import {
   viewportZoomStep,
 } from "@/lib/canvas-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
-import { joinRoom } from "../rooms/room-api"
 import { ObjectDetailPanel } from "./object-detail-panel"
-import {
-  getRoomObjects,
-  getWhiteboardApiErrorMessage,
-} from "./whiteboard-api"
+import { useWhiteboardRoomSocket } from "./use-whiteboard-room-socket"
 
 const WhiteboardStage = dynamic(
   () => import("./whiteboard-stage").then((module) => module.WhiteboardStage),
@@ -60,13 +56,12 @@ const viewportScaleEpsilon = 0.001
 type LoadState = "loading" | "ready" | "error"
 
 export function WhiteboardPage({ roomId }: { roomId: string }) {
-  const setRoomId = useWhiteboardStore((state) => state.setRoomId)
-  const setLoadedRoomState = useWhiteboardStore(
-    (state) => state.setLoadedRoomState,
-  )
   const room = useWhiteboardStore((state) => state.room)
   const currentUser = useWhiteboardStore((state) => state.currentUser)
   const currentRevision = useWhiteboardStore((state) => state.currentRevision)
+  const connectionStatus = useWhiteboardStore((state) => state.connectionStatus)
+  const socketError = useWhiteboardStore((state) => state.socketError)
+  const onlineUsers = useWhiteboardStore((state) => state.onlineUsers)
   const mutationError = useWhiteboardStore((state) => state.mutationError)
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const viewport = useWhiteboardStore((state) => state.viewport)
@@ -74,53 +69,15 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
   const deleteSelectedObject = useWhiteboardStore(
     (state) => state.deleteSelectedObject,
   )
-  const [loadState, setLoadState] = useState<LoadState>("loading")
-  const [loadError, setLoadError] = useState("")
+  const hasLoadedRoom = room?.id === roomId && Boolean(currentUser)
+  const loadState: LoadState =
+    socketError && !hasLoadedRoom
+      ? "error"
+      : hasLoadedRoom
+        ? "ready"
+        : "loading"
 
-  useEffect(() => {
-    let isCurrent = true
-
-    async function loadWhiteboardState() {
-      setLoadState("loading")
-      setLoadError("")
-
-      try {
-        setRoomId(roomId)
-
-        const joinResponse = await joinRoom(roomId)
-        const objectsResponse = await getRoomObjects(roomId)
-
-        if (!isCurrent) {
-          return
-        }
-
-        setLoadedRoomState({
-          room: joinResponse.room,
-          currentUser: joinResponse.currentUser,
-          currentRevision: objectsResponse.currentRevision,
-          objects: objectsResponse.objects,
-        })
-        setLoadState("ready")
-      } catch (error) {
-        if (!isCurrent) {
-          return
-        }
-
-        setLoadError(getWhiteboardApiErrorMessage(error))
-        setLoadState("error")
-      }
-    }
-
-    void loadWhiteboardState()
-
-    return () => {
-      isCurrent = false
-    }
-  }, [roomId, setLoadedRoomState, setRoomId])
-
-  useEffect(() => {
-    setRoomId(roomId)
-  }, [roomId, setRoomId])
+  useWhiteboardRoomSocket(roomId)
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -155,12 +112,12 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">Whiteboard</Badge>
-            <Badge variant="outline">
-              {loadState === "loading"
-                ? "Loading"
-                : loadState === "error"
-                  ? "Error"
-                  : "Ready"}
+            <Badge variant={socketError ? "destructive" : "outline"}>
+              {socketError
+                ? "Error"
+                : connectionStatus === "connected" && hasLoadedRoom
+                  ? "Ready"
+                  : formatConnectionStatus(connectionStatus)}
             </Badge>
             {currentUser ? <Badge variant="outline">{currentUser.role}</Badge> : null}
             <Badge variant="outline">{currentTool}</Badge>
@@ -183,6 +140,8 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           <span>{Math.round(viewport.scale * 100)}%</span>
           <span aria-hidden="true">/</span>
           <span>rev {currentRevision}</span>
+          <span aria-hidden="true">/</span>
+          <span>{onlineUsers.length} online</span>
         </div>
       </header>
 
@@ -196,12 +155,17 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           <WhiteboardStage />
           <ZoomControls />
           {loadState === "loading" ? (
-            <StatusOverlay message="Loading room objects" />
+            <StatusOverlay message="Joining room" />
           ) : null}
-          {loadState === "error" ? <StatusOverlay message={loadError} /> : null}
-          {mutationError ? (
-            <div className="absolute top-3 left-3 max-w-md rounded-lg border border-destructive/40 bg-background/95 px-3 py-2 text-sm text-destructive shadow-sm backdrop-blur">
-              {mutationError}
+          {loadState === "error" ? (
+            <StatusOverlay message={socketError ?? "Socket connection failed."} />
+          ) : null}
+          {(socketError && hasLoadedRoom) || mutationError ? (
+            <div className="absolute top-3 left-3 flex max-w-md flex-col gap-2">
+              {socketError && hasLoadedRoom ? (
+                <StatusMessage message={socketError} />
+              ) : null}
+              {mutationError ? <StatusMessage message={mutationError} /> : null}
             </div>
           ) : null}
         </section>
@@ -209,6 +173,14 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         <ObjectDetailPanel />
       </section>
     </main>
+  )
+}
+
+function StatusMessage({ message }: { message: string }) {
+  return (
+    <div className="rounded-lg border border-destructive/40 bg-background/95 px-3 py-2 text-sm text-destructive shadow-sm backdrop-blur">
+      {message}
+    </div>
   )
 }
 
@@ -322,6 +294,21 @@ function ToolPalette() {
 
 function canEditRole(role: string | null | undefined): boolean {
   return role === "OWNER" || role === "EDITOR"
+}
+
+function formatConnectionStatus(status: string): string {
+  switch (status) {
+    case "connecting":
+      return "Connecting"
+    case "connected":
+      return "Connected"
+    case "reconnecting":
+      return "Reconnecting"
+    case "disconnected":
+      return "Disconnected"
+    default:
+      return "Idle"
+  }
 }
 
 function isEditTool(tool: Tool): boolean {

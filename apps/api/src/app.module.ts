@@ -7,6 +7,7 @@ import { IdentityModule } from "./modules/identity/identity.module"
 import { RoomsModule } from "./modules/rooms"
 import { WhiteboardSnapshotsModule } from "./modules/whiteboard-snapshots"
 import { WhiteboardObjectsModule } from "./modules/whiteboard-objects"
+import { RealtimeModule } from "./modules/realtime"
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WhiteboardObjectsModule } from "./modules/whiteboard-objects"
     RoomsModule,
     WhiteboardObjectsModule,
     WhiteboardSnapshotsModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
