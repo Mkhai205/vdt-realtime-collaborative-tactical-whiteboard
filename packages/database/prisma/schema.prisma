@@ -66,6 +66,7 @@ model Room {
   members    RoomMember[]
   objects    WhiteboardObject[]
   operations WhiteboardOperation[]
+  snapshots  RoomSnapshot[]
 
   @@index([createdById])
   @@index([isPublic])
@@ -142,4 +143,16 @@ model WhiteboardOperation {
   @@index([objectId])
   @@index([actorId])
   @@index([createdAt])
+}
+
+model RoomSnapshot {
+  id        String   @id @default(uuid()) @db.Uuid
+  roomId    String   @db.Uuid
+  revision  BigInt
+  data      Json
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  room Room @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, revision])
 }

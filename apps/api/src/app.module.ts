@@ -5,6 +5,7 @@ import { ConfigModule } from "@nestjs/config"
 import { validateEnv } from "./config"
 import { IdentityModule } from "./modules/identity/identity.module"
 import { RoomsModule } from "./modules/rooms"
+import { WhiteboardSnapshotsModule } from "./modules/whiteboard-snapshots"
 import { WhiteboardObjectsModule } from "./modules/whiteboard-objects"
 
 @Module({
@@ -18,6 +19,7 @@ import { WhiteboardObjectsModule } from "./modules/whiteboard-objects"
     IdentityModule,
     RoomsModule,
     WhiteboardObjectsModule,
+    WhiteboardSnapshotsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
