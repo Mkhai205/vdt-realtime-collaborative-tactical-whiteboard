@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type {
   ObjectMutablePatch,
+  ObjectTransformPreviewPatch,
   Tool,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
@@ -32,6 +33,7 @@ const minLineLength = 8
 const minObjectTransformSize = 16
 const minLineTransformLength = 8
 const canvasValuePrecision = 100
+const transformPreviewThrottleMs = 50
 
 const transformerAnchors = [
   "top-left",
@@ -83,6 +85,13 @@ export function WhiteboardStage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const objectNodesRef = useRef(new Map<string, Konva.Node>())
   const panDragRef = useRef<PanDrag | null>(null)
+  const transformPreviewTimersRef = useRef(
+    new Map<string, ReturnType<typeof setTimeout>>(),
+  )
+  const transformPreviewLastSentAtRef = useRef(new Map<string, number>())
+  const transformPreviewPendingRef = useRef(
+    new Map<string, ObjectTransformPreviewPatch>(),
+  )
   const transformerRef = useRef<Konva.Transformer>(null)
   const [lineDraft, setLineDraft] = useState<LineDraft | null>(null)
   const [isSpacePanning, setIsSpacePanning] = useState(false)
@@ -106,6 +115,9 @@ export function WhiteboardStage() {
   const updateObjectPatch = useWhiteboardStore(
     (state) => state.updateObjectPatch,
   )
+  const sendTransformPreview = useWhiteboardStore(
+    (state) => state.sendTransformPreview,
+  )
   const colors = useCanvasThemeColors()
   const canEdit = currentUserRole === "OWNER" || currentUserRole === "EDITOR"
   const isTransformToolActive = currentTool === "SELECT"
@@ -116,6 +128,72 @@ export function WhiteboardStage() {
     panDragRef.current = null
     setIsPanning(false)
   }, [])
+
+  const cancelTransformPreview = useCallback((objectId: string) => {
+    const timeout = transformPreviewTimersRef.current.get(objectId)
+
+    if (timeout) {
+      clearTimeout(timeout)
+      transformPreviewTimersRef.current.delete(objectId)
+    }
+
+    transformPreviewPendingRef.current.delete(objectId)
+  }, [])
+
+  const cancelAllTransformPreviews = useCallback(() => {
+    for (const timeout of transformPreviewTimersRef.current.values()) {
+      clearTimeout(timeout)
+    }
+
+    transformPreviewTimersRef.current.clear()
+    transformPreviewPendingRef.current.clear()
+  }, [])
+
+  const queueTransformPreview = useCallback(
+    (objectId: string, preview: ObjectTransformPreviewPatch) => {
+      const now = Date.now()
+      const lastSentAt =
+        transformPreviewLastSentAtRef.current.get(objectId) ?? 0
+      const elapsed = now - lastSentAt
+
+      if (elapsed >= transformPreviewThrottleMs) {
+        cancelTransformPreview(objectId)
+        transformPreviewLastSentAtRef.current.set(objectId, now)
+        sendTransformPreview(objectId, preview)
+        return
+      }
+
+      transformPreviewPendingRef.current.set(objectId, preview)
+
+      if (transformPreviewTimersRef.current.has(objectId)) {
+        return
+      }
+
+      const timeout = setTimeout(() => {
+        transformPreviewTimersRef.current.delete(objectId)
+
+        const pendingPreview =
+          transformPreviewPendingRef.current.get(objectId)
+
+        if (!pendingPreview) {
+          return
+        }
+
+        transformPreviewPendingRef.current.delete(objectId)
+        transformPreviewLastSentAtRef.current.set(objectId, Date.now())
+        sendTransformPreview(objectId, pendingPreview)
+      }, transformPreviewThrottleMs - elapsed)
+
+      transformPreviewTimersRef.current.set(objectId, timeout)
+    },
+    [cancelTransformPreview, sendTransformPreview],
+  )
+
+  useEffect(() => {
+    return () => {
+      cancelAllTransformPreviews()
+    }
+  }, [cancelAllTransformPreviews])
 
   useEffect(() => {
     const container = containerRef.current
@@ -175,6 +253,7 @@ export function WhiteboardStage() {
     function handleWindowBlur() {
       setIsSpacePanning(false)
       clearPanDrag()
+      cancelAllTransformPreviews()
     }
 
     window.addEventListener("keydown", handleKeyDown)
@@ -186,7 +265,7 @@ export function WhiteboardStage() {
       window.removeEventListener("keyup", handleKeyUp)
       window.removeEventListener("blur", handleWindowBlur)
     }
-  }, [clearPanDrag])
+  }, [cancelAllTransformPreviews, clearPanDrag])
 
   const visibleWorldRect = useMemo(
     () => getVisibleWorldRect(viewport, stageSize),
@@ -242,6 +321,27 @@ export function WhiteboardStage() {
     [currentTool, isPanningModeActive, selectObject],
   )
 
+  const handleObjectDragMove = useCallback(
+    (objectId: string, event: KonvaEventObject<DragEvent>) => {
+      if (!canEdit || currentTool !== "SELECT") {
+        return
+      }
+
+      const currentObject = useWhiteboardStore.getState().objects[objectId]
+
+      if (!currentObject || currentObject.deletedAt) {
+        return
+      }
+
+      event.cancelBubble = true
+      queueTransformPreview(
+        objectId,
+        buildDragPatch(currentObject, event.target),
+      )
+    },
+    [canEdit, currentTool, queueTransformPreview],
+  )
+
   const handleObjectDragEnd = useCallback(
     (objectId: string, event: KonvaEventObject<DragEvent>) => {
       if (!canEdit || currentTool !== "SELECT") {
@@ -255,13 +355,14 @@ export function WhiteboardStage() {
       }
 
       event.cancelBubble = true
+      cancelTransformPreview(objectId)
       updateObjectPatch(
         objectId,
         buildDragPatch(currentObject, event.target),
       )
       transformerRef.current?.forceUpdate()
     },
-    [canEdit, currentTool, updateObjectPatch],
+    [canEdit, cancelTransformPreview, currentTool, updateObjectPatch],
   )
 
   const handleTransformerBoundBox = useCallback(
@@ -288,6 +389,30 @@ export function WhiteboardStage() {
     [selectedObjectId],
   )
 
+  const handleTransform = useCallback(() => {
+    if (!canTransformObjects || !selectedObjectId) {
+      return
+    }
+
+    const selectedNode = objectNodesRef.current.get(selectedObjectId)
+
+    if (!selectedNode) {
+      return
+    }
+
+    const currentObject =
+      useWhiteboardStore.getState().objects[selectedObjectId]
+
+    if (!currentObject || currentObject.deletedAt) {
+      return
+    }
+
+    queueTransformPreview(
+      selectedObjectId,
+      buildTransformPatch(currentObject, selectedNode),
+    )
+  }, [canTransformObjects, queueTransformPreview, selectedObjectId])
+
   const handleTransformEnd = useCallback(() => {
     if (!canTransformObjects || !selectedObjectId) {
       return
@@ -308,10 +433,16 @@ export function WhiteboardStage() {
 
     const patch = buildTransformPatch(currentObject, selectedNode)
 
+    cancelTransformPreview(selectedObjectId)
     applyCommittedPatchToNode(currentObject, selectedNode, patch)
     updateObjectPatch(selectedObjectId, patch)
     transformerRef.current?.forceUpdate()
-  }, [canTransformObjects, selectedObjectId, updateObjectPatch])
+  }, [
+    canTransformObjects,
+    cancelTransformPreview,
+    selectedObjectId,
+    updateObjectPatch,
+  ])
 
   function handleWheel(event: KonvaEventObject<WheelEvent>) {
     const pointer = getStagePointer(event)
@@ -447,6 +578,7 @@ export function WhiteboardStage() {
 
   function handlePointerCancel() {
     clearPanDrag()
+    cancelAllTransformPreviews()
     setLineDraft(null)
   }
 
@@ -511,6 +643,7 @@ export function WhiteboardStage() {
           }}
             draggable={canTransformObjects && !isPanningModeActive}
             onObjectPointerDown={handleObjectPointerDown}
+            onObjectDragMove={handleObjectDragMove}
             onObjectDragEnd={handleObjectDragEnd}
             registerObjectNode={registerObjectNode}
           />
@@ -552,6 +685,7 @@ export function WhiteboardStage() {
             borderStroke={colors.primary}
             borderStrokeWidth={1 / viewport.scale}
             rotateAnchorOffset={36 / viewport.scale}
+            onTransform={handleTransform}
             onTransformEnd={handleTransformEnd}
           />
         </Layer>

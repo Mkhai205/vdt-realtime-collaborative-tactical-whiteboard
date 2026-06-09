@@ -133,6 +133,7 @@ function getSocketMocks(socket: TestSocket): TestSocketMocks {
 
 describe("RealtimeGateway", () => {
   const roomEmitter = {
+    except: jest.fn(),
     emit: jest.fn(),
   }
   const server = {
@@ -153,6 +154,7 @@ describe("RealtimeGateway", () => {
   }
   const presenceService = {
     getOnlineUsers: jest.fn(),
+    getSocketRoomRole: jest.fn(),
     hasSocketInRoom: jest.fn(),
     joinRoom: jest.fn(),
     leaveAllRooms: jest.fn(),
@@ -176,10 +178,12 @@ describe("RealtimeGateway", () => {
     })
     whiteboardObjectsService.getRoomObjects.mockResolvedValue(objectsResponse)
     presenceService.getOnlineUsers.mockReturnValue([onlineUser])
+    presenceService.getSocketRoomRole.mockReturnValue("EDITOR")
     presenceService.hasSocketInRoom.mockReturnValue(true)
     presenceService.joinRoom.mockReturnValue([onlineUser])
     presenceService.leaveAllRooms.mockReturnValue([])
     presenceService.leaveRoom.mockReturnValue([])
+    roomEmitter.except.mockReturnValue(roomEmitter)
 
     gateway = new RealtimeGateway(
       identityService as unknown as IdentityService,
@@ -428,6 +432,116 @@ describe("RealtimeGateway", () => {
       expect.objectContaining({
         type: "OBJECT_DELETE",
       }),
+    )
+  })
+
+  it("broadcasts transform previews to the room excluding the sender without persistence", () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    gateway.handleObjectTransformPreview(socket, {
+      roomId,
+      objectId,
+      preview: {
+        x: 120,
+        y: 240,
+      },
+    })
+
+    expect(presenceService.getSocketRoomRole).toHaveBeenCalledWith(
+      socket.id,
+      roomId,
+    )
+    expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(roomEmitter.except).toHaveBeenCalledWith(socket.id)
+    expect(roomEmitter.emit).toHaveBeenCalledWith(
+      "object:transform-previewed",
+      {
+        roomId,
+        objectId,
+        user: currentUser,
+        preview: {
+          x: 120,
+          y: 240,
+        },
+        timestamp: expect.any(String),
+      },
+    )
+    expect(whiteboardObjectsService.createObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.deleteObject).not.toHaveBeenCalled()
+  })
+
+  it("emits validation errors for invalid transform preview payloads", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    gateway.handleObjectTransformPreview(socket, {
+      roomId,
+      objectId: "not-a-uuid",
+      preview: {
+        x: 120,
+      },
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({
+        code: "VALIDATION_ERROR",
+      }),
+    )
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "object:transform-previewed",
+      expect.anything(),
+    )
+  })
+
+  it("rejects transform previews from sockets that have not joined the room", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    presenceService.getSocketRoomRole.mockReturnValue(null)
+
+    gateway.handleObjectTransformPreview(socket, {
+      roomId,
+      objectId,
+      preview: {
+        x: 120,
+      },
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("error", {
+      code: "USER_NOT_IN_ROOM",
+      message: "Join the room before sending transform previews.",
+    })
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "object:transform-previewed",
+      expect.anything(),
+    )
+  })
+
+  it("rejects transform previews from viewers", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    presenceService.getSocketRoomRole.mockReturnValue("VIEWER")
+
+    gateway.handleObjectTransformPreview(socket, {
+      roomId,
+      objectId,
+      preview: {
+        rotation: 45,
+      },
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("error", {
+      code: "PERMISSION_DENIED",
+      message: "Only room owners and editors can preview transforms.",
+    })
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "object:transform-previewed",
+      expect.anything(),
     )
   })
 

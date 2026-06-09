@@ -1,7 +1,10 @@
 "use client"
 
 import { useMemo } from "react"
-import type { WhiteboardObject } from "@rctw/shared-contracts"
+import type {
+  ObjectTransformPreviewPatch,
+  WhiteboardObject,
+} from "@rctw/shared-contracts"
 import type Konva from "konva"
 import type { KonvaEventObject } from "konva/lib/Node"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
@@ -21,6 +24,10 @@ type WhiteboardObjectLayerProps = {
     objectId: string,
     event: KonvaEventObject<DragEvent>,
   ) => void
+  onObjectDragMove?: (
+    objectId: string,
+    event: KonvaEventObject<DragEvent>,
+  ) => void
   registerObjectNode?: (objectId: string, node: Konva.Node | null) => void
 }
 
@@ -29,16 +36,25 @@ export function WhiteboardObjectLayer({
   draggable = false,
   onObjectPointerDown,
   onObjectDragEnd,
+  onObjectDragMove,
   registerObjectNode,
 }: WhiteboardObjectLayerProps) {
   const objects = useWhiteboardStore((state) => state.objects)
+  const remoteTransformPreviews = useWhiteboardStore(
+    (state) => state.remoteTransformPreviews,
+  )
 
   const visibleObjects = useMemo(
     () =>
       Object.values(objects)
         .filter((object) => !object.deletedAt)
+        .map((object) => {
+          const preview = remoteTransformPreviews[object.id]?.preview
+
+          return preview ? applyTransformPreview(object, preview) : object
+        })
         .sort(compareWhiteboardObjects),
-    [objects],
+    [objects, remoteTransformPreviews],
   )
 
   return (
@@ -51,11 +67,27 @@ export function WhiteboardObjectLayer({
           draggable={draggable}
           onObjectPointerDown={onObjectPointerDown}
           onObjectDragEnd={onObjectDragEnd}
+          onObjectDragMove={onObjectDragMove}
           registerObjectNode={registerObjectNode}
         />
       ))}
     </>
   )
+}
+
+function applyTransformPreview(
+  object: WhiteboardObject,
+  preview: ObjectTransformPreviewPatch,
+): WhiteboardObject {
+  return {
+    ...object,
+    x: preview.x ?? object.x,
+    y: preview.y ?? object.y,
+    width: preview.width ?? object.width,
+    height: preview.height ?? object.height,
+    points: preview.points ?? object.points,
+    rotation: preview.rotation ?? object.rotation,
+  }
 }
 
 function compareWhiteboardObjects(

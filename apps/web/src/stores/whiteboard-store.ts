@@ -4,6 +4,9 @@ import type {
   ObjectCreateSocketRequest,
   ObjectDeleteSocketRequest,
   ObjectMutablePatch,
+  ObjectTransformPreviewPatch,
+  ObjectTransformPreviewRequest,
+  ObjectTransformPreviewedEvent,
   ObjectType,
   ObjectUpdateSocketRequest,
   OnlineUser,
@@ -41,11 +44,13 @@ type WhiteboardState = {
   onlineUsers: OnlineUser[]
   mutationError: string | null
   objects: Record<string, WhiteboardObject>
+  remoteTransformPreviews: Record<string, RemoteTransformPreview>
   appliedClientOpIds: Record<string, true>
   selectedObjectId: string | null
   currentTool: Tool
   toolRevision: number
   objectOperationSender: WhiteboardOperationSender | null
+  transformPreviewSender: WhiteboardTransformPreviewSender | null
   viewport: Viewport
   stageSize: StageSize
   setRoomId: (roomId: string) => void
@@ -57,6 +62,9 @@ type WhiteboardState = {
   setOnlineUsers: (onlineUsers: OnlineUser[]) => void
   setMutationError: (message: string | null) => void
   setObjectOperationSender: (sender: WhiteboardOperationSender | null) => void
+  setTransformPreviewSender: (
+    sender: WhiteboardTransformPreviewSender | null,
+  ) => void
   setObjects: (objects: WhiteboardObject[]) => void
   setObjectsWithRevision: (
     objects: WhiteboardObject[],
@@ -68,6 +76,14 @@ type WhiteboardState = {
     options?: { removeObjectId?: string },
   ) => void
   applyOperationRejection: (rejection: OperationRejectedEvent) => void
+  applyRemoteTransformPreview: (
+    event: ObjectTransformPreviewedEvent,
+  ) => void
+  clearRemoteTransformPreview: (objectId: string) => void
+  sendTransformPreview: (
+    objectId: string,
+    preview: ObjectTransformPreviewPatch,
+  ) => void
   updateObjectPatch: (
     objectId: string,
     patch: ObjectMutablePatch,
@@ -99,6 +115,15 @@ type LoadedRoomStateInput = {
   onlineUsers?: OnlineUser[]
 }
 
+export type RemoteTransformPreview = {
+  roomId: string
+  objectId: string
+  user: UserSummary
+  preview: ObjectTransformPreviewPatch
+  timestamp: string
+  receivedAt: number
+}
+
 export type LocalObjectInput = {
   type: ObjectType
   x: number
@@ -124,15 +149,24 @@ export type WhiteboardOperationSender = {
   ) => Promise<OperationAppliedEvent>
 }
 
+export type WhiteboardTransformPreviewSender = {
+  sendPreview: (request: ObjectTransformPreviewRequest) => void
+}
+
 const emptyStageSize: StageSize = {
   width: 0,
   height: 0,
 }
 
+const remoteTransformPreviewStaleMs = 1500
 const demoActorId = "00000000-0000-4000-8000-000000000401"
 const localFallbackActorId = "00000000-0000-4000-8000-000000000402"
 const demoTimestamp = "2026-06-06T00:00:00.000Z"
 let mutationQueue = Promise.resolve()
+const remoteTransformPreviewTimeouts = new Map<
+  string,
+  ReturnType<typeof setTimeout>
+>()
 
 function normalizeStageSize(stageSize: StageSize): StageSize {
   return {
@@ -168,6 +202,72 @@ function getNextZIndex(objects: Record<string, WhiteboardObject>): number {
     .reduce((max, object) => Math.max(max, object.zIndex), 0)
 
   return maxZIndex + 10
+}
+
+function clearRemotePreviewTimeout(objectId: string | null | undefined) {
+  if (!objectId) {
+    return
+  }
+
+  const timeout = remoteTransformPreviewTimeouts.get(objectId)
+
+  if (!timeout) {
+    return
+  }
+
+  clearTimeout(timeout)
+  remoteTransformPreviewTimeouts.delete(objectId)
+}
+
+function clearAllRemotePreviewTimeouts() {
+  for (const timeout of remoteTransformPreviewTimeouts.values()) {
+    clearTimeout(timeout)
+  }
+
+  remoteTransformPreviewTimeouts.clear()
+}
+
+function scheduleRemotePreviewTimeout(
+  objectId: string,
+  clearRemoteTransformPreview: (targetObjectId: string) => void,
+) {
+  clearRemotePreviewTimeout(objectId)
+
+  const timeout = setTimeout(() => {
+    remoteTransformPreviewTimeouts.delete(objectId)
+    clearRemoteTransformPreview(objectId)
+  }, remoteTransformPreviewStaleMs)
+
+  remoteTransformPreviewTimeouts.set(objectId, timeout)
+}
+
+function removeRemoteTransformPreviews(
+  previews: Record<string, RemoteTransformPreview>,
+  objectIds: Array<string | null | undefined>,
+): Record<string, RemoteTransformPreview> {
+  const targetObjectIds = objectIds.filter(
+    (objectId): objectId is string => Boolean(objectId),
+  )
+
+  if (targetObjectIds.length === 0) {
+    return previews
+  }
+
+  let nextPreviews = previews
+
+  for (const objectId of targetObjectIds) {
+    if (!(objectId in nextPreviews)) {
+      continue
+    }
+
+    if (nextPreviews === previews) {
+      nextPreviews = { ...previews }
+    }
+
+    delete nextPreviews[objectId]
+  }
+
+  return nextPreviews
 }
 
 function getLocalActorId(): string {
@@ -426,14 +526,20 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   onlineUsers: [],
   mutationError: null,
   objects: {},
+  remoteTransformPreviews: {},
   appliedClientOpIds: {},
   selectedObjectId: null,
   currentTool: "SELECT",
   toolRevision: 0,
   objectOperationSender: null,
+  transformPreviewSender: null,
   viewport: initialViewport,
   stageSize: emptyStageSize,
-  setRoomId: (roomId) =>
+  setRoomId: (roomId) => {
+    if (get().roomId !== roomId) {
+      clearAllRemotePreviewTimeouts()
+    }
+
     set((state) => {
       if (state.roomId === roomId) {
         return state
@@ -449,14 +555,17 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         onlineUsers: [],
         mutationError: null,
         objects: {},
+        remoteTransformPreviews: {},
         appliedClientOpIds: {},
         selectedObjectId: null,
         currentTool: "SELECT",
         toolRevision: state.toolRevision + 1,
         objectOperationSender: null,
+        transformPreviewSender: null,
         viewport: getCenteredViewport(state.stageSize),
       }
-    }),
+    })
+  },
   selectObject: (objectId) =>
     set((state) => {
       if (!objectId) {
@@ -482,7 +591,9 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
             toolRevision: state.toolRevision + 1,
           },
     ),
-  setLoadedRoomState: (input) =>
+  setLoadedRoomState: (input) => {
+    clearAllRemotePreviewTimeouts()
+
     set((state) => {
       const nextObjects = toObjectRecord(input.objects)
       const selectedObject = state.selectedObjectId
@@ -499,6 +610,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         onlineUsers: input.onlineUsers ?? state.onlineUsers,
         mutationError: null,
         objects: nextObjects,
+        remoteTransformPreviews: {},
         appliedClientOpIds: {},
         selectedObjectId:
           selectedObject && !selectedObject.deletedAt
@@ -508,7 +620,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           ? state.currentTool
           : "SELECT",
       }
-    }),
+    })
+  },
   setConnectionStatus: (status) =>
     set({
       connectionStatus: status,
@@ -529,7 +642,13 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     set({
       objectOperationSender: sender,
     }),
-  setObjects: (objects) =>
+  setTransformPreviewSender: (sender) =>
+    set({
+      transformPreviewSender: sender,
+    }),
+  setObjects: (objects) => {
+    clearAllRemotePreviewTimeouts()
+
     set((state) => {
       const nextObjects = toObjectRecord(objects)
       const selectedObject = state.selectedObjectId
@@ -538,13 +657,17 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
+        remoteTransformPreviews: {},
         selectedObjectId:
           selectedObject && !selectedObject.deletedAt
             ? state.selectedObjectId
             : null,
       }
-    }),
-  setObjectsWithRevision: (objects, currentRevision) =>
+    })
+  },
+  setObjectsWithRevision: (objects, currentRevision) => {
+    clearAllRemotePreviewTimeouts()
+
     set((state) => {
       const nextObjects = toObjectRecord(objects)
       const selectedObject = state.selectedObjectId
@@ -553,13 +676,15 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
+        remoteTransformPreviews: {},
         currentRevision,
         selectedObjectId:
           selectedObject && !selectedObject.deletedAt
             ? state.selectedObjectId
             : null,
       }
-    }),
+    })
+  },
   upsertObject: (object) =>
     set((state) => ({
       objects: {
@@ -567,14 +692,29 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         [object.id]: object,
       },
     })),
-  applyOperation: (operation, options) =>
+  applyOperation: (operation, options) => {
+    clearRemotePreviewTimeout(operation.objectId ?? undefined)
+    clearRemotePreviewTimeout(operation.resultingObject?.id)
+
     set((state) => {
+      if (state.roomId !== operation.roomId) {
+        return state
+      }
+
+      const nextRemoteTransformPreviews = removeRemoteTransformPreviews(
+        state.remoteTransformPreviews,
+        [operation.objectId, operation.resultingObject?.id],
+      )
+
       if (
-        state.roomId !== operation.roomId ||
         state.appliedClientOpIds[operation.clientOpId] ||
         operation.revision <= state.currentRevision
       ) {
-        return state
+        return nextRemoteTransformPreviews === state.remoteTransformPreviews
+          ? state
+          : {
+              remoteTransformPreviews: nextRemoteTransformPreviews,
+            }
       }
 
       const nextObjects = applyOperationToObjects(
@@ -594,12 +734,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         },
         currentRevision: operation.revision,
         mutationError: null,
+        remoteTransformPreviews: nextRemoteTransformPreviews,
         selectedObjectId:
           selectedObject && !selectedObject.deletedAt
             ? state.selectedObjectId
             : null,
       }
-    }),
+    })
+  },
   applyOperationRejection: (rejection) =>
     set((state) => {
       if (state.roomId !== rejection.roomId) {
@@ -637,6 +779,84 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
             : null,
       }
     }),
+  applyRemoteTransformPreview: (event) => {
+    const state = get()
+
+    if (state.roomId !== event.roomId) {
+      return
+    }
+
+    const object = state.objects[event.objectId]
+
+    if (!object || object.deletedAt) {
+      return
+    }
+
+    set((currentState) => {
+      if (currentState.roomId !== event.roomId) {
+        return currentState
+      }
+
+      const currentObject = currentState.objects[event.objectId]
+
+      if (!currentObject || currentObject.deletedAt) {
+        return currentState
+      }
+
+      return {
+        remoteTransformPreviews: {
+          ...currentState.remoteTransformPreviews,
+          [event.objectId]: {
+            ...event,
+            receivedAt: Date.now(),
+          },
+        },
+      }
+    })
+
+    scheduleRemotePreviewTimeout(
+      event.objectId,
+      get().clearRemoteTransformPreview,
+    )
+  },
+  clearRemoteTransformPreview: (objectId) => {
+    clearRemotePreviewTimeout(objectId)
+
+    set((state) => {
+      if (!(objectId in state.remoteTransformPreviews)) {
+        return state
+      }
+
+      const nextRemoteTransformPreviews = {
+        ...state.remoteTransformPreviews,
+      }
+      delete nextRemoteTransformPreviews[objectId]
+
+      return {
+        remoteTransformPreviews: nextRemoteTransformPreviews,
+      }
+    })
+  },
+  sendTransformPreview: (objectId, preview) => {
+    const state = get()
+    const object = state.objects[objectId]
+
+    if (
+      !state.roomId ||
+      !state.transformPreviewSender ||
+      !canEditRoom(state.currentUser?.role) ||
+      !object ||
+      object.deletedAt
+    ) {
+      return
+    }
+
+    state.transformPreviewSender.sendPreview({
+      roomId: state.roomId,
+      objectId,
+      preview,
+    })
+  },
   updateObjectPatch: (objectId, patch) => {
     const state = get()
 
@@ -699,17 +919,25 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       }
     })
   },
-  removeObject: (objectId) =>
+  removeObject: (objectId) => {
+    clearRemotePreviewTimeout(objectId)
+
     set((state) => {
       const nextObjects = { ...state.objects }
+      const nextRemoteTransformPreviews = {
+        ...state.remoteTransformPreviews,
+      }
       delete nextObjects[objectId]
+      delete nextRemoteTransformPreviews[objectId]
 
       return {
         objects: nextObjects,
+        remoteTransformPreviews: nextRemoteTransformPreviews,
         selectedObjectId:
           state.selectedObjectId === objectId ? null : state.selectedObjectId,
       }
-    }),
+    })
+  },
   deleteSelectedObject: () => {
     const state = get()
     const selectedObjectId = state.selectedObjectId
@@ -734,6 +962,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       return
     }
 
+    clearRemotePreviewTimeout(selectedObjectId)
+
     set((currentState) => ({
       objects: {
         ...currentState.objects,
@@ -742,6 +972,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           deletedAt: new Date().toISOString(),
         },
       },
+      remoteTransformPreviews: removeRemoteTransformPreviews(
+        currentState.remoteTransformPreviews,
+        [selectedObjectId],
+      ),
       selectedObjectId: null,
     }))
 

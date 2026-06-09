@@ -55,6 +55,8 @@ describe("PresenceService", () => {
     ])
     expect(service.hasSocketInRoom("socket-1", roomId)).toBe(true)
     expect(service.hasSocketInRoom("socket-1", otherRoomId)).toBe(false)
+    expect(service.getSocketRoomRole("socket-1", roomId)).toBe("OWNER")
+    expect(service.getSocketRoomRole("socket-1", otherRoomId)).toBeNull()
   })
 
   it("deduplicates the same user across multiple sockets", () => {

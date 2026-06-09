@@ -14,6 +14,7 @@ import {
 } from "@nestjs/websockets"
 import {
   clientOpIdSchema,
+  objectTransformPreviewRequestSchema,
   objectCreateSocketRequestSchema,
   objectDeleteSocketRequestSchema,
   objectUpdateSocketRequestSchema,
@@ -26,6 +27,7 @@ import {
   type OperationRejectedEvent,
   type OperationRejectedReason,
   type RoomStateEvent,
+  type RoomRole,
   type SocketErrorEvent,
   type UserSummary,
   type WhiteboardObject,
@@ -234,11 +236,63 @@ export class RealtimeGateway
     )
   }
 
+  @SubscribeMessage("object:transform-preview")
+  handleObjectTransformPreview(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): void {
+    const parsed = objectTransformPreviewRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      client.emit("error", this.validationError(parsed.error))
+      return
+    }
+
+    try {
+      const currentUser = this.requireCurrentUser(client)
+      const { roomId, objectId, preview } = parsed.data
+      const role = this.presenceService.getSocketRoomRole(client.id, roomId)
+
+      if (!role) {
+        client.emit("error", {
+          code: "USER_NOT_IN_ROOM",
+          message: "Join the room before sending transform previews.",
+        })
+        return
+      }
+
+      if (!this.canPreviewTransform(role)) {
+        client.emit("error", {
+          code: "PERMISSION_DENIED",
+          message: "Only room owners and editors can preview transforms.",
+        })
+        return
+      }
+
+      this.server
+        .to(toRoomSocketName(roomId))
+        .except(client.id)
+        .emit("object:transform-previewed", {
+          roomId,
+          objectId,
+          user: currentUser,
+          preview,
+          timestamp: new Date().toISOString(),
+        })
+    } catch (error) {
+      client.emit("error", this.toSocketError(error))
+    }
+  }
+
   private emitPresenceUpdate(roomId: string): void {
     this.server.to(toRoomSocketName(roomId)).emit("presence:update", {
       roomId,
       onlineUsers: this.presenceService.getOnlineUsers(roomId),
     })
+  }
+
+  private canPreviewTransform(role: RoomRole): boolean {
+    return role === "OWNER" || role === "EDITOR"
   }
 
   private async processObjectOperation(

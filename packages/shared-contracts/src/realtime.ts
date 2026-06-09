@@ -44,6 +44,31 @@ export const presenceUpdateEventSchema = z.object({
     onlineUsers: z.array(onlineUserSchema),
 });
 
+export const objectTransformPreviewPatchSchema = z
+    .object({
+        x: z.number().finite().optional(),
+        y: z.number().finite().optional(),
+        width: z.number().finite().optional(),
+        height: z.number().finite().optional(),
+        rotation: z.number().finite().optional(),
+        points: z.array(z.number().finite()).optional(),
+    })
+    .refine((value) => Object.keys(value).length > 0, {
+        message: "At least one transform preview field is required.",
+    });
+
+export const objectTransformPreviewRequestSchema = z.object({
+    roomId: z.uuid(),
+    objectId: z.uuid(),
+    preview: objectTransformPreviewPatchSchema,
+});
+
+export const objectTransformPreviewedEventSchema =
+    objectTransformPreviewRequestSchema.extend({
+        user: userSummarySchema,
+        timestamp: z.string(),
+    });
+
 export const socketErrorEventSchema = z.object({
     code: z.string().min(1),
     message: z.string().min(1),
@@ -55,4 +80,13 @@ export type RoomLeaveRequest = z.infer<typeof roomLeaveRequestSchema>;
 export type OnlineUser = z.infer<typeof onlineUserSchema>;
 export type RoomStateEvent = z.infer<typeof roomStateEventSchema>;
 export type PresenceUpdateEvent = z.infer<typeof presenceUpdateEventSchema>;
+export type ObjectTransformPreviewPatch = z.infer<
+    typeof objectTransformPreviewPatchSchema
+>;
+export type ObjectTransformPreviewRequest = z.infer<
+    typeof objectTransformPreviewRequestSchema
+>;
+export type ObjectTransformPreviewedEvent = z.infer<
+    typeof objectTransformPreviewedEventSchema
+>;
 export type SocketErrorEvent = z.infer<typeof socketErrorEventSchema>;

@@ -1,6 +1,8 @@
 import type {
   ObjectCreateSocketRequest,
   ObjectDeleteSocketRequest,
+  ObjectTransformPreviewRequest,
+  ObjectTransformPreviewedEvent,
   ObjectUpdateSocketRequest,
   OperationAppliedEvent,
   OperationRejectedEvent,
@@ -17,6 +19,9 @@ import { socketBaseUrl } from "./api-url"
 type ServerToClientEvents = {
   "room:state": (event: RoomStateEvent) => void
   "presence:update": (event: PresenceUpdateEvent) => void
+  "object:transform-previewed": (
+    event: ObjectTransformPreviewedEvent,
+  ) => void
   "operation:applied": (event: OperationAppliedEvent) => void
   "operation:rejected": (event: OperationRejectedEvent) => void
   error: (event: SocketErrorEvent) => void
@@ -28,6 +33,9 @@ type ClientToServerEvents = {
   "object:create": (request: ObjectCreateSocketRequest) => void
   "object:update": (request: ObjectUpdateSocketRequest) => void
   "object:delete": (request: ObjectDeleteSocketRequest) => void
+  "object:transform-preview": (
+    request: ObjectTransformPreviewRequest,
+  ) => void
 }
 
 export type WhiteboardSocket = Socket<

@@ -30,6 +30,10 @@ type WhiteboardShapeRendererProps = {
     objectId: string,
     event: KonvaEventObject<DragEvent>,
   ) => void
+  onObjectDragMove?: (
+    objectId: string,
+    event: KonvaEventObject<DragEvent>,
+  ) => void
   registerObjectNode?: (objectId: string, node: Konva.Node | null) => void
 }
 
@@ -39,6 +43,7 @@ export function WhiteboardShapeRenderer({
   draggable = false,
   onObjectPointerDown,
   onObjectDragEnd,
+  onObjectDragMove,
   registerObjectNode,
 }: WhiteboardShapeRendererProps) {
   const setNodeRef = useCallback<RefCallback<Konva.Node>>(
@@ -59,6 +64,12 @@ export function WhiteboardShapeRenderer({
     },
     [object.id, onObjectDragEnd],
   )
+  const handleDragMove = useCallback(
+    (event: KonvaEventObject<DragEvent>) => {
+      onObjectDragMove?.(object.id, event)
+    },
+    [object.id, onObjectDragMove],
+  )
 
   switch (object.type) {
     case "RECTANGLE":
@@ -76,6 +87,7 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       )
@@ -97,6 +109,7 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       )
@@ -117,6 +130,7 @@ export function WhiteboardShapeRenderer({
           pointerAtEnding={object.style.arrowEnd ?? true}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       )
@@ -139,6 +153,7 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       )

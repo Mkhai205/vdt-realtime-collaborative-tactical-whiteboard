@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import type {
   OperationAppliedEvent,
   OperationRejectedEvent,
+  ObjectTransformPreviewedEvent,
   PresenceUpdateEvent,
   RoomStateEvent,
   SocketErrorEvent,
@@ -11,6 +12,7 @@ import type {
 import { createWhiteboardSocket } from "@/lib/socket-client"
 import {
   type WhiteboardOperationSender,
+  type WhiteboardTransformPreviewSender,
   useWhiteboardStore,
 } from "@/stores/whiteboard-store"
 
@@ -33,9 +35,15 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   const setObjectOperationSender = useWhiteboardStore(
     (state) => state.setObjectOperationSender,
   )
+  const setTransformPreviewSender = useWhiteboardStore(
+    (state) => state.setTransformPreviewSender,
+  )
   const applyOperation = useWhiteboardStore((state) => state.applyOperation)
   const applyOperationRejection = useWhiteboardStore(
     (state) => state.applyOperationRejection,
+  )
+  const applyRemoteTransformPreview = useWhiteboardStore(
+    (state) => state.applyRemoteTransformPreview,
   )
 
   useEffect(() => {
@@ -46,6 +54,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setConnectionStatus("connecting")
     setSocketError(null)
     setObjectOperationSender(createOperationSender())
+    setTransformPreviewSender(createTransformPreviewSender())
 
     function handleConnect() {
       setConnectionStatus("connected")
@@ -86,6 +95,14 @@ export function useWhiteboardRoomSocket(roomId: string): void {
 
     function handleSocketError(event: SocketErrorEvent) {
       setSocketError(event.message)
+    }
+
+    function handleTransformPreviewed(event: ObjectTransformPreviewedEvent) {
+      if (event.roomId !== roomId) {
+        return
+      }
+
+      applyRemoteTransformPreview(event)
     }
 
     function handleOperationApplied(event: OperationAppliedEvent) {
@@ -140,6 +157,18 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       }
     }
 
+    function createTransformPreviewSender(): WhiteboardTransformPreviewSender {
+      return {
+        sendPreview: (request) => {
+          if (request.roomId !== roomId || !socket.connected) {
+            return
+          }
+
+          socket.emit("object:transform-preview", request)
+        },
+      }
+    }
+
     function emitObjectOperation(
       emitOperation: () => void,
       request: { clientOpId: string; roomId: string },
@@ -170,6 +199,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     socket.on("connect_error", handleConnectError)
     socket.on("room:state", handleRoomState)
     socket.on("presence:update", handlePresenceUpdate)
+    socket.on("object:transform-previewed", handleTransformPreviewed)
     socket.on("operation:applied", handleOperationApplied)
     socket.on("operation:rejected", handleOperationRejected)
     socket.on("error", handleSocketError)
@@ -177,6 +207,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
 
     return () => {
       setObjectOperationSender(null)
+      setTransformPreviewSender(null)
 
       for (const pendingOperation of pendingOperations.values()) {
         pendingOperation.reject(
@@ -195,6 +226,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       socket.off("connect_error", handleConnectError)
       socket.off("room:state", handleRoomState)
       socket.off("presence:update", handlePresenceUpdate)
+      socket.off("object:transform-previewed", handleTransformPreviewed)
       socket.off("operation:applied", handleOperationApplied)
       socket.off("operation:rejected", handleOperationRejected)
       socket.off("error", handleSocketError)
@@ -203,6 +235,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   }, [
     applyOperationRejection,
     applyOperation,
+    applyRemoteTransformPreview,
     roomId,
     setConnectionStatus,
     setLoadedRoomState,
@@ -210,5 +243,6 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setOnlineUsers,
     setRoomId,
     setSocketError,
+    setTransformPreviewSender,
   ])
 }
