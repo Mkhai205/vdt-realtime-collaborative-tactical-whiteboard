@@ -20,6 +20,7 @@ import {
 } from "@/lib/canvas-utils"
 import { cn } from "@/lib/utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import { RemoteCursorLayer } from "./remote-cursor-layer"
 import { WhiteboardObjectLayer } from "./whiteboard-object-layer"
 
 const smallGridStep = 32
@@ -34,6 +35,8 @@ const minObjectTransformSize = 16
 const minLineTransformLength = 8
 const canvasValuePrecision = 100
 const transformPreviewThrottleMs = 50
+const cursorUpdateThrottleMs = 50
+const cursorMovementEpsilon = 1
 
 const transformerAnchors = [
   "top-left",
@@ -92,6 +95,12 @@ export function WhiteboardStage() {
   const transformPreviewPendingRef = useRef(
     new Map<string, ObjectTransformPreviewPatch>(),
   )
+  const cursorUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+  const cursorUpdateLastSentAtRef = useRef(0)
+  const cursorUpdatePendingRef = useRef<CanvasPoint | null>(null)
+  const cursorUpdateLastPointRef = useRef<CanvasPoint | null>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const [lineDraft, setLineDraft] = useState<LineDraft | null>(null)
   const [isSpacePanning, setIsSpacePanning] = useState(false)
@@ -117,6 +126,9 @@ export function WhiteboardStage() {
   )
   const sendTransformPreview = useWhiteboardStore(
     (state) => state.sendTransformPreview,
+  )
+  const sendCursorUpdate = useWhiteboardStore(
+    (state) => state.sendCursorUpdate,
   )
   const colors = useCanvasThemeColors()
   const canEdit = currentUserRole === "OWNER" || currentUserRole === "EDITOR"
@@ -189,11 +201,77 @@ export function WhiteboardStage() {
     [cancelTransformPreview, sendTransformPreview],
   )
 
+  const cancelCursorUpdate = useCallback(() => {
+    if (cursorUpdateTimerRef.current) {
+      clearTimeout(cursorUpdateTimerRef.current)
+      cursorUpdateTimerRef.current = null
+    }
+
+    cursorUpdatePendingRef.current = null
+  }, [])
+
+  const emitCursorUpdate = useCallback(
+    (point: CanvasPoint) => {
+      cursorUpdateLastSentAtRef.current = Date.now()
+      sendCursorUpdate(point)
+    },
+    [sendCursorUpdate],
+  )
+
+  const queueCursorUpdate = useCallback(
+    (point: CanvasPoint) => {
+      if (
+        !Number.isFinite(point.x) ||
+        !Number.isFinite(point.y) ||
+        !hasCursorMovedEnough(cursorUpdateLastPointRef.current, point)
+      ) {
+        return
+      }
+
+      cursorUpdateLastPointRef.current = point
+
+      const now = Date.now()
+      const elapsed = now - cursorUpdateLastSentAtRef.current
+
+      if (elapsed >= cursorUpdateThrottleMs) {
+        cancelCursorUpdate()
+        emitCursorUpdate(point)
+        return
+      }
+
+      cursorUpdatePendingRef.current = point
+
+      if (cursorUpdateTimerRef.current) {
+        return
+      }
+
+      cursorUpdateTimerRef.current = setTimeout(() => {
+        cursorUpdateTimerRef.current = null
+
+        const pendingPoint = cursorUpdatePendingRef.current
+
+        if (!pendingPoint) {
+          return
+        }
+
+        cursorUpdatePendingRef.current = null
+        emitCursorUpdate(pendingPoint)
+      }, cursorUpdateThrottleMs - elapsed)
+    },
+    [cancelCursorUpdate, emitCursorUpdate],
+  )
+
   useEffect(() => {
     return () => {
       cancelAllTransformPreviews()
     }
   }, [cancelAllTransformPreviews])
+
+  useEffect(() => {
+    return () => {
+      cancelCursorUpdate()
+    }
+  }, [cancelCursorUpdate])
 
   useEffect(() => {
     const container = containerRef.current
@@ -501,6 +579,15 @@ export function WhiteboardStage() {
   }
 
   function handlePointerMove(event: KonvaEventObject<PointerEvent>) {
+    const worldPoint = getWorldPointer(event, viewport)
+
+    if (worldPoint) {
+      queueCursorUpdate({
+        x: roundCanvasValue(worldPoint.x),
+        y: roundCanvasValue(worldPoint.y),
+      })
+    }
+
     if (panDragRef.current) {
       const pointer = getStagePointer(event)
 
@@ -525,15 +612,13 @@ export function WhiteboardStage() {
       return
     }
 
-    const point = getWorldPointer(event, viewport)
-
-    if (!point) {
+    if (!worldPoint) {
       return
     }
 
     setLineDraft((currentDraft) =>
       currentDraft?.toolRevision === toolRevision
-        ? { ...currentDraft, end: point }
+        ? { ...currentDraft, end: worldPoint }
         : currentDraft,
     )
   }
@@ -578,6 +663,7 @@ export function WhiteboardStage() {
 
   function handlePointerCancel() {
     clearPanDrag()
+    cancelCursorUpdate()
     cancelAllTransformPreviews()
     setLineDraft(null)
   }
@@ -637,10 +723,10 @@ export function WhiteboardStage() {
           ))}
           <WhiteboardObjectLayer
             defaultColors={{
-            foreground: colors.foreground,
-            primary: colors.primary,
-            accent: colors.accent,
-          }}
+              foreground: colors.foreground,
+              primary: colors.primary,
+              accent: colors.accent,
+            }}
             draggable={canTransformObjects && !isPanningModeActive}
             onObjectPointerDown={handleObjectPointerDown}
             onObjectDragMove={handleObjectDragMove}
@@ -666,6 +752,7 @@ export function WhiteboardStage() {
               listening={false}
             />
           ) : null}
+          <RemoteCursorLayer viewportScale={viewport.scale} />
           <Transformer
             ref={transformerRef}
             visible={canTransformObjects && Boolean(selectedObjectId)}
@@ -953,6 +1040,22 @@ function roundCanvasValue(value: number): number {
   }
 
   return Math.round(value * canvasValuePrecision) / canvasValuePrecision
+}
+
+function hasCursorMovedEnough(
+  previousPoint: CanvasPoint | null,
+  nextPoint: CanvasPoint,
+): boolean {
+  if (!previousPoint) {
+    return true
+  }
+
+  return (
+    Math.hypot(
+      nextPoint.x - previousPoint.x,
+      nextPoint.y - previousPoint.y,
+    ) >= cursorMovementEpsilon
+  )
 }
 
 function normalizeRotationDegrees(rotation: number): number {

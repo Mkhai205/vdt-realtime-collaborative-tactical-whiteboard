@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import type {
+  CursorUpdatedEvent,
   OperationAppliedEvent,
   OperationRejectedEvent,
   ObjectTransformPreviewedEvent,
@@ -12,6 +13,7 @@ import type {
 import { createWhiteboardSocket } from "@/lib/socket-client"
 import {
   type WhiteboardOperationSender,
+  type WhiteboardCursorSender,
   type WhiteboardTransformPreviewSender,
   useWhiteboardStore,
 } from "@/stores/whiteboard-store"
@@ -38,12 +40,16 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   const setTransformPreviewSender = useWhiteboardStore(
     (state) => state.setTransformPreviewSender,
   )
+  const setCursorSender = useWhiteboardStore((state) => state.setCursorSender)
   const applyOperation = useWhiteboardStore((state) => state.applyOperation)
   const applyOperationRejection = useWhiteboardStore(
     (state) => state.applyOperationRejection,
   )
   const applyRemoteTransformPreview = useWhiteboardStore(
     (state) => state.applyRemoteTransformPreview,
+  )
+  const applyRemoteCursor = useWhiteboardStore(
+    (state) => state.applyRemoteCursor,
   )
 
   useEffect(() => {
@@ -55,6 +61,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setSocketError(null)
     setObjectOperationSender(createOperationSender())
     setTransformPreviewSender(createTransformPreviewSender())
+    setCursorSender(createCursorSender())
 
     function handleConnect() {
       setConnectionStatus("connected")
@@ -103,6 +110,14 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       }
 
       applyRemoteTransformPreview(event)
+    }
+
+    function handleCursorUpdated(event: CursorUpdatedEvent) {
+      if (event.roomId !== roomId) {
+        return
+      }
+
+      applyRemoteCursor(event)
     }
 
     function handleOperationApplied(event: OperationAppliedEvent) {
@@ -169,6 +184,18 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       }
     }
 
+    function createCursorSender(): WhiteboardCursorSender {
+      return {
+        sendCursorUpdate: (request) => {
+          if (request.roomId !== roomId || !socket.connected) {
+            return
+          }
+
+          socket.emit("cursor:update", request)
+        },
+      }
+    }
+
     function emitObjectOperation(
       emitOperation: () => void,
       request: { clientOpId: string; roomId: string },
@@ -199,6 +226,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     socket.on("connect_error", handleConnectError)
     socket.on("room:state", handleRoomState)
     socket.on("presence:update", handlePresenceUpdate)
+    socket.on("cursor:updated", handleCursorUpdated)
     socket.on("object:transform-previewed", handleTransformPreviewed)
     socket.on("operation:applied", handleOperationApplied)
     socket.on("operation:rejected", handleOperationRejected)
@@ -208,6 +236,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     return () => {
       setObjectOperationSender(null)
       setTransformPreviewSender(null)
+      setCursorSender(null)
 
       for (const pendingOperation of pendingOperations.values()) {
         pendingOperation.reject(
@@ -226,6 +255,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       socket.off("connect_error", handleConnectError)
       socket.off("room:state", handleRoomState)
       socket.off("presence:update", handlePresenceUpdate)
+      socket.off("cursor:updated", handleCursorUpdated)
       socket.off("object:transform-previewed", handleTransformPreviewed)
       socket.off("operation:applied", handleOperationApplied)
       socket.off("operation:rejected", handleOperationRejected)
@@ -235,6 +265,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   }, [
     applyOperationRejection,
     applyOperation,
+    applyRemoteCursor,
     applyRemoteTransformPreview,
     roomId,
     setConnectionStatus,
@@ -242,6 +273,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setObjectOperationSender,
     setOnlineUsers,
     setRoomId,
+    setCursorSender,
     setSocketError,
     setTransformPreviewSender,
   ])

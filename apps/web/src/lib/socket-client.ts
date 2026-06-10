@@ -1,4 +1,6 @@
 import type {
+  CursorUpdateRequest,
+  CursorUpdatedEvent,
   ObjectCreateSocketRequest,
   ObjectDeleteSocketRequest,
   ObjectTransformPreviewRequest,
@@ -19,6 +21,7 @@ import { socketBaseUrl } from "./api-url"
 type ServerToClientEvents = {
   "room:state": (event: RoomStateEvent) => void
   "presence:update": (event: PresenceUpdateEvent) => void
+  "cursor:updated": (event: CursorUpdatedEvent) => void
   "object:transform-previewed": (
     event: ObjectTransformPreviewedEvent,
   ) => void
@@ -30,6 +33,7 @@ type ServerToClientEvents = {
 type ClientToServerEvents = {
   "room:join": (request: RoomJoinRequest) => void
   "room:leave": (request: RoomLeaveRequest) => void
+  "cursor:update": (request: CursorUpdateRequest) => void
   "object:create": (request: ObjectCreateSocketRequest) => void
   "object:update": (request: ObjectUpdateSocketRequest) => void
   "object:delete": (request: ObjectDeleteSocketRequest) => void

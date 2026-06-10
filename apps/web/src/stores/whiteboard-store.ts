@@ -1,6 +1,8 @@
 "use client"
 
 import type {
+  CursorUpdateRequest,
+  CursorUpdatedEvent,
   ObjectCreateSocketRequest,
   ObjectDeleteSocketRequest,
   ObjectMutablePatch,
@@ -44,6 +46,7 @@ type WhiteboardState = {
   onlineUsers: OnlineUser[]
   mutationError: string | null
   objects: Record<string, WhiteboardObject>
+  remoteCursors: Record<string, RemoteCursor>
   remoteTransformPreviews: Record<string, RemoteTransformPreview>
   appliedClientOpIds: Record<string, true>
   selectedObjectId: string | null
@@ -51,6 +54,7 @@ type WhiteboardState = {
   toolRevision: number
   objectOperationSender: WhiteboardOperationSender | null
   transformPreviewSender: WhiteboardTransformPreviewSender | null
+  cursorSender: WhiteboardCursorSender | null
   viewport: Viewport
   stageSize: StageSize
   setRoomId: (roomId: string) => void
@@ -65,6 +69,7 @@ type WhiteboardState = {
   setTransformPreviewSender: (
     sender: WhiteboardTransformPreviewSender | null,
   ) => void
+  setCursorSender: (sender: WhiteboardCursorSender | null) => void
   setObjects: (objects: WhiteboardObject[]) => void
   setObjectsWithRevision: (
     objects: WhiteboardObject[],
@@ -79,6 +84,8 @@ type WhiteboardState = {
   applyRemoteTransformPreview: (
     event: ObjectTransformPreviewedEvent,
   ) => void
+  applyRemoteCursor: (event: CursorUpdatedEvent) => void
+  sendCursorUpdate: (point: CanvasPoint) => void
   clearRemoteTransformPreview: (objectId: string) => void
   sendTransformPreview: (
     objectId: string,
@@ -124,6 +131,10 @@ export type RemoteTransformPreview = {
   receivedAt: number
 }
 
+export type RemoteCursor = CursorUpdatedEvent & {
+  receivedAt: number
+}
+
 export type LocalObjectInput = {
   type: ObjectType
   x: number
@@ -151,6 +162,10 @@ export type WhiteboardOperationSender = {
 
 export type WhiteboardTransformPreviewSender = {
   sendPreview: (request: ObjectTransformPreviewRequest) => void
+}
+
+export type WhiteboardCursorSender = {
+  sendCursorUpdate: (request: CursorUpdateRequest) => void
 }
 
 const emptyStageSize: StageSize = {
@@ -268,6 +283,29 @@ function removeRemoteTransformPreviews(
   }
 
   return nextPreviews
+}
+
+function pruneRemoteCursors(
+  cursors: Record<string, RemoteCursor>,
+  onlineUsers: OnlineUser[],
+  currentUserId: string | null | undefined,
+): Record<string, RemoteCursor> {
+  const onlineUserIds = new Set(onlineUsers.map((user) => user.id))
+  let nextCursors = cursors
+
+  for (const userId of Object.keys(cursors)) {
+    if (userId !== currentUserId && onlineUserIds.has(userId)) {
+      continue
+    }
+
+    if (nextCursors === cursors) {
+      nextCursors = { ...cursors }
+    }
+
+    delete nextCursors[userId]
+  }
+
+  return nextCursors
 }
 
 function getLocalActorId(): string {
@@ -526,6 +564,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   onlineUsers: [],
   mutationError: null,
   objects: {},
+  remoteCursors: {},
   remoteTransformPreviews: {},
   appliedClientOpIds: {},
   selectedObjectId: null,
@@ -533,6 +572,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   toolRevision: 0,
   objectOperationSender: null,
   transformPreviewSender: null,
+  cursorSender: null,
   viewport: initialViewport,
   stageSize: emptyStageSize,
   setRoomId: (roomId) => {
@@ -555,6 +595,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         onlineUsers: [],
         mutationError: null,
         objects: {},
+        remoteCursors: {},
         remoteTransformPreviews: {},
         appliedClientOpIds: {},
         selectedObjectId: null,
@@ -562,6 +603,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         toolRevision: state.toolRevision + 1,
         objectOperationSender: null,
         transformPreviewSender: null,
+        cursorSender: null,
         viewport: getCenteredViewport(state.stageSize),
       }
     })
@@ -610,6 +652,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         onlineUsers: input.onlineUsers ?? state.onlineUsers,
         mutationError: null,
         objects: nextObjects,
+        remoteCursors: {},
         remoteTransformPreviews: {},
         appliedClientOpIds: {},
         selectedObjectId:
@@ -631,9 +674,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       socketError: message,
     }),
   setOnlineUsers: (onlineUsers) =>
-    set({
+    set((state) => ({
       onlineUsers,
-    }),
+      remoteCursors: pruneRemoteCursors(
+        state.remoteCursors,
+        onlineUsers,
+        state.currentUser?.id,
+      ),
+    })),
   setMutationError: (message) =>
     set({
       mutationError: message,
@@ -645,6 +693,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   setTransformPreviewSender: (sender) =>
     set({
       transformPreviewSender: sender,
+    }),
+  setCursorSender: (sender) =>
+    set({
+      cursorSender: sender,
     }),
   setObjects: (objects) => {
     clearAllRemotePreviewTimeouts()
@@ -818,6 +870,40 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       event.objectId,
       get().clearRemoteTransformPreview,
     )
+  },
+  applyRemoteCursor: (event) =>
+    set((state) => {
+      if (
+        state.roomId !== event.roomId ||
+        state.currentUser?.id === event.user.id
+      ) {
+        return state
+      }
+
+      return {
+        remoteCursors: {
+          ...state.remoteCursors,
+          [event.user.id]: {
+            ...event,
+            receivedAt: Date.now(),
+          },
+        },
+      }
+    }),
+  sendCursorUpdate: (point) => {
+    const state = get()
+
+    if (!state.roomId || !state.cursorSender) {
+      return
+    }
+
+    state.cursorSender.sendCursorUpdate({
+      roomId: state.roomId,
+      x: point.x,
+      y: point.y,
+      selectedObjectId: state.selectedObjectId,
+      currentTool: state.currentTool,
+    })
   },
   clearRemoteTransformPreview: (objectId) => {
     clearRemotePreviewTimeout(objectId)

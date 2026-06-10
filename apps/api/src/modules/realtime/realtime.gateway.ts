@@ -14,6 +14,7 @@ import {
 } from "@nestjs/websockets"
 import {
   clientOpIdSchema,
+  cursorUpdateRequestSchema,
   objectTransformPreviewRequestSchema,
   objectCreateSocketRequestSchema,
   objectDeleteSocketRequestSchema,
@@ -23,6 +24,7 @@ import {
   roomLeaveRequestSchema,
   toRoomSocketName,
   whiteboardObjectSchema,
+  type CursorUpdatedEvent,
   type OperationAppliedEvent,
   type OperationRejectedEvent,
   type OperationRejectedReason,
@@ -279,6 +281,45 @@ export class RealtimeGateway
           preview,
           timestamp: new Date().toISOString(),
         })
+    } catch (error) {
+      client.emit("error", this.toSocketError(error))
+    }
+  }
+
+  @SubscribeMessage("cursor:update")
+  handleCursorUpdate(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): void {
+    const parsed = cursorUpdateRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      client.emit("error", this.validationError(parsed.error))
+      return
+    }
+
+    try {
+      const currentUser = this.requireCurrentUser(client)
+      const { roomId } = parsed.data
+
+      if (!this.presenceService.hasSocketInRoom(client.id, roomId)) {
+        client.emit("error", {
+          code: "USER_NOT_IN_ROOM",
+          message: "Join the room before sending cursor updates.",
+        })
+        return
+      }
+
+      const event: CursorUpdatedEvent = {
+        ...parsed.data,
+        user: currentUser,
+        timestamp: new Date().toISOString(),
+      }
+
+      this.server
+        .to(toRoomSocketName(roomId))
+        .except(client.id)
+        .emit("cursor:updated", event)
     } catch (error) {
       client.emit("error", this.toSocketError(error))
     }

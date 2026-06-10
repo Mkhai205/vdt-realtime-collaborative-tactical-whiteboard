@@ -549,6 +549,84 @@ describe("RealtimeGateway", () => {
     )
   })
 
+  it("broadcasts cursor updates to the room excluding the sender without persistence", () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    gateway.handleCursorUpdate(socket, {
+      roomId,
+      x: 128.5,
+      y: 256.75,
+      selectedObjectId: objectId,
+      currentTool: "SELECT",
+    })
+
+    expect(presenceService.hasSocketInRoom).toHaveBeenCalledWith(
+      socket.id,
+      roomId,
+    )
+    expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(roomEmitter.except).toHaveBeenCalledWith(socket.id)
+    expect(roomEmitter.emit).toHaveBeenCalledWith("cursor:updated", {
+      roomId,
+      x: 128.5,
+      y: 256.75,
+      selectedObjectId: objectId,
+      currentTool: "SELECT",
+      user: currentUser,
+      timestamp: expect.any(String),
+    })
+    expect(whiteboardObjectsService.createObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.deleteObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.getRoomObjects).not.toHaveBeenCalled()
+  })
+
+  it("emits validation errors for invalid cursor update payloads", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    gateway.handleCursorUpdate(socket, {
+      roomId,
+      x: Number.POSITIVE_INFINITY,
+      y: 256.75,
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({
+        code: "VALIDATION_ERROR",
+      }),
+    )
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "cursor:updated",
+      expect.anything(),
+    )
+  })
+
+  it("rejects cursor updates from sockets that have not joined the room", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    presenceService.hasSocketInRoom.mockReturnValue(false)
+
+    gateway.handleCursorUpdate(socket, {
+      roomId,
+      x: 128.5,
+      y: 256.75,
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("error", {
+      code: "USER_NOT_IN_ROOM",
+      message: "Join the room before sending cursor updates.",
+    })
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "cursor:updated",
+      expect.anything(),
+    )
+  })
+
   it("emits operation:rejected for invalid object payloads when context is available", async () => {
     const socket = makeSocket()
     const socketMocks = getSocketMocks(socket)

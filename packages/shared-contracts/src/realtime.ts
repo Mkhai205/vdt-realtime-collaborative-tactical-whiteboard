@@ -2,7 +2,7 @@ import { z } from "zod";
 import { userSummarySchema } from "./common.js";
 import { defaultJoinRoleSchema } from "./room.js";
 import { roomRoleSchema } from "./identity.js";
-import { whiteboardObjectSchema } from "./whiteboard.js";
+import { toolSchema, whiteboardObjectSchema } from "./whiteboard.js";
 
 export const roomSocketPrefix = "room:";
 
@@ -44,6 +44,19 @@ export const presenceUpdateEventSchema = z.object({
     onlineUsers: z.array(onlineUserSchema),
 });
 
+export const cursorUpdateRequestSchema = z.object({
+    roomId: z.uuid(),
+    x: z.number().finite(),
+    y: z.number().finite(),
+    selectedObjectId: z.uuid().nullable().optional(),
+    currentTool: toolSchema.optional(),
+});
+
+export const cursorUpdatedEventSchema = cursorUpdateRequestSchema.extend({
+    user: userSummarySchema,
+    timestamp: z.string(),
+});
+
 export const objectTransformPreviewPatchSchema = z
     .object({
         x: z.number().finite().optional(),
@@ -80,6 +93,8 @@ export type RoomLeaveRequest = z.infer<typeof roomLeaveRequestSchema>;
 export type OnlineUser = z.infer<typeof onlineUserSchema>;
 export type RoomStateEvent = z.infer<typeof roomStateEventSchema>;
 export type PresenceUpdateEvent = z.infer<typeof presenceUpdateEventSchema>;
+export type CursorUpdateRequest = z.infer<typeof cursorUpdateRequestSchema>;
+export type CursorUpdatedEvent = z.infer<typeof cursorUpdatedEventSchema>;
 export type ObjectTransformPreviewPatch = z.infer<
     typeof objectTransformPreviewPatchSchema
 >;
