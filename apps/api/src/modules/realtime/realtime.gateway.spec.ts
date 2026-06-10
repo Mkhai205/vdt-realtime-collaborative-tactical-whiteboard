@@ -315,6 +315,10 @@ describe("RealtimeGateway", () => {
     expect(socketMocks.leave).toHaveBeenCalledWith(toRoomSocketName(roomId))
     expect(presenceService.leaveRoom).toHaveBeenCalledWith(socket.id, roomId)
     expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(roomEmitter.emit).toHaveBeenCalledWith("presence:update", {
+      roomId,
+      onlineUsers: [onlineUser],
+    })
   })
 
   it("removes disconnected sockets from every joined room", () => {

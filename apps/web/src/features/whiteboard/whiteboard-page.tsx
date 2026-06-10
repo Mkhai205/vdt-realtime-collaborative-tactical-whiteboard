@@ -25,6 +25,7 @@ import {
 } from "@/lib/canvas-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 import { ObjectDetailPanel } from "./object-detail-panel"
+import { OnlineUsersPanel } from "./online-users-panel"
 import { useWhiteboardRoomSocket } from "./use-whiteboard-room-socket"
 
 const WhiteboardStage = dynamic(
@@ -170,7 +171,13 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           ) : null}
         </section>
 
-        <ObjectDetailPanel />
+        <aside
+          className="flex min-h-0 flex-col gap-3 lg:overflow-hidden"
+          aria-label="Room presence and details"
+        >
+          <OnlineUsersPanel />
+          <ObjectDetailPanel />
+        </aside>
       </section>
     </main>
   )

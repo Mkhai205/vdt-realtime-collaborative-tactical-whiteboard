@@ -91,7 +91,7 @@ export function ObjectDetailPanel() {
 
   if (!object) {
     return (
-      <Card className="min-h-0 shadow-sm" size="sm">
+      <Card className="min-h-0 flex-1 shadow-sm" size="sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <PanelRightIcon data-icon="inline-start" />
@@ -136,7 +136,7 @@ export function ObjectDetailPanel() {
   }
 
   return (
-    <Card className="min-h-0 shadow-sm" size="sm">
+    <Card className="min-h-0 flex-1 shadow-sm" size="sm">
       <CardHeader className="shrink-0">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
