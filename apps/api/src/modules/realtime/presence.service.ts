@@ -3,6 +3,7 @@ import type { OnlineUser, RoomRole, UserSummary } from "@rctw/shared-contracts"
 
 type PresenceSession = OnlineUser & {
   socketId: string
+  selectedObjectUpdatedAt: number
 }
 
 @Injectable()
@@ -28,6 +29,7 @@ export class PresenceService {
       role: input.role,
       status: "ONLINE",
       selectedObjectId: null,
+      selectedObjectUpdatedAt: 0,
       connectedAt,
     })
 
@@ -67,19 +69,39 @@ export class PresenceService {
       return []
     }
 
-    const usersById = new Map<string, OnlineUser>()
+    const usersById = new Map<
+      string,
+      { baseSession: PresenceSession; latestSelectionSession: PresenceSession }
+    >()
 
     for (const session of sessions.values()) {
       const existing = usersById.get(session.id)
 
-      if (!existing || session.connectedAt < existing.connectedAt) {
-        usersById.set(session.id, this.toOnlineUser(session))
+      if (!existing) {
+        usersById.set(session.id, {
+          baseSession: session,
+          latestSelectionSession: session,
+        })
+        continue
+      }
+
+      if (session.connectedAt < existing.baseSession.connectedAt) {
+        existing.baseSession = session
+      }
+
+      if (
+        session.selectedObjectUpdatedAt >
+        existing.latestSelectionSession.selectedObjectUpdatedAt
+      ) {
+        existing.latestSelectionSession = session
       }
     }
 
-    return [...usersById.values()].sort((left, right) =>
-      left.connectedAt.localeCompare(right.connectedAt),
-    )
+    return [...usersById.values()]
+      .map(({ baseSession, latestSelectionSession }) =>
+        this.toOnlineUser(baseSession, latestSelectionSession),
+      )
+      .sort((left, right) => left.connectedAt.localeCompare(right.connectedAt))
   }
 
   hasSocketInRoom(socketId: string, roomId: string): boolean {
@@ -88,6 +110,23 @@ export class PresenceService {
 
   getSocketRoomRole(socketId: string, roomId: string): RoomRole | null {
     return this.roomSessions.get(roomId)?.get(socketId)?.role ?? null
+  }
+
+  updateSelectedObject(input: {
+    socketId: string
+    roomId: string
+    selectedObjectId: string | null
+  }): OnlineUser[] | null {
+    const session = this.roomSessions.get(input.roomId)?.get(input.socketId)
+
+    if (!session) {
+      return null
+    }
+
+    session.selectedObjectId = input.selectedObjectId
+    session.selectedObjectUpdatedAt = Date.now()
+
+    return this.getOnlineUsers(input.roomId)
   }
 
   private getOrCreateRoom(roomId: string): Map<string, PresenceSession> {
@@ -114,7 +153,10 @@ export class PresenceService {
     }
   }
 
-  private toOnlineUser(session: PresenceSession): OnlineUser {
+  private toOnlineUser(
+    session: PresenceSession,
+    latestSelectionSession = session,
+  ): OnlineUser {
     return {
       id: session.id,
       name: session.name,
@@ -122,7 +164,7 @@ export class PresenceService {
       avatarColor: session.avatarColor,
       role: session.role,
       status: session.status,
-      selectedObjectId: session.selectedObjectId,
+      selectedObjectId: latestSelectionSession.selectedObjectId,
       connectedAt: session.connectedAt,
     }
   }

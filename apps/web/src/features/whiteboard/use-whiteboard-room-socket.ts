@@ -14,6 +14,7 @@ import { createWhiteboardSocket } from "@/lib/socket-client"
 import {
   type WhiteboardOperationSender,
   type WhiteboardCursorSender,
+  type WhiteboardSelectionSender,
   type WhiteboardTransformPreviewSender,
   useWhiteboardStore,
 } from "@/stores/whiteboard-store"
@@ -41,6 +42,9 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     (state) => state.setTransformPreviewSender,
   )
   const setCursorSender = useWhiteboardStore((state) => state.setCursorSender)
+  const setSelectionSender = useWhiteboardStore(
+    (state) => state.setSelectionSender,
+  )
   const applyOperation = useWhiteboardStore((state) => state.applyOperation)
   const applyOperationRejection = useWhiteboardStore(
     (state) => state.applyOperationRejection,
@@ -62,6 +66,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setObjectOperationSender(createOperationSender())
     setTransformPreviewSender(createTransformPreviewSender())
     setCursorSender(createCursorSender())
+    setSelectionSender(createSelectionSender())
 
     function handleConnect() {
       setConnectionStatus("connected")
@@ -196,6 +201,18 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       }
     }
 
+    function createSelectionSender(): WhiteboardSelectionSender {
+      return {
+        sendSelectionUpdate: (request) => {
+          if (request.roomId !== roomId || !socket.connected) {
+            return
+          }
+
+          socket.emit("selection:update", request)
+        },
+      }
+    }
+
     function emitObjectOperation(
       emitOperation: () => void,
       request: { clientOpId: string; roomId: string },
@@ -237,6 +254,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       setObjectOperationSender(null)
       setTransformPreviewSender(null)
       setCursorSender(null)
+      setSelectionSender(null)
 
       for (const pendingOperation of pendingOperations.values()) {
         pendingOperation.reject(
@@ -274,6 +292,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setOnlineUsers,
     setRoomId,
     setCursorSender,
+    setSelectionSender,
     setSocketError,
     setTransformPreviewSender,
   ])

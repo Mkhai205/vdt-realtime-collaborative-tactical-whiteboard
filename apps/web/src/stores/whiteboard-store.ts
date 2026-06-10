@@ -16,6 +16,7 @@ import type {
   OperationRejectedEvent,
   RoomRole,
   RoomStateEvent,
+  SelectionUpdateRequest,
   ShapeStyle,
   Tool,
   UserSummary,
@@ -55,6 +56,7 @@ type WhiteboardState = {
   objectOperationSender: WhiteboardOperationSender | null
   transformPreviewSender: WhiteboardTransformPreviewSender | null
   cursorSender: WhiteboardCursorSender | null
+  selectionSender: WhiteboardSelectionSender | null
   viewport: Viewport
   stageSize: StageSize
   setRoomId: (roomId: string) => void
@@ -70,6 +72,7 @@ type WhiteboardState = {
     sender: WhiteboardTransformPreviewSender | null,
   ) => void
   setCursorSender: (sender: WhiteboardCursorSender | null) => void
+  setSelectionSender: (sender: WhiteboardSelectionSender | null) => void
   setObjects: (objects: WhiteboardObject[]) => void
   setObjectsWithRevision: (
     objects: WhiteboardObject[],
@@ -86,6 +89,7 @@ type WhiteboardState = {
   ) => void
   applyRemoteCursor: (event: CursorUpdatedEvent) => void
   sendCursorUpdate: (point: CanvasPoint) => void
+  sendSelectionUpdate: (selectedObjectId: string | null) => void
   clearRemoteTransformPreview: (objectId: string) => void
   sendTransformPreview: (
     objectId: string,
@@ -166,6 +170,10 @@ export type WhiteboardTransformPreviewSender = {
 
 export type WhiteboardCursorSender = {
   sendCursorUpdate: (request: CursorUpdateRequest) => void
+}
+
+export type WhiteboardSelectionSender = {
+  sendSelectionUpdate: (request: SelectionUpdateRequest) => void
 }
 
 const emptyStageSize: StageSize = {
@@ -573,6 +581,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   objectOperationSender: null,
   transformPreviewSender: null,
   cursorSender: null,
+  selectionSender: null,
   viewport: initialViewport,
   stageSize: emptyStageSize,
   setRoomId: (roomId) => {
@@ -604,16 +613,22 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         objectOperationSender: null,
         transformPreviewSender: null,
         cursorSender: null,
+        selectionSender: null,
         viewport: getCenteredViewport(state.stageSize),
       }
     })
   },
-  selectObject: (objectId) =>
+  selectObject: (objectId) => {
+    let nextSelectedObjectId: string | null | undefined
+
     set((state) => {
       if (!objectId) {
-        return state.selectedObjectId === null
-          ? state
-          : { selectedObjectId: null }
+        if (state.selectedObjectId === null) {
+          return state
+        }
+
+        nextSelectedObjectId = null
+        return { selectedObjectId: null }
       }
 
       const object = state.objects[objectId]
@@ -622,8 +637,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         return state
       }
 
+      nextSelectedObjectId = objectId
       return { selectedObjectId: objectId }
-    }),
+    })
+
+    if (nextSelectedObjectId !== undefined) {
+      get().sendSelectionUpdate(nextSelectedObjectId)
+    }
+  },
   setTool: (tool) =>
     set((state) =>
       state.currentTool === tool
@@ -636,11 +657,18 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   setLoadedRoomState: (input) => {
     clearAllRemotePreviewTimeouts()
 
+    let nextSelectedObjectId: string | null | undefined
+
     set((state) => {
       const nextObjects = toObjectRecord(input.objects)
       const selectedObject = state.selectedObjectId
         ? nextObjects[state.selectedObjectId]
         : null
+      const resolvedSelectedObjectId =
+        selectedObject && !selectedObject.deletedAt
+          ? state.selectedObjectId
+          : null
+      nextSelectedObjectId = resolvedSelectedObjectId
 
       return {
         roomId: input.room.id,
@@ -655,15 +683,16 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         remoteCursors: {},
         remoteTransformPreviews: {},
         appliedClientOpIds: {},
-        selectedObjectId:
-          selectedObject && !selectedObject.deletedAt
-            ? state.selectedObjectId
-            : null,
+        selectedObjectId: resolvedSelectedObjectId,
         currentTool: canEditRoom(input.currentUser.role)
           ? state.currentTool
           : "SELECT",
       }
     })
+
+    if (nextSelectedObjectId !== undefined) {
+      get().sendSelectionUpdate(nextSelectedObjectId)
+    }
   },
   setConnectionStatus: (status) =>
     set({
@@ -698,44 +727,70 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     set({
       cursorSender: sender,
     }),
+  setSelectionSender: (sender) =>
+    set({
+      selectionSender: sender,
+    }),
   setObjects: (objects) => {
     clearAllRemotePreviewTimeouts()
+
+    let nextSelectedObjectId: string | null | undefined
 
     set((state) => {
       const nextObjects = toObjectRecord(objects)
       const selectedObject = state.selectedObjectId
         ? nextObjects[state.selectedObjectId]
         : null
+      const resolvedSelectedObjectId =
+        selectedObject && !selectedObject.deletedAt
+          ? state.selectedObjectId
+          : null
+
+      if (resolvedSelectedObjectId !== state.selectedObjectId) {
+        nextSelectedObjectId = resolvedSelectedObjectId
+      }
 
       return {
         objects: nextObjects,
         remoteTransformPreviews: {},
-        selectedObjectId:
-          selectedObject && !selectedObject.deletedAt
-            ? state.selectedObjectId
-            : null,
+        selectedObjectId: resolvedSelectedObjectId,
       }
     })
+
+    if (nextSelectedObjectId !== undefined) {
+      get().sendSelectionUpdate(nextSelectedObjectId)
+    }
   },
   setObjectsWithRevision: (objects, currentRevision) => {
     clearAllRemotePreviewTimeouts()
+
+    let nextSelectedObjectId: string | null | undefined
 
     set((state) => {
       const nextObjects = toObjectRecord(objects)
       const selectedObject = state.selectedObjectId
         ? nextObjects[state.selectedObjectId]
         : null
+      const resolvedSelectedObjectId =
+        selectedObject && !selectedObject.deletedAt
+          ? state.selectedObjectId
+          : null
+
+      if (resolvedSelectedObjectId !== state.selectedObjectId) {
+        nextSelectedObjectId = resolvedSelectedObjectId
+      }
 
       return {
         objects: nextObjects,
         remoteTransformPreviews: {},
         currentRevision,
-        selectedObjectId:
-          selectedObject && !selectedObject.deletedAt
-            ? state.selectedObjectId
-            : null,
+        selectedObjectId: resolvedSelectedObjectId,
       }
     })
+
+    if (nextSelectedObjectId !== undefined) {
+      get().sendSelectionUpdate(nextSelectedObjectId)
+    }
   },
   upsertObject: (object) =>
     set((state) => ({
@@ -747,6 +802,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   applyOperation: (operation, options) => {
     clearRemotePreviewTimeout(operation.objectId ?? undefined)
     clearRemotePreviewTimeout(operation.resultingObject?.id)
+
+    let nextSelectedObjectId: string | null | undefined
 
     set((state) => {
       if (state.roomId !== operation.roomId) {
@@ -777,6 +834,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       const selectedObject = state.selectedObjectId
         ? nextObjects[state.selectedObjectId]
         : null
+      const resolvedSelectedObjectId =
+        selectedObject && !selectedObject.deletedAt
+          ? state.selectedObjectId
+          : null
+
+      if (resolvedSelectedObjectId !== state.selectedObjectId) {
+        nextSelectedObjectId = resolvedSelectedObjectId
+      }
 
       return {
         objects: nextObjects,
@@ -787,14 +852,17 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         currentRevision: operation.revision,
         mutationError: null,
         remoteTransformPreviews: nextRemoteTransformPreviews,
-        selectedObjectId:
-          selectedObject && !selectedObject.deletedAt
-            ? state.selectedObjectId
-            : null,
+        selectedObjectId: resolvedSelectedObjectId,
       }
     })
+
+    if (nextSelectedObjectId !== undefined) {
+      get().sendSelectionUpdate(nextSelectedObjectId)
+    }
   },
-  applyOperationRejection: (rejection) =>
+  applyOperationRejection: (rejection) => {
+    let nextSelectedObjectId: string | null | undefined
+
     set((state) => {
       if (state.roomId !== rejection.roomId) {
         return state
@@ -817,6 +885,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       const selectedObject = state.selectedObjectId
         ? nextObjects[state.selectedObjectId]
         : null
+      const resolvedSelectedObjectId =
+        selectedObject && !selectedObject.deletedAt
+          ? state.selectedObjectId
+          : null
+
+      if (resolvedSelectedObjectId !== state.selectedObjectId) {
+        nextSelectedObjectId = resolvedSelectedObjectId
+      }
 
       return {
         objects: nextObjects,
@@ -825,12 +901,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           rejection.currentRoomRevision,
         ),
         mutationError: rejection.message,
-        selectedObjectId:
-          selectedObject && !selectedObject.deletedAt
-            ? state.selectedObjectId
-            : null,
+        selectedObjectId: resolvedSelectedObjectId,
       }
-    }),
+    })
+
+    if (nextSelectedObjectId !== undefined) {
+      get().sendSelectionUpdate(nextSelectedObjectId)
+    }
+  },
   applyRemoteTransformPreview: (event) => {
     const state = get()
 
@@ -903,6 +981,18 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       y: point.y,
       selectedObjectId: state.selectedObjectId,
       currentTool: state.currentTool,
+    })
+  },
+  sendSelectionUpdate: (selectedObjectId) => {
+    const state = get()
+
+    if (!state.roomId || !state.selectionSender) {
+      return
+    }
+
+    state.selectionSender.sendSelectionUpdate({
+      roomId: state.roomId,
+      selectedObjectId,
     })
   },
   clearRemoteTransformPreview: (objectId) => {
@@ -1008,6 +1098,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   removeObject: (objectId) => {
     clearRemotePreviewTimeout(objectId)
 
+    let nextSelectedObjectId: string | null | undefined
+
     set((state) => {
       const nextObjects = { ...state.objects }
       const nextRemoteTransformPreviews = {
@@ -1015,14 +1107,23 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       }
       delete nextObjects[objectId]
       delete nextRemoteTransformPreviews[objectId]
+      const resolvedSelectedObjectId =
+        state.selectedObjectId === objectId ? null : state.selectedObjectId
+
+      if (resolvedSelectedObjectId !== state.selectedObjectId) {
+        nextSelectedObjectId = resolvedSelectedObjectId
+      }
 
       return {
         objects: nextObjects,
         remoteTransformPreviews: nextRemoteTransformPreviews,
-        selectedObjectId:
-          state.selectedObjectId === objectId ? null : state.selectedObjectId,
+        selectedObjectId: resolvedSelectedObjectId,
       }
     })
+
+    if (nextSelectedObjectId !== undefined) {
+      get().sendSelectionUpdate(nextSelectedObjectId)
+    }
   },
   deleteSelectedObject: () => {
     const state = get()
@@ -1045,6 +1146,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       set({
         selectedObjectId: null,
       })
+      get().sendSelectionUpdate(null)
       return
     }
 
@@ -1064,6 +1166,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       ),
       selectedObjectId: null,
     }))
+    get().sendSelectionUpdate(null)
 
     enqueueMutation(async () => {
       const queuedState = get()

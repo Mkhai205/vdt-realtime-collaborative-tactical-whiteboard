@@ -44,6 +44,11 @@ export const presenceUpdateEventSchema = z.object({
     onlineUsers: z.array(onlineUserSchema),
 });
 
+export const selectionUpdateRequestSchema = z.object({
+    roomId: z.uuid(),
+    selectedObjectId: z.uuid().nullable(),
+});
+
 export const cursorUpdateRequestSchema = z.object({
     roomId: z.uuid(),
     x: z.number().finite(),
@@ -93,6 +98,9 @@ export type RoomLeaveRequest = z.infer<typeof roomLeaveRequestSchema>;
 export type OnlineUser = z.infer<typeof onlineUserSchema>;
 export type RoomStateEvent = z.infer<typeof roomStateEventSchema>;
 export type PresenceUpdateEvent = z.infer<typeof presenceUpdateEventSchema>;
+export type SelectionUpdateRequest = z.infer<
+    typeof selectionUpdateRequestSchema
+>;
 export type CursorUpdateRequest = z.infer<typeof cursorUpdateRequestSchema>;
 export type CursorUpdatedEvent = z.infer<typeof cursorUpdatedEventSchema>;
 export type ObjectTransformPreviewPatch = z.infer<

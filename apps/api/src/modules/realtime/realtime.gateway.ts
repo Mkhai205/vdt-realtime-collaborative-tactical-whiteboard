@@ -22,6 +22,7 @@ import {
   operationRejectedReasonSchema,
   roomJoinRequestSchema,
   roomLeaveRequestSchema,
+  selectionUpdateRequestSchema,
   toRoomSocketName,
   whiteboardObjectSchema,
   type CursorUpdatedEvent,
@@ -320,6 +321,45 @@ export class RealtimeGateway
         .to(toRoomSocketName(roomId))
         .except(client.id)
         .emit("cursor:updated", event)
+    } catch (error) {
+      client.emit("error", this.toSocketError(error))
+    }
+  }
+
+  @SubscribeMessage("selection:update")
+  handleSelectionUpdate(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): void {
+    const parsed = selectionUpdateRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      client.emit("error", this.validationError(parsed.error))
+      return
+    }
+
+    try {
+      this.requireCurrentUser(client)
+
+      const { roomId, selectedObjectId } = parsed.data
+      const onlineUsers = this.presenceService.updateSelectedObject({
+        socketId: client.id,
+        roomId,
+        selectedObjectId,
+      })
+
+      if (!onlineUsers) {
+        client.emit("error", {
+          code: "USER_NOT_IN_ROOM",
+          message: "Join the room before sending selection updates.",
+        })
+        return
+      }
+
+      this.server.to(toRoomSocketName(roomId)).emit("presence:update", {
+        roomId,
+        onlineUsers,
+      })
     } catch (error) {
       client.emit("error", this.toSocketError(error))
     }

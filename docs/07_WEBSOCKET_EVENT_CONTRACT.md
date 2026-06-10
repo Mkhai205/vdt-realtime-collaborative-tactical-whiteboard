@@ -40,6 +40,7 @@ object:create
 operation:applied
 sync:request
 cursor:update
+selection:update
 ```
 
 ---
@@ -243,6 +244,7 @@ Rules:
 | room:leave | Client -> Server | No | Leave a whiteboard room. |
 | room:state | Server -> Client | No | Initial/current room state. |
 | presence:update | Server -> Room | No | Online user list changed. |
+| selection:update | Client -> Server | No | Update selected object presence. |
 | cursor:update | Client -> Server | No | Update cursor position. |
 | cursor:updated | Server -> Room | No | Broadcast remote cursor position. |
 | object:create | Client -> Server | Yes | Create object. |
@@ -392,6 +394,37 @@ type PresenceUpdateEvent = {
 ---
 
 # 8. Cursor Events
+
+## 8.0 `selection:update`
+
+### Direction
+
+```txt
+Client -> Server
+```
+
+### Description
+
+Send the current selected object id for presence display. This event is transient, updates in-memory presence only, and does not imply editing or locking.
+
+### Payload
+
+```ts
+type SelectionUpdateRequest = {
+  roomId: string;
+  selectedObjectId: string | null;
+};
+```
+
+### Server behavior
+
+```txt
+- Validate user is in room.
+- Update in-memory presence for the socket.
+- Broadcast presence:update to the room.
+- Do not persist.
+- Do not increment room revision.
+```
 
 ## 8.1 `cursor:update`
 
@@ -1004,6 +1037,7 @@ Use this for non-operation errors, such as invalid room join or authentication f
 | room:join | Yes | Yes | Yes | Yes if public |
 | room:leave | Yes | Yes | Yes | Yes |
 | cursor:update | Yes | Yes | Yes | Yes |
+| selection:update | Yes | Yes | Yes | Yes |
 | object:create | Yes | Yes | No | Depends on assigned role |
 | object:update | Yes | Yes | No | Depends on assigned role |
 | object:delete | Yes | Yes | No | Depends on assigned role |
@@ -1087,8 +1121,9 @@ Optional: width, height, fontSize, color, rotation
 3. Store lastSeenRevision after each accepted operation.
 4. On operation rejection, rollback or replace local state using latestObject.
 5. Throttle cursor:update.
-6. Do not send edit operations if current role is VIEWER, but backend must still enforce this.
-7. Ignore events from unknown rooms.
+6. Emit selection:update when local object selection changes.
+7. Do not send edit operations if current role is VIEWER, but backend must still enforce this.
+8. Ignore events from unknown rooms.
 ```
 
 ---
@@ -1102,6 +1137,7 @@ room:join
 room:leave
 room:state
 presence:update
+selection:update
 cursor:update
 cursor:updated
 object:create

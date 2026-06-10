@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 import { RemoteCursorLayer } from "./remote-cursor-layer"
+import { RemoteSelectionLayer } from "./remote-selection-layer"
 import { WhiteboardObjectLayer } from "./whiteboard-object-layer"
 
 const smallGridStep = 32
@@ -752,6 +753,7 @@ export function WhiteboardStage() {
               listening={false}
             />
           ) : null}
+          <RemoteSelectionLayer viewportScale={viewport.scale} />
           <RemoteCursorLayer viewportScale={viewport.scale} />
           <Transformer
             ref={transformerRef}

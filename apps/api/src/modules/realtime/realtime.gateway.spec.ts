@@ -159,6 +159,7 @@ describe("RealtimeGateway", () => {
     joinRoom: jest.fn(),
     leaveAllRooms: jest.fn(),
     leaveRoom: jest.fn(),
+    updateSelectedObject: jest.fn(),
   }
   let gateway: RealtimeGateway
 
@@ -183,6 +184,7 @@ describe("RealtimeGateway", () => {
     presenceService.joinRoom.mockReturnValue([onlineUser])
     presenceService.leaveAllRooms.mockReturnValue([])
     presenceService.leaveRoom.mockReturnValue([])
+    presenceService.updateSelectedObject.mockReturnValue([onlineUser])
     roomEmitter.except.mockReturnValue(roomEmitter)
 
     gateway = new RealtimeGateway(
@@ -623,6 +625,100 @@ describe("RealtimeGateway", () => {
     })
     expect(roomEmitter.emit).not.toHaveBeenCalledWith(
       "cursor:updated",
+      expect.anything(),
+    )
+  })
+
+  it("updates selected object presence and broadcasts the online user list", () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+    const selectedOnlineUser: OnlineUser = {
+      ...onlineUser,
+      selectedObjectId: objectId,
+    }
+    presenceService.updateSelectedObject.mockReturnValue([selectedOnlineUser])
+
+    gateway.handleSelectionUpdate(socket, {
+      roomId,
+      selectedObjectId: objectId,
+    })
+
+    expect(presenceService.updateSelectedObject).toHaveBeenCalledWith({
+      socketId: socket.id,
+      roomId,
+      selectedObjectId: objectId,
+    })
+    expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(roomEmitter.emit).toHaveBeenCalledWith("presence:update", {
+      roomId,
+      onlineUsers: [selectedOnlineUser],
+    })
+    expect(whiteboardObjectsService.createObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.deleteObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.getRoomObjects).not.toHaveBeenCalled()
+  })
+
+  it("clears selected object presence", () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    gateway.handleSelectionUpdate(socket, {
+      roomId,
+      selectedObjectId: null,
+    })
+
+    expect(presenceService.updateSelectedObject).toHaveBeenCalledWith({
+      socketId: socket.id,
+      roomId,
+      selectedObjectId: null,
+    })
+    expect(roomEmitter.emit).toHaveBeenCalledWith("presence:update", {
+      roomId,
+      onlineUsers: [onlineUser],
+    })
+  })
+
+  it("emits validation errors for invalid selection update payloads", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    gateway.handleSelectionUpdate(socket, {
+      roomId,
+      selectedObjectId: "not-a-uuid",
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({
+        code: "VALIDATION_ERROR",
+      }),
+    )
+    expect(presenceService.updateSelectedObject).not.toHaveBeenCalled()
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "presence:update",
+      expect.anything(),
+    )
+  })
+
+  it("rejects selection updates from sockets that have not joined the room", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    presenceService.updateSelectedObject.mockReturnValue(null)
+
+    gateway.handleSelectionUpdate(socket, {
+      roomId,
+      selectedObjectId: objectId,
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("error", {
+      code: "USER_NOT_IN_ROOM",
+      message: "Join the room before sending selection updates.",
+    })
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "presence:update",
       expect.anything(),
     )
   })

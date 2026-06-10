@@ -18,6 +18,9 @@ const userTwo: UserSummary = {
   avatarColor: "#16A34A",
 }
 
+const objectId = "55555555-5555-4555-8555-555555555555"
+const otherObjectId = "66666666-6666-4666-8666-666666666666"
+
 describe("PresenceService", () => {
   let service: PresenceService
 
@@ -82,6 +85,129 @@ describe("PresenceService", () => {
     service.leaveRoom("socket-2", roomId)
 
     expect(service.getOnlineUsers(roomId)).toEqual([])
+  })
+
+  it("updates and clears selected object presence", () => {
+    service.joinRoom({
+      socketId: "socket-1",
+      roomId,
+      user: userOne,
+      role: "EDITOR",
+    })
+
+    expect(
+      service.updateSelectedObject({
+        socketId: "socket-1",
+        roomId,
+        selectedObjectId: objectId,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        id: userOne.id,
+        selectedObjectId: objectId,
+      }),
+    ])
+
+    expect(
+      service.updateSelectedObject({
+        socketId: "socket-1",
+        roomId,
+        selectedObjectId: null,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        id: userOne.id,
+        selectedObjectId: null,
+      }),
+    ])
+  })
+
+  it("does not update selected object presence for sockets outside the room", () => {
+    service.joinRoom({
+      socketId: "socket-1",
+      roomId,
+      user: userOne,
+      role: "EDITOR",
+    })
+
+    expect(
+      service.updateSelectedObject({
+        socketId: "socket-2",
+        roomId,
+        selectedObjectId: objectId,
+      }),
+    ).toBeNull()
+    expect(service.getOnlineUsers(roomId)).toEqual([
+      expect.objectContaining({
+        id: userOne.id,
+        selectedObjectId: null,
+      }),
+    ])
+  })
+
+  it("uses the latest active socket selection for duplicated users", () => {
+    const dateNowSpy = jest.spyOn(Date, "now")
+
+    try {
+      service.joinRoom({
+        socketId: "socket-1",
+        roomId,
+        user: userOne,
+        role: "EDITOR",
+      })
+      service.joinRoom({
+        socketId: "socket-2",
+        roomId,
+        user: userOne,
+        role: "EDITOR",
+      })
+
+      dateNowSpy.mockReturnValue(1000)
+      service.updateSelectedObject({
+        socketId: "socket-1",
+        roomId,
+        selectedObjectId: objectId,
+      })
+
+      dateNowSpy.mockReturnValue(2000)
+      service.updateSelectedObject({
+        socketId: "socket-2",
+        roomId,
+        selectedObjectId: otherObjectId,
+      })
+
+      expect(service.getOnlineUsers(roomId)).toEqual([
+        expect.objectContaining({
+          id: userOne.id,
+          selectedObjectId: otherObjectId,
+        }),
+      ])
+
+      dateNowSpy.mockReturnValue(3000)
+      service.updateSelectedObject({
+        socketId: "socket-2",
+        roomId,
+        selectedObjectId: null,
+      })
+
+      expect(service.getOnlineUsers(roomId)).toEqual([
+        expect.objectContaining({
+          id: userOne.id,
+          selectedObjectId: null,
+        }),
+      ])
+
+      service.leaveRoom("socket-2", roomId)
+
+      expect(service.getOnlineUsers(roomId)).toEqual([
+        expect.objectContaining({
+          id: userOne.id,
+          selectedObjectId: objectId,
+        }),
+      ])
+    } finally {
+      dateNowSpy.mockRestore()
+    }
   })
 
   it("removes a socket from every joined room on disconnect", () => {

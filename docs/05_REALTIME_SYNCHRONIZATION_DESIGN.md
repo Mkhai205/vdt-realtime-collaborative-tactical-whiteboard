@@ -86,6 +86,7 @@ Transient events do not increment revision:
 ```txt
 cursor:update
 presence:update
+selection:update
 editing:start
 editing:end
 ```
@@ -168,6 +169,7 @@ Transient events are realtime-only and not stored in database.
 | Event | Description |
 |---|---|
 | cursor:update | Broadcast user's cursor position. |
+| selection:update | Update selected object in transient presence state. |
 | editing:start | User starts editing/dragging/selecting an object. |
 | editing:end | User stops editing/dragging/selecting an object. |
 | presence:update | User online/offline/current state. |
@@ -440,6 +442,35 @@ Future enhancement:
 
 ```txt
 Use a grace period of 5-30 seconds before marking user offline.
+```
+
+---
+
+## 10.1 Selection Presence
+
+Selected object presence is maintained in memory on the backend and is not persisted.
+
+```ts
+type SelectionUpdateRequest = {
+  roomId: string;
+  selectedObjectId: string | null;
+};
+```
+
+Server behavior:
+
+```txt
+- Validate user is in room.
+- Store selectedObjectId on the socket presence session.
+- Broadcast presence:update to the room.
+- Do not increment room revision.
+```
+
+UI behavior:
+
+```txt
+If another user has selected an object, show a colored non-blocking indicator on that object.
+Selection presence does not prevent other users from editing.
 ```
 
 ---

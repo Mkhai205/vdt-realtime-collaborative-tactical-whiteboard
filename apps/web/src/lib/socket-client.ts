@@ -11,6 +11,7 @@ import type {
   PresenceUpdateEvent,
   RoomJoinRequest,
   RoomLeaveRequest,
+  SelectionUpdateRequest,
   RoomStateEvent,
   SocketErrorEvent,
 } from "@rctw/shared-contracts"
@@ -33,6 +34,7 @@ type ServerToClientEvents = {
 type ClientToServerEvents = {
   "room:join": (request: RoomJoinRequest) => void
   "room:leave": (request: RoomLeaveRequest) => void
+  "selection:update": (request: SelectionUpdateRequest) => void
   "cursor:update": (request: CursorUpdateRequest) => void
   "object:create": (request: ObjectCreateSocketRequest) => void
   "object:update": (request: ObjectUpdateSocketRequest) => void
