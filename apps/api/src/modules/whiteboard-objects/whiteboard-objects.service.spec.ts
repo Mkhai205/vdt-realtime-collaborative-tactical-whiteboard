@@ -207,6 +207,7 @@ describe("WhiteboardObjectsService", () => {
     expect(response.revision).toBe(7)
     expect(typeof response.revision).toBe("number")
     expect(response.resultingObject?.id).toBe(objectId)
+    expect(response.resultingObject?.version).toBe(1)
   })
 
   it("persists object patches with merged style and records previous values", async () => {
@@ -316,6 +317,7 @@ describe("WhiteboardObjectsService", () => {
       data: expect.objectContaining({
         revision: 7n,
         type: "OBJECT_DELETE",
+        baseObjectVersion: 3,
         payload: expect.objectContaining({
           previousObject: expect.objectContaining({
             id: objectId,
@@ -335,6 +337,7 @@ describe("WhiteboardObjectsService", () => {
     expect(response.revision).toBe(7)
     expect(typeof response.revision).toBe("number")
     expect(response.resultingObject?.deletedAt).toBe(now.toISOString())
+    expect(response.resultingObject?.version).toBe(4)
   })
 
   it("rejects viewer create attempts", async () => {

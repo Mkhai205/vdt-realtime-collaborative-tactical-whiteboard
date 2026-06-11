@@ -749,6 +749,37 @@ describe("RealtimeGateway", () => {
     expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ["object:update", () => gateway.handleObjectUpdate, "updateObject"],
+    ["object:delete", () => gateway.handleObjectDelete, "deleteObject"],
+  ] as const)(
+    "rejects %s when baseObjectVersion is missing",
+    async (_eventName, getHandler, serviceMethodName) => {
+      const socket = makeSocket()
+      const socketMocks = getSocketMocks(socket)
+      socket.data.currentUser = currentUser
+
+      await getHandler().call(gateway, socket, {
+        roomId,
+        objectId,
+        clientOpId,
+        patch: {
+          x: 120,
+        },
+      })
+
+      expect(socketMocks.emit).toHaveBeenCalledWith("operation:rejected", {
+        clientOpId,
+        roomId,
+        reason: "INVALID_OPERATION_PAYLOAD",
+        message: "Invalid object operation payload.",
+        latestObject: undefined,
+        currentRoomRevision: undefined,
+      })
+      expect(whiteboardObjectsService[serviceMethodName]).not.toHaveBeenCalled()
+    },
+  )
+
   it("emits generic socket validation errors when malformed object payloads lack operation context", async () => {
     const socket = makeSocket()
     const socketMocks = getSocketMocks(socket)
