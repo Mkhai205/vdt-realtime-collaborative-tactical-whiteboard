@@ -483,6 +483,53 @@ describe("WhiteboardObjectsService", () => {
     expectNoRevisionWrite()
   })
 
+  it.each([
+    [["roomId", "clientOpId"]],
+    ["WhiteboardOperation_roomId_clientOpId_key"],
+  ])(
+    "rejects duplicate operation ids that race at the database constraint",
+    async (target) => {
+      tx.whiteboardObject.create.mockResolvedValue(makeObject({ version: 1 }))
+      tx.whiteboardOperation.create.mockRejectedValue({
+        code: "P2002",
+        meta: {
+          target,
+        },
+      })
+
+      await expect(
+        service.createObject(currentUser, roomId, {
+          clientOpId,
+          object: {
+            type: "RECTANGLE",
+            x: 100,
+            y: 200,
+            width: 160,
+            height: 96,
+          },
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          code: "DUPLICATE_OPERATION",
+        },
+      })
+      expectMutationTransactionUsed()
+      expect(tx.whiteboardOperation.findUnique).toHaveBeenCalledWith({
+        where: {
+          roomId_clientOpId: {
+            roomId,
+            clientOpId,
+          },
+        },
+        select: {
+          id: true,
+        },
+      })
+      expectRoomRevisionIncrementedOnce()
+      expect(tx.whiteboardOperation.create).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it("rejects duplicate client operation ids", async () => {
     tx.whiteboardOperation.findUnique.mockResolvedValue({
       id: operationId,

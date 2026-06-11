@@ -91,7 +91,7 @@ export class WhiteboardObjectsService {
     roomId: string,
     request: ObjectCreateRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.prismaService.client.$transaction(async (tx) => {
+    return this.runObjectMutation(async (tx) => {
       await this.assertCanMutateRoom(tx, currentUser.id, roomId)
       await this.assertUniqueClientOpId(tx, roomId, request.clientOpId)
 
@@ -131,7 +131,7 @@ export class WhiteboardObjectsService {
     objectId: string,
     request: ObjectUpdateRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.prismaService.client.$transaction(async (tx) => {
+    return this.runObjectMutation(async (tx) => {
       await this.assertCanMutateRoom(tx, currentUser.id, roomId)
       await this.assertUniqueClientOpId(tx, roomId, request.clientOpId)
 
@@ -191,7 +191,7 @@ export class WhiteboardObjectsService {
     objectId: string,
     request: ObjectDeleteRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.prismaService.client.$transaction(async (tx) => {
+    return this.runObjectMutation(async (tx) => {
       await this.assertCanMutateRoom(tx, currentUser.id, roomId)
       await this.assertUniqueClientOpId(tx, roomId, request.clientOpId)
 
@@ -240,6 +240,22 @@ export class WhiteboardObjectsService {
         resultingObject,
       })
     })
+  }
+
+  private async runObjectMutation<T>(
+    mutation: (tx: WhiteboardTransactionClient) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await this.prismaService.client.$transaction((tx) =>
+        mutation(tx),
+      )
+    } catch (error) {
+      if (this.isDuplicateClientOperationConstraintError(error)) {
+        throw this.duplicateOperation()
+      }
+
+      throw error
+    }
   }
 
   private async assertCanMutateRoom(
@@ -569,6 +585,31 @@ export class WhiteboardObjectsService {
 
   private toJsonValue(value: unknown): Prisma.InputJsonValue {
     return value as Prisma.InputJsonValue
+  }
+
+  private isDuplicateClientOperationConstraintError(error: unknown): boolean {
+    if (!this.isPrismaUniqueConstraintError(error)) {
+      return false
+    }
+
+    const target = error.meta?.target
+
+    if (Array.isArray(target)) {
+      return target.includes("roomId") && target.includes("clientOpId")
+    }
+
+    return target === "WhiteboardOperation_roomId_clientOpId_key"
+  }
+
+  private isPrismaUniqueConstraintError(
+    error: unknown,
+  ): error is { code: "P2002"; meta?: { target?: unknown } } {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "P2002"
+    )
   }
 
   private roomNotFound() {
