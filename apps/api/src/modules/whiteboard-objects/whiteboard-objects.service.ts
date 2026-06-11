@@ -139,22 +139,22 @@ export class WhiteboardObjectsService {
         tx,
         roomId,
         objectId,
-        request.baseObjectVersion,
       )
       const previousValues = this.getPreviousValues(
         currentObject,
         request.patch,
       )
-      const updatedObject = await tx.whiteboardObject.update({
-        where: {
-          id: objectId,
-        },
-        data: this.toUpdateObjectData(
+      const updatedObject = await this.updateObjectConditionally(
+        tx,
+        roomId,
+        objectId,
+        request.baseObjectVersion,
+        this.toUpdateObjectData(
           currentObject,
           request.patch,
           currentUser.id,
         ),
-      })
+      )
       const resultingObject = toWhiteboardObject(updatedObject)
       const payload = {
         objectId,
@@ -199,21 +199,21 @@ export class WhiteboardObjectsService {
         tx,
         roomId,
         objectId,
-        request.baseObjectVersion,
       )
       const previousObject = toWhiteboardObject(currentObject)
-      const deletedObject = await tx.whiteboardObject.update({
-        where: {
-          id: objectId,
-        },
-        data: {
+      const deletedObject = await this.updateObjectConditionally(
+        tx,
+        roomId,
+        objectId,
+        request.baseObjectVersion,
+        {
           deletedAt: new Date(),
           updatedById: currentUser.id,
           version: {
             increment: 1,
           },
         },
-      })
+      )
       const resultingObject = toWhiteboardObject(deletedObject)
       const payload = {
         objectId,
@@ -309,7 +309,6 @@ export class WhiteboardObjectsService {
     tx: WhiteboardTransactionClient,
     roomId: string,
     objectId: string,
-    baseObjectVersion: number,
   ): Promise<WhiteboardObjectRecord> {
     const object = await tx.whiteboardObject.findFirst({
       where: {
@@ -326,11 +325,84 @@ export class WhiteboardObjectsService {
       throw this.objectAlreadyDeleted()
     }
 
-    if (object.version !== baseObjectVersion) {
-      throw this.objectVersionConflict(toWhiteboardObject(object))
+    return object
+  }
+
+  private async updateObjectConditionally(
+    tx: WhiteboardTransactionClient,
+    roomId: string,
+    objectId: string,
+    baseObjectVersion: number,
+    data: Prisma.WhiteboardObjectUncheckedUpdateManyInput,
+  ): Promise<WhiteboardObjectRecord> {
+    const result = await tx.whiteboardObject.updateMany({
+      where: {
+        id: objectId,
+        roomId,
+        deletedAt: null,
+        version: baseObjectVersion,
+      },
+      data,
+    })
+
+    if (result.count === 0) {
+      await this.rejectConditionalMutationMiss(tx, roomId, objectId)
+    }
+
+    const object = await tx.whiteboardObject.findFirst({
+      where: {
+        id: objectId,
+        roomId,
+      },
+    })
+
+    if (!object) {
+      throw this.objectNotFound()
     }
 
     return object
+  }
+
+  private async rejectConditionalMutationMiss(
+    tx: WhiteboardTransactionClient,
+    roomId: string,
+    objectId: string,
+  ): Promise<never> {
+    const object = await tx.whiteboardObject.findFirst({
+      where: {
+        id: objectId,
+        roomId,
+      },
+    })
+
+    if (!object) {
+      throw this.objectNotFound()
+    }
+
+    if (object.deletedAt) {
+      throw this.objectAlreadyDeleted()
+    }
+
+    throw this.objectVersionConflict(
+      toWhiteboardObject(object),
+      await this.getCurrentRoomRevision(tx, roomId),
+    )
+  }
+
+  private async getCurrentRoomRevision(
+    tx: WhiteboardTransactionClient,
+    roomId: string,
+  ): Promise<number | undefined> {
+    const room = await tx.room.findFirst({
+      where: {
+        id: roomId,
+      },
+      select: {
+        currentRevision: true,
+      },
+    })
+
+    return room ? Number(room.currentRevision) : undefined
   }
 
   private toCreateObjectData(
@@ -359,8 +431,8 @@ export class WhiteboardObjectsService {
     object: WhiteboardObjectRecord,
     patch: ObjectMutablePatch,
     updatedById: string,
-  ): Prisma.WhiteboardObjectUncheckedUpdateInput {
-    const data: Prisma.WhiteboardObjectUncheckedUpdateInput = {
+  ): Prisma.WhiteboardObjectUncheckedUpdateManyInput {
+    const data: Prisma.WhiteboardObjectUncheckedUpdateManyInput = {
       updatedById,
       version: {
         increment: 1,
@@ -520,12 +592,16 @@ export class WhiteboardObjectsService {
     })
   }
 
-  private objectVersionConflict(latestObject: WhiteboardObject) {
+  private objectVersionConflict(
+    latestObject: WhiteboardObject,
+    currentRoomRevision?: number,
+  ) {
     return new ConflictException({
       code: "OBJECT_VERSION_CONFLICT",
       message: "Whiteboard object has changed since your last edit.",
       details: {
         latestObject,
+        currentRoomRevision,
       },
     })
   }

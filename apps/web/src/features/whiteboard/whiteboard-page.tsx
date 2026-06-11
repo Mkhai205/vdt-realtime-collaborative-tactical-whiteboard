@@ -14,6 +14,7 @@ import {
   SquareIcon,
   Trash2Icon,
   TypeIcon,
+  XIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,7 +24,10 @@ import {
   minViewportScale,
   viewportZoomStep,
 } from "@/lib/canvas-utils"
-import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import {
+  type WhiteboardToast,
+  useWhiteboardStore,
+} from "@/stores/whiteboard-store"
 import { ObjectDetailPanel } from "./object-detail-panel"
 import { OnlineUsersPanel } from "./online-users-panel"
 import { useWhiteboardRoomSocket } from "./use-whiteboard-room-socket"
@@ -54,6 +58,7 @@ const toolbarItems = [
 }>
 
 const viewportScaleEpsilon = 0.001
+const toastAutoDismissMs = 5000
 type LoadState = "loading" | "ready" | "error"
 
 export function WhiteboardPage({ roomId }: { roomId: string }) {
@@ -64,12 +69,14 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
   const socketError = useWhiteboardStore((state) => state.socketError)
   const onlineUsers = useWhiteboardStore((state) => state.onlineUsers)
   const mutationError = useWhiteboardStore((state) => state.mutationError)
+  const toasts = useWhiteboardStore((state) => state.toasts)
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const viewport = useWhiteboardStore((state) => state.viewport)
   const stageSize = useWhiteboardStore((state) => state.stageSize)
   const deleteSelectedObject = useWhiteboardStore(
     (state) => state.deleteSelectedObject,
   )
+  const dismissToast = useWhiteboardStore((state) => state.dismissToast)
   const hasLoadedRoom = room?.id === roomId && Boolean(currentUser)
   const loadState: LoadState =
     socketError && !hasLoadedRoom
@@ -169,6 +176,10 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
               {mutationError ? <StatusMessage message={mutationError} /> : null}
             </div>
           ) : null}
+          <WhiteboardToastViewport
+            toasts={toasts}
+            onDismiss={dismissToast}
+          />
         </section>
 
         <aside
@@ -181,6 +192,67 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
       </section>
     </main>
   )
+}
+
+function WhiteboardToastViewport({
+  toasts,
+  onDismiss,
+}: {
+  toasts: WhiteboardToast[]
+  onDismiss: (toastId: string) => void
+}) {
+  useEffect(() => {
+    const timeouts = toasts.map((toast) => {
+      const delay = Math.max(
+        0,
+        toast.createdAt + toastAutoDismissMs - Date.now(),
+      )
+
+      return window.setTimeout(() => onDismiss(toast.id), delay)
+    })
+
+    return () => {
+      timeouts.forEach(window.clearTimeout)
+    }
+  }, [onDismiss, toasts])
+
+  if (toasts.length === 0) {
+    return null
+  }
+
+  return (
+    <div
+      className="pointer-events-none absolute top-3 right-3 z-20 flex w-[min(24rem,calc(100%-1.5rem))] flex-col gap-2"
+      aria-live="polite"
+      aria-atomic="false"
+    >
+      {toasts.map((toast) => (
+        <div key={toast.id} className={getToastClassName(toast.variant)}>
+          <p className="min-w-0 flex-1 leading-snug">{toast.message}</p>
+          <button
+            type="button"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-current opacity-70 transition hover:bg-black/5 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            title="Dismiss"
+            aria-label="Dismiss notification"
+            onClick={() => onDismiss(toast.id)}
+          >
+            <XIcon className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function getToastClassName(variant: WhiteboardToast["variant"]): string {
+  const baseClassName =
+    "pointer-events-auto flex min-h-12 items-start gap-3 rounded-md border px-3 py-2 text-sm shadow-lg backdrop-blur"
+
+  if (variant === "error") {
+    return `${baseClassName} border-destructive/40 bg-background/95 text-destructive`
+  }
+
+  return `${baseClassName} border-emerald-300/70 bg-emerald-50/95 text-emerald-950`
 }
 
 function StatusMessage({ message }: { message: string }) {

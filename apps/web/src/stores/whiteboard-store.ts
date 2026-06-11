@@ -46,6 +46,7 @@ type WhiteboardState = {
   socketError: string | null
   onlineUsers: OnlineUser[]
   mutationError: string | null
+  toasts: WhiteboardToast[]
   objects: Record<string, WhiteboardObject>
   remoteCursors: Record<string, RemoteCursor>
   remoteTransformPreviews: Record<string, RemoteTransformPreview>
@@ -67,6 +68,7 @@ type WhiteboardState = {
   setSocketError: (message: string | null) => void
   setOnlineUsers: (onlineUsers: OnlineUser[]) => void
   setMutationError: (message: string | null) => void
+  dismissToast: (toastId: string) => void
   setObjectOperationSender: (sender: WhiteboardOperationSender | null) => void
   setTransformPreviewSender: (
     sender: WhiteboardTransformPreviewSender | null,
@@ -117,6 +119,15 @@ type WhiteboardCurrentUser = UserSummary & {
 type WhiteboardRoomState = RoomStateEvent["room"]
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected"
+
+type WhiteboardToastVariant = "info" | "error"
+
+export type WhiteboardToast = {
+  id: string
+  message: string
+  variant: WhiteboardToastVariant
+  createdAt: number
+}
 
 type LoadedRoomStateInput = {
   room: WhiteboardRoomState
@@ -181,6 +192,9 @@ const emptyStageSize: StageSize = {
   height: 0,
 }
 
+const maxToastCount = 3
+const objectVersionConflictToastMessage =
+  "Object changed in another session. Refreshed to latest version."
 const remoteTransformPreviewStaleMs = 1500
 const demoActorId = "00000000-0000-4000-8000-000000000401"
 const localFallbackActorId = "00000000-0000-4000-8000-000000000402"
@@ -403,6 +417,33 @@ function getWhiteboardOperationErrorMessage(error: unknown): string {
   return "Whiteboard operation failed."
 }
 
+function createWhiteboardToast(
+  message: string,
+  variant: WhiteboardToastVariant,
+): WhiteboardToast {
+  return {
+    id: createToastId(),
+    message,
+    variant,
+    createdAt: Date.now(),
+  }
+}
+
+function createToastId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function appendWhiteboardToast(
+  toasts: WhiteboardToast[],
+  toast: WhiteboardToast,
+): WhiteboardToast[] {
+  return [...toasts, toast].slice(-maxToastCount)
+}
+
 async function handleOperationFailure(
   error: unknown,
   get: () => WhiteboardState,
@@ -571,6 +612,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   socketError: null,
   onlineUsers: [],
   mutationError: null,
+  toasts: [],
   objects: {},
   remoteCursors: {},
   remoteTransformPreviews: {},
@@ -603,6 +645,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         socketError: null,
         onlineUsers: [],
         mutationError: null,
+        toasts: [],
         objects: {},
         remoteCursors: {},
         remoteTransformPreviews: {},
@@ -715,6 +758,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     set({
       mutationError: message,
     }),
+  dismissToast: (toastId) =>
+    set((state) => ({
+      toasts: state.toasts.filter((toast) => toast.id !== toastId),
+    })),
   setObjectOperationSender: (sender) =>
     set({
       objectOperationSender: sender,
@@ -882,6 +929,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         ...state.objects,
         [rejection.latestObject.id]: rejection.latestObject,
       }
+      const showConflictToast = rejection.reason === "OBJECT_VERSION_CONFLICT"
       const selectedObject = state.selectedObjectId
         ? nextObjects[state.selectedObjectId]
         : null
@@ -900,7 +948,16 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           state.currentRevision,
           rejection.currentRoomRevision,
         ),
-        mutationError: rejection.message,
+        mutationError: showConflictToast ? null : rejection.message,
+        toasts: showConflictToast
+          ? appendWhiteboardToast(
+              state.toasts,
+              createWhiteboardToast(
+                objectVersionConflictToastMessage,
+                "info",
+              ),
+            )
+          : state.toasts,
         selectedObjectId: resolvedSelectedObjectId,
       }
     })

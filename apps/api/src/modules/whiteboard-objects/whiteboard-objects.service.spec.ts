@@ -56,6 +56,7 @@ describe("WhiteboardObjectsService", () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     whiteboardOperation: {
       create: jest.fn(),
@@ -114,6 +115,9 @@ describe("WhiteboardObjectsService", () => {
       currentRevision: 7n,
     })
     tx.whiteboardOperation.findUnique.mockResolvedValue(null)
+    tx.whiteboardObject.updateMany.mockResolvedValue({
+      count: 1,
+    })
     tx.whiteboardOperation.create.mockImplementation(
       ({ data }: { data: Record<string, unknown> }) =>
         Promise.resolve({
@@ -211,19 +215,20 @@ describe("WhiteboardObjectsService", () => {
   })
 
   it("persists object patches with merged style and records previous values", async () => {
-    tx.whiteboardObject.findFirst.mockResolvedValue(makeObject())
-    tx.whiteboardObject.update.mockResolvedValue(
-      makeObject({
-        x: 120,
-        style: {
-          fill: "#86efac",
-          stroke: "#000000",
-          strokeWidth: 3,
-        },
-        version: 4,
-        updatedById: userId,
-      }),
-    )
+    tx.whiteboardObject.findFirst
+      .mockResolvedValueOnce(makeObject())
+      .mockResolvedValueOnce(
+        makeObject({
+          x: 120,
+          style: {
+            fill: "#86efac",
+            stroke: "#000000",
+            strokeWidth: 3,
+          },
+          version: 4,
+          updatedById: userId,
+        }),
+      )
 
     const response = await service.updateObject(currentUser, roomId, objectId, {
       clientOpId,
@@ -236,9 +241,12 @@ describe("WhiteboardObjectsService", () => {
       },
     })
 
-    expect(tx.whiteboardObject.update).toHaveBeenCalledWith({
+    expect(tx.whiteboardObject.updateMany).toHaveBeenCalledWith({
       where: {
         id: objectId,
+        roomId,
+        deletedAt: null,
+        version: 3,
       },
       data: expect.objectContaining({
         x: 120,
@@ -253,6 +261,7 @@ describe("WhiteboardObjectsService", () => {
         },
       }),
     })
+    expect(tx.whiteboardObject.update).not.toHaveBeenCalled()
     expectMutationTransactionUsed()
     expectRoomRevisionIncrementedOnce()
     expect(tx.whiteboardOperation.create).toHaveBeenCalledWith({
@@ -285,23 +294,27 @@ describe("WhiteboardObjectsService", () => {
   })
 
   it("soft deletes objects and records the previous object", async () => {
-    tx.whiteboardObject.findFirst.mockResolvedValue(makeObject())
-    tx.whiteboardObject.update.mockResolvedValue(
-      makeObject({
-        deletedAt: now,
-        version: 4,
-        updatedById: userId,
-      }),
-    )
+    tx.whiteboardObject.findFirst
+      .mockResolvedValueOnce(makeObject())
+      .mockResolvedValueOnce(
+        makeObject({
+          deletedAt: now,
+          version: 4,
+          updatedById: userId,
+        }),
+      )
 
     const response = await service.deleteObject(currentUser, roomId, objectId, {
       clientOpId,
       baseObjectVersion: 3,
     })
 
-    expect(tx.whiteboardObject.update).toHaveBeenCalledWith({
+    expect(tx.whiteboardObject.updateMany).toHaveBeenCalledWith({
       where: {
         id: objectId,
+        roomId,
+        deletedAt: null,
+        version: 3,
       },
       data: expect.objectContaining({
         deletedAt: expect.any(Date),
@@ -311,6 +324,7 @@ describe("WhiteboardObjectsService", () => {
         },
       }),
     })
+    expect(tx.whiteboardObject.update).not.toHaveBeenCalled()
     expectMutationTransactionUsed()
     expectRoomRevisionIncrementedOnce()
     expect(tx.whiteboardOperation.create).toHaveBeenCalledWith({
@@ -360,8 +374,20 @@ describe("WhiteboardObjectsService", () => {
     expectNoRevisionWrite()
   })
 
-  it("rejects stale object updates with the latest object", async () => {
-    tx.whiteboardObject.findFirst.mockResolvedValue(makeObject({ version: 4 }))
+  it("rejects stale object updates after a conditional write miss", async () => {
+    tx.whiteboardObject.updateMany.mockResolvedValue({
+      count: 0,
+    })
+    tx.whiteboardObject.findFirst
+      .mockResolvedValueOnce(makeObject())
+      .mockResolvedValueOnce(makeObject({ version: 4 }))
+    tx.room.findFirst
+      .mockResolvedValueOnce({
+        members: [{ role: "EDITOR" }],
+      })
+      .mockResolvedValueOnce({
+        currentRevision: 8n,
+      })
 
     await expect(
       service.updateObject(currentUser, roomId, objectId, {
@@ -371,12 +397,34 @@ describe("WhiteboardObjectsService", () => {
           x: 130,
         },
       }),
-    ).rejects.toThrow(ConflictException)
+    ).rejects.toMatchObject({
+      response: {
+        code: "OBJECT_VERSION_CONFLICT",
+        details: {
+          currentRoomRevision: 8,
+          latestObject: expect.objectContaining({
+            id: objectId,
+            version: 4,
+          }),
+        },
+      },
+    })
     expect(tx.whiteboardObject.update).not.toHaveBeenCalled()
+    expect(tx.whiteboardObject.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: objectId,
+        roomId,
+        deletedAt: null,
+        version: 3,
+      },
+      data: expect.objectContaining({
+        x: 130,
+      }),
+    })
     expectNoRevisionWrite()
   })
 
-  it("rejects updates to soft-deleted objects", async () => {
+  it("rejects updates to soft-deleted objects before writing", async () => {
     tx.whiteboardObject.findFirst.mockResolvedValue(
       makeObject({
         deletedAt: now,
@@ -393,6 +441,45 @@ describe("WhiteboardObjectsService", () => {
       }),
     ).rejects.toThrow(ConflictException)
     expect(tx.whiteboardObject.update).not.toHaveBeenCalled()
+    expect(tx.whiteboardObject.updateMany).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
+  })
+
+  it("rejects deletes against an object deleted by a concurrent operation", async () => {
+    tx.whiteboardObject.updateMany.mockResolvedValue({
+      count: 0,
+    })
+    tx.whiteboardObject.findFirst
+      .mockResolvedValueOnce(makeObject())
+      .mockResolvedValueOnce(
+        makeObject({
+          deletedAt: now,
+          version: 4,
+        }),
+      )
+
+    await expect(
+      service.deleteObject(currentUser, roomId, objectId, {
+        clientOpId,
+        baseObjectVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: "OBJECT_ALREADY_DELETED",
+      },
+    })
+    expect(tx.whiteboardObject.update).not.toHaveBeenCalled()
+    expect(tx.whiteboardObject.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: objectId,
+        roomId,
+        deletedAt: null,
+        version: 3,
+      },
+      data: expect.objectContaining({
+        deletedAt: expect.any(Date),
+      }),
+    })
     expectNoRevisionWrite()
   })
 

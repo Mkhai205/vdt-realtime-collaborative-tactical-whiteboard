@@ -895,6 +895,7 @@ describe("RealtimeGateway", () => {
             ...whiteboardObject,
             version: 2,
           },
+          currentRoomRevision: 8,
         },
       }),
     )
@@ -919,6 +920,7 @@ describe("RealtimeGateway", () => {
           id: objectId,
           version: 2,
         }),
+        currentRoomRevision: 8,
       }),
     )
   })
