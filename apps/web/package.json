@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@rctw/shared-contracts": "workspace:*",
@@ -39,6 +40,7 @@
     "postcss": "^8.5.15",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8"
   }
 }

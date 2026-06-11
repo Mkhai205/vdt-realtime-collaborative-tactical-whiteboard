@@ -29,6 +29,16 @@ import { create } from "zustand"
 import { readStoredGuestIdentity } from "@/features/identity/guest-identity"
 import { getRoomObjects } from "@/features/whiteboard/whiteboard-api"
 import {
+  cloneWhiteboardObject,
+  clearWhiteboardHistoryStacks,
+  createWhiteboardHistoryEntry,
+  moveLatestRedoToUndo,
+  moveLatestUndoToRedo,
+  pushUndoStackEntry,
+  type PendingWhiteboardHistoryEntry,
+  type WhiteboardHistoryEntry,
+} from "@/features/whiteboard/whiteboard-history"
+import {
   clampViewport,
   clampScale,
   getCenteredViewport,
@@ -55,6 +65,8 @@ type WhiteboardState = {
   remoteEditors: Record<string, Record<string, RemoteEditingState>>
   remoteTransformPreviews: Record<string, RemoteTransformPreview>
   appliedClientOpIds: Record<string, true>
+  undoStack: WhiteboardHistoryEntry[]
+  redoStack: WhiteboardHistoryEntry[]
   selectedObjectId: string | null
   currentTool: Tool
   toolRevision: number
@@ -89,9 +101,13 @@ type WhiteboardState = {
   upsertObject: (object: WhiteboardObject) => void
   applyOperation: (
     operation: OperationAppliedEvent,
-    options?: { removeObjectId?: string },
+    options?: WhiteboardApplyOperationOptions,
   ) => void
   applyOperationRejection: (rejection: OperationRejectedEvent) => void
+  pushUndoEntry: (entry: WhiteboardHistoryEntry) => void
+  moveLatestUndoEntryToRedo: () => WhiteboardHistoryEntry | null
+  moveLatestRedoEntryToUndo: () => WhiteboardHistoryEntry | null
+  clearHistoryStacks: () => void
   applyRemoteTransformPreview: (
     event: ObjectTransformPreviewedEvent,
   ) => void
@@ -175,16 +191,28 @@ export type LocalObjectInput = {
   style: ShapeStyle
 }
 
+export type WhiteboardApplyOperationOptions = {
+  removeObjectId?: string
+  historyCandidate?: PendingWhiteboardHistoryEntry
+}
+
+export type WhiteboardOperationSenderOptions = {
+  tempObjectId?: string
+  historyCandidate?: PendingWhiteboardHistoryEntry
+}
+
 export type WhiteboardOperationSender = {
   createObject: (
     request: ObjectCreateSocketRequest,
-    options?: { tempObjectId?: string },
+    options?: WhiteboardOperationSenderOptions,
   ) => Promise<OperationAppliedEvent>
   updateObject: (
     request: ObjectUpdateSocketRequest,
+    options?: WhiteboardOperationSenderOptions,
   ) => Promise<OperationAppliedEvent>
   deleteObject: (
     request: ObjectDeleteSocketRequest,
+    options?: WhiteboardOperationSenderOptions,
   ) => Promise<OperationAppliedEvent>
 }
 
@@ -473,6 +501,22 @@ function toCreateRequestObject(input: LocalObjectInput, zIndex: number) {
   }
 }
 
+function applyMutablePatchToObject(
+  object: WhiteboardObject,
+  patch: ObjectMutablePatch,
+): WhiteboardObject {
+  return {
+    ...object,
+    ...patch,
+    style: patch.style
+      ? {
+          ...object.style,
+          ...patch.style,
+        }
+      : object.style,
+  }
+}
+
 function getOperationRejection(error: unknown): OperationRejectedEvent | null {
   if (
     typeof error === "object" &&
@@ -704,6 +748,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   remoteEditors: {},
   remoteTransformPreviews: {},
   appliedClientOpIds: {},
+  undoStack: [],
+  redoStack: [],
   selectedObjectId: null,
   currentTool: "SELECT",
   toolRevision: 0,
@@ -739,6 +785,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         remoteEditors: {},
         remoteTransformPreviews: {},
         appliedClientOpIds: {},
+        undoStack: [],
+        redoStack: [],
         selectedObjectId: null,
         currentTool: "SELECT",
         toolRevision: state.toolRevision + 1,
@@ -817,6 +865,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         remoteEditors: {},
         remoteTransformPreviews: {},
         appliedClientOpIds: {},
+        undoStack: [],
+        redoStack: [],
         selectedObjectId: resolvedSelectedObjectId,
         currentTool: canEditRoom(input.currentUser.role)
           ? state.currentTool
@@ -901,6 +951,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         objects: nextObjects,
         remoteEditors: {},
         remoteTransformPreviews: {},
+        undoStack: [],
+        redoStack: [],
         selectedObjectId: resolvedSelectedObjectId,
       }
     })
@@ -933,6 +985,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         remoteEditors: {},
         remoteTransformPreviews: {},
         currentRevision,
+        undoStack: [],
+        redoStack: [],
         selectedObjectId: resolvedSelectedObjectId,
       }
     })
@@ -992,6 +1046,16 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         operation,
         options?.removeObjectId,
       )
+      const historyEntry = createWhiteboardHistoryEntry(
+        operation,
+        options?.historyCandidate,
+      )
+      const historyStacks = historyEntry
+        ? pushUndoStackEntry(state.undoStack, historyEntry)
+        : {
+            undoStack: state.undoStack,
+            redoStack: state.redoStack,
+          }
       const selectedObject = state.selectedObjectId
         ? nextObjects[state.selectedObjectId]
         : null
@@ -1014,6 +1078,8 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         mutationError: null,
         remoteEditors: nextRemoteEditors,
         remoteTransformPreviews: nextRemoteTransformPreviews,
+        undoStack: historyStacks.undoStack,
+        redoStack: historyStacks.redoStack,
         selectedObjectId: resolvedSelectedObjectId,
       }
     })
@@ -1022,6 +1088,39 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       get().sendSelectionUpdate(nextSelectedObjectId)
     }
   },
+  pushUndoEntry: (entry) =>
+    set((state) => pushUndoStackEntry(state.undoStack, entry)),
+  moveLatestUndoEntryToRedo: () => {
+    let movedEntry: WhiteboardHistoryEntry | null = null
+
+    set((state) => {
+      const result = moveLatestUndoToRedo(state.undoStack, state.redoStack)
+      movedEntry = result.movedEntry
+
+      return {
+        undoStack: result.undoStack,
+        redoStack: result.redoStack,
+      }
+    })
+
+    return movedEntry
+  },
+  moveLatestRedoEntryToUndo: () => {
+    let movedEntry: WhiteboardHistoryEntry | null = null
+
+    set((state) => {
+      const result = moveLatestRedoToUndo(state.undoStack, state.redoStack)
+      movedEntry = result.movedEntry
+
+      return {
+        undoStack: result.undoStack,
+        redoStack: result.redoStack,
+      }
+    })
+
+    return movedEntry
+  },
+  clearHistoryStacks: () => set(clearWhiteboardHistoryStacks()),
   applyOperationRejection: (rejection) => {
     let nextSelectedObjectId: string | null | undefined
 
@@ -1305,26 +1404,33 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       return
     }
 
+    const objectBeforeUpdate = state.objects[objectId]
+
+    if (!objectBeforeUpdate || objectBeforeUpdate.deletedAt) {
+      return
+    }
+
+    const objectAfterUpdate = applyMutablePatchToObject(
+      objectBeforeUpdate,
+      patch,
+    )
+    const clientOpId = crypto.randomUUID()
+    const historyCandidate: PendingWhiteboardHistoryEntry = {
+      type: "OBJECT_UPDATE",
+      objectId,
+      beforeObject: cloneWhiteboardObject(objectBeforeUpdate),
+      afterObject: cloneWhiteboardObject(objectAfterUpdate),
+      forwardAction: {
+        type: "OBJECT_UPDATE",
+        patch,
+      },
+    }
+
     set((currentState) => {
-      const object = currentState.objects[objectId]
-
-      if (!object || object.deletedAt) {
-        return currentState
-      }
-
       return {
         objects: {
           ...currentState.objects,
-          [objectId]: {
-            ...object,
-            ...patch,
-            style: patch.style
-              ? {
-                  ...object.style,
-                  ...patch.style,
-                }
-              : object.style,
-          },
+          [objectId]: objectAfterUpdate,
         },
       }
     })
@@ -1347,10 +1453,12 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         await sender.updateObject({
           roomId: queuedState.roomId,
           objectId,
-          clientOpId: crypto.randomUUID(),
+          clientOpId,
           baseRoomRevision: queuedState.currentRevision,
           baseObjectVersion: object.version,
           patch,
+        }, {
+          historyCandidate,
         })
       } catch (error) {
         await handleOperationFailure(error, get, set)
@@ -1417,13 +1525,25 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
     clearRemotePreviewTimeout(selectedObjectId)
 
+    const deletedObject = {
+      ...selectedObject,
+      deletedAt: new Date().toISOString(),
+    }
+    const clientOpId = crypto.randomUUID()
+    const historyCandidate: PendingWhiteboardHistoryEntry = {
+      type: "OBJECT_DELETE",
+      objectId: selectedObjectId,
+      beforeObject: cloneWhiteboardObject(selectedObject),
+      afterObject: cloneWhiteboardObject(deletedObject),
+      forwardAction: {
+        type: "OBJECT_DELETE",
+      },
+    }
+
     set((currentState) => ({
       objects: {
         ...currentState.objects,
-        [selectedObjectId]: {
-          ...selectedObject,
-          deletedAt: new Date().toISOString(),
-        },
+        [selectedObjectId]: deletedObject,
       },
       remoteTransformPreviews: removeRemoteTransformPreviews(
         currentState.remoteTransformPreviews,
@@ -1455,9 +1575,11 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         await sender.deleteObject({
           roomId: queuedState.roomId,
           objectId: selectedObjectId,
-          clientOpId: crypto.randomUUID(),
+          clientOpId,
           baseRoomRevision: queuedState.currentRevision,
           baseObjectVersion: object.version,
+        }, {
+          historyCandidate,
         })
       } catch (error) {
         await handleOperationFailure(error, get, set)
@@ -1484,6 +1606,18 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       input,
       zIndex,
     )
+    const clientOpId = crypto.randomUUID()
+    const requestObject = toCreateRequestObject(input, zIndex)
+    const historyCandidate: PendingWhiteboardHistoryEntry = {
+      type: "OBJECT_CREATE",
+      objectId: object.id,
+      beforeObject: null,
+      afterObject: cloneWhiteboardObject(object),
+      forwardAction: {
+        type: "OBJECT_CREATE",
+        object: requestObject,
+      },
+    }
 
     set((currentState) => ({
       objects: {
@@ -1501,7 +1635,6 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       try {
         const sender = queuedState.objectOperationSender
-        const clientOpId = crypto.randomUUID()
 
         if (!sender) {
           throw new Error("Realtime connection is not ready.")
@@ -1511,9 +1644,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           roomId: queuedState.roomId,
           clientOpId,
           baseRoomRevision: queuedState.currentRevision,
-          object: toCreateRequestObject(input, zIndex),
+          object: requestObject,
         }, {
           tempObjectId: object.id,
+          historyCandidate,
         })
       } catch (error) {
         await handleOperationFailure(error, get, set)

@@ -14,6 +14,7 @@ import type {
 import { createWhiteboardSocket } from "@/lib/socket-client"
 import {
   type WhiteboardOperationSender,
+  type WhiteboardOperationSenderOptions,
   type WhiteboardCursorSender,
   type WhiteboardEditingSender,
   type WhiteboardSelectionSender,
@@ -25,6 +26,7 @@ type PendingOperation = {
   resolve: (event: OperationAppliedEvent) => void
   reject: (event: OperationRejectedEvent | Error) => void
   tempObjectId?: string
+  historyCandidate?: WhiteboardOperationSenderOptions["historyCandidate"]
 }
 
 export function useWhiteboardRoomSocket(roomId: string): void {
@@ -152,6 +154,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       pendingOperations.delete(event.clientOpId)
       applyOperation(event, {
         removeObjectId: pendingOperation?.tempObjectId,
+        historyCandidate: pendingOperation?.historyCandidate,
       })
       pendingOperation?.resolve(event)
     }
@@ -181,15 +184,17 @@ export function useWhiteboardRoomSocket(roomId: string): void {
             request,
             options,
           ),
-        updateObject: (request) =>
+        updateObject: (request, options) =>
           emitObjectOperation(
             () => socket.emit("object:update", request),
             request,
+            options,
           ),
-        deleteObject: (request) =>
+        deleteObject: (request, options) =>
           emitObjectOperation(
             () => socket.emit("object:delete", request),
             request,
+            options,
           ),
       }
     }
@@ -252,7 +257,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     function emitObjectOperation(
       emitOperation: () => void,
       request: { clientOpId: string; roomId: string },
-      options?: { tempObjectId?: string },
+      options?: WhiteboardOperationSenderOptions,
     ): Promise<OperationAppliedEvent> {
       return new Promise((resolve, reject) => {
         if (request.roomId !== roomId) {
@@ -269,6 +274,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
           resolve,
           reject,
           tempObjectId: options?.tempObjectId,
+          historyCandidate: options?.historyCandidate,
         })
         emitOperation()
       })
