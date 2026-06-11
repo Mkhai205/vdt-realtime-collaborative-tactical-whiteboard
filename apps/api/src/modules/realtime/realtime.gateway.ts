@@ -22,10 +22,12 @@ import {
   objectDeleteSocketRequestSchema,
   objectUpdateSocketRequestSchema,
   operationRejectedReasonSchema,
+  redoRequestSchema,
   roomJoinRequestSchema,
   roomLeaveRequestSchema,
   selectionUpdateRequestSchema,
   toRoomSocketName,
+  undoRequestSchema,
   whiteboardObjectSchema,
   type CursorUpdatedEvent,
   type ObjectEditingEvent,
@@ -35,6 +37,7 @@ import {
   type RoomStateEvent,
   type RoomRole,
   type SocketErrorEvent,
+  type UndoRedoOperation,
   type UserSummary,
   type WhiteboardObject,
 } from "@rctw/shared-contracts"
@@ -353,6 +356,54 @@ export class RealtimeGateway
     )
   }
 
+  @SubscribeMessage("undo:request")
+  async handleUndoRequest(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): Promise<void> {
+    const parsed = undoRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      this.emitInvalidOperationPayload(client, payload, parsed.error)
+      return
+    }
+
+    const { roomId, clientOpId, inverseOperation } = parsed.data
+
+    await this.processObjectOperation(client, parsed.data, (currentUser) =>
+      this.processUndoRedoOperation(
+        currentUser,
+        roomId,
+        clientOpId,
+        inverseOperation,
+      ),
+    )
+  }
+
+  @SubscribeMessage("redo:request")
+  async handleRedoRequest(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): Promise<void> {
+    const parsed = redoRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      this.emitInvalidOperationPayload(client, payload, parsed.error)
+      return
+    }
+
+    const { roomId, clientOpId, redoOperation } = parsed.data
+
+    await this.processObjectOperation(client, parsed.data, (currentUser) =>
+      this.processUndoRedoOperation(
+        currentUser,
+        roomId,
+        clientOpId,
+        redoOperation,
+      ),
+    )
+  }
+
   @SubscribeMessage("object:transform-preview")
   handleObjectTransformPreview(
     @ConnectedSocket() client: RealtimeSocket,
@@ -514,6 +565,73 @@ export class RealtimeGateway
         status: "ENDED",
         exceptSocketId,
       })
+    }
+  }
+
+  private processUndoRedoOperation(
+    currentUser: UserSummary,
+    roomId: string,
+    clientOpId: string,
+    operation: UndoRedoOperation,
+  ): Promise<OperationAppliedEvent> {
+    switch (operation.type) {
+      case "OBJECT_CREATE": {
+        const { object, baseRoomRevision } = operation
+
+        return this.whiteboardObjectsService.createObject(
+          currentUser,
+          roomId,
+          {
+            clientOpId,
+            baseRoomRevision,
+            object,
+          },
+        )
+      }
+      case "OBJECT_UPDATE": {
+        const { objectId, baseRoomRevision, baseObjectVersion, patch } =
+          operation
+
+        return this.whiteboardObjectsService.updateObject(
+          currentUser,
+          roomId,
+          objectId,
+          {
+            clientOpId,
+            baseRoomRevision,
+            baseObjectVersion,
+            patch,
+          },
+        )
+      }
+      case "OBJECT_DELETE": {
+        const { objectId, baseRoomRevision, baseObjectVersion } = operation
+
+        return this.whiteboardObjectsService.deleteObject(
+          currentUser,
+          roomId,
+          objectId,
+          {
+            clientOpId,
+            baseRoomRevision,
+            baseObjectVersion,
+          },
+        )
+      }
+      case "OBJECT_RESTORE": {
+        const { objectId, baseRoomRevision, baseObjectVersion } = operation
+
+        return this.whiteboardObjectsService.restoreObject(
+          currentUser,
+          roomId,
+          objectId,
+          {
+            clientOpId,
+            baseRoomRevision,
+            baseObjectVersion,
+          },
+        )
+      }
     }
   }
 

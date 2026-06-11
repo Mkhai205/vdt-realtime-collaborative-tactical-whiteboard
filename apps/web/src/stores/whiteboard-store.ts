@@ -17,11 +17,13 @@ import type {
   OnlineUser,
   OperationAppliedEvent,
   OperationRejectedEvent,
+  RedoRequest,
   RoomRole,
   RoomStateEvent,
   SelectionUpdateRequest,
   ShapeStyle,
   Tool,
+  UndoRequest,
   UserSummary,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
@@ -31,6 +33,10 @@ import { getRoomObjects } from "@/features/whiteboard/whiteboard-api"
 import {
   cloneWhiteboardObject,
   clearWhiteboardHistoryStacks,
+  createRedoOperation,
+  createRedoStackEntryAfterUndo,
+  createUndoOperation,
+  createUndoStackEntryAfterRedo,
   createWhiteboardHistoryEntry,
   moveLatestRedoToUndo,
   moveLatestUndoToRedo,
@@ -108,6 +114,8 @@ type WhiteboardState = {
   moveLatestUndoEntryToRedo: () => WhiteboardHistoryEntry | null
   moveLatestRedoEntryToUndo: () => WhiteboardHistoryEntry | null
   clearHistoryStacks: () => void
+  undoLastOperation: () => void
+  redoLastOperation: () => void
   applyRemoteTransformPreview: (
     event: ObjectTransformPreviewedEvent,
   ) => void
@@ -214,6 +222,8 @@ export type WhiteboardOperationSender = {
     request: ObjectDeleteSocketRequest,
     options?: WhiteboardOperationSenderOptions,
   ) => Promise<OperationAppliedEvent>
+  undoOperation: (request: UndoRequest) => Promise<OperationAppliedEvent>
+  redoOperation: (request: RedoRequest) => Promise<OperationAppliedEvent>
 }
 
 export type WhiteboardTransformPreviewSender = {
@@ -598,6 +608,27 @@ async function handleOperationFailure(
   }
 
   await reloadObjectsSafely(get().roomId, get().setObjectsWithRevision)
+}
+
+function handleUndoRedoOperationFailure(
+  error: unknown,
+  get: () => WhiteboardState,
+  set: (
+    partial:
+      | Partial<WhiteboardState>
+      | ((state: WhiteboardState) => Partial<WhiteboardState>),
+  ) => void,
+) {
+  const rejection = getOperationRejection(error)
+
+  if (rejection) {
+    get().applyOperationRejection(rejection)
+    return
+  }
+
+  set({
+    mutationError: getWhiteboardOperationErrorMessage(error),
+  })
 }
 
 async function reloadObjectsSafely(
@@ -1121,6 +1152,152 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
     return movedEntry
   },
   clearHistoryStacks: () => set(clearWhiteboardHistoryStacks()),
+  undoLastOperation: () => {
+    const state = get()
+
+    if (!canEditRoom(state.currentUser?.role)) {
+      set({
+        mutationError: "Viewers cannot undo whiteboard operations.",
+      })
+      return
+    }
+
+    if (!state.roomId || !state.objectOperationSender) {
+      set({
+        mutationError: "Realtime connection is not ready.",
+      })
+      return
+    }
+
+    if (state.undoStack.length === 0) {
+      return
+    }
+
+    enqueueMutation(async () => {
+      const queuedState = get()
+      const entry = queuedState.undoStack.at(-1)
+      const inverseOperation = entry ? createUndoOperation(entry) : null
+
+      if (!entry || !inverseOperation) {
+        return
+      }
+
+      if (!queuedState.roomId || !queuedState.objectOperationSender) {
+        set({
+          mutationError: "Realtime connection is not ready.",
+        })
+        return
+      }
+
+      try {
+        const operation = await queuedState.objectOperationSender.undoOperation({
+          roomId: queuedState.roomId,
+          clientOpId: crypto.randomUUID(),
+          inverseOperation,
+        })
+
+        set((currentState) => {
+          const latestEntry = currentState.undoStack.at(-1)
+
+          if (!latestEntry || latestEntry.operationId !== entry.operationId) {
+            return currentState
+          }
+
+          const redoEntry = createRedoStackEntryAfterUndo(
+            latestEntry,
+            operation,
+          )
+
+          if (!redoEntry) {
+            return {
+              mutationError: "Undo succeeded, but redo cannot be prepared.",
+            }
+          }
+
+          return {
+            undoStack: currentState.undoStack.slice(0, -1),
+            redoStack: [...currentState.redoStack, redoEntry],
+            mutationError: null,
+          }
+        })
+      } catch (error) {
+        handleUndoRedoOperationFailure(error, get, set)
+      }
+    })
+  },
+  redoLastOperation: () => {
+    const state = get()
+
+    if (!canEditRoom(state.currentUser?.role)) {
+      set({
+        mutationError: "Viewers cannot redo whiteboard operations.",
+      })
+      return
+    }
+
+    if (!state.roomId || !state.objectOperationSender) {
+      set({
+        mutationError: "Realtime connection is not ready.",
+      })
+      return
+    }
+
+    if (state.redoStack.length === 0) {
+      return
+    }
+
+    enqueueMutation(async () => {
+      const queuedState = get()
+      const entry = queuedState.redoStack.at(-1)
+      const redoOperation = entry ? createRedoOperation(entry) : null
+
+      if (!entry || !redoOperation) {
+        return
+      }
+
+      if (!queuedState.roomId || !queuedState.objectOperationSender) {
+        set({
+          mutationError: "Realtime connection is not ready.",
+        })
+        return
+      }
+
+      try {
+        const operation = await queuedState.objectOperationSender.redoOperation({
+          roomId: queuedState.roomId,
+          clientOpId: crypto.randomUUID(),
+          redoOperation,
+        })
+
+        set((currentState) => {
+          const latestEntry = currentState.redoStack.at(-1)
+
+          if (!latestEntry || latestEntry.operationId !== entry.operationId) {
+            return currentState
+          }
+
+          const undoEntry = createUndoStackEntryAfterRedo(
+            latestEntry,
+            operation,
+          )
+
+          if (!undoEntry) {
+            return {
+              mutationError: "Redo succeeded, but undo cannot be prepared.",
+            }
+          }
+
+          return {
+            undoStack: [...currentState.undoStack, undoEntry],
+            redoStack: currentState.redoStack.slice(0, -1),
+            mutationError: null,
+          }
+        })
+      } catch (error) {
+        handleUndoRedoOperationFailure(error, get, set)
+      }
+    })
+  },
   applyOperationRejection: (rejection) => {
     let nextSelectedObjectId: string | null | undefined
 

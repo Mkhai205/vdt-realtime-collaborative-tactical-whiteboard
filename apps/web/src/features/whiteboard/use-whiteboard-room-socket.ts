@@ -196,6 +196,10 @@ export function useWhiteboardRoomSocket(roomId: string): void {
             request,
             options,
           ),
+        undoOperation: (request) =>
+          emitObjectOperation(() => socket.emit("undo:request", request), request),
+        redoOperation: (request) =>
+          emitObjectOperation(() => socket.emit("redo:request", request), request),
       }
     }
 

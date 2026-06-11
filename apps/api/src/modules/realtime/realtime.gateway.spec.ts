@@ -150,6 +150,7 @@ describe("RealtimeGateway", () => {
     createObject: jest.fn(),
     deleteObject: jest.fn(),
     getRoomObjects: jest.fn(),
+    restoreObject: jest.fn(),
     updateObject: jest.fn(),
   }
   const presenceService = {
@@ -180,6 +181,10 @@ describe("RealtimeGateway", () => {
     whiteboardObjectsService.deleteObject.mockResolvedValue({
       ...operationApplied,
       type: "OBJECT_DELETE",
+    })
+    whiteboardObjectsService.restoreObject.mockResolvedValue({
+      ...operationApplied,
+      type: "OBJECT_RESTORE",
     })
     whiteboardObjectsService.getRoomObjects.mockResolvedValue(objectsResponse)
     presenceService.getOnlineUsers.mockReturnValue([onlineUser])
@@ -630,6 +635,80 @@ describe("RealtimeGateway", () => {
     )
   })
 
+  it("persists undo:request through the wrapped inverse operation", async () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    await gateway.handleUndoRequest(socket, {
+      roomId,
+      clientOpId,
+      inverseOperation: {
+        type: "OBJECT_UPDATE",
+        objectId,
+        baseObjectVersion: 2,
+        patch: {
+          x: 80,
+        },
+      },
+    })
+
+    expect(presenceService.hasSocketInRoom).toHaveBeenCalledWith(
+      socket.id,
+      roomId,
+    )
+    expect(whiteboardObjectsService.updateObject).toHaveBeenCalledWith(
+      currentUser,
+      roomId,
+      objectId,
+      {
+        clientOpId,
+        baseObjectVersion: 2,
+        baseRoomRevision: undefined,
+        patch: {
+          x: 80,
+        },
+      },
+    )
+    expect(roomEmitter.emit).toHaveBeenCalledWith(
+      "operation:applied",
+      expect.objectContaining({
+        type: "OBJECT_UPDATE",
+      }),
+    )
+  })
+
+  it("persists redo:request restore operations and broadcasts acceptance", async () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    await gateway.handleRedoRequest(socket, {
+      roomId,
+      clientOpId,
+      redoOperation: {
+        type: "OBJECT_RESTORE",
+        objectId,
+        baseObjectVersion: 4,
+      },
+    })
+
+    expect(whiteboardObjectsService.restoreObject).toHaveBeenCalledWith(
+      currentUser,
+      roomId,
+      objectId,
+      {
+        clientOpId,
+        baseObjectVersion: 4,
+        baseRoomRevision: undefined,
+      },
+    )
+    expect(roomEmitter.emit).toHaveBeenCalledWith(
+      "operation:applied",
+      expect.objectContaining({
+        type: "OBJECT_RESTORE",
+      }),
+    )
+  })
+
   it("broadcasts transform previews to the room excluding the sender without persistence", () => {
     const socket = makeSocket()
     socket.data.currentUser = currentUser
@@ -938,6 +1017,34 @@ describe("RealtimeGateway", () => {
     expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
   })
 
+  it("emits operation:rejected for invalid undo payloads when context is available", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    await gateway.handleUndoRequest(socket, {
+      roomId,
+      clientOpId,
+      inverseOperation: {
+        type: "OBJECT_UPDATE",
+        objectId,
+        patch: {
+          x: 120,
+        },
+      },
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("operation:rejected", {
+      clientOpId,
+      roomId,
+      reason: "INVALID_OPERATION_PAYLOAD",
+      message: "Invalid object operation payload.",
+      latestObject: undefined,
+      currentRoomRevision: undefined,
+    })
+    expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
+  })
+
   it.each([
     [
       "object:update",
@@ -1121,6 +1228,54 @@ describe("RealtimeGateway", () => {
         }),
         currentRoomRevision: 8,
       }),
+    )
+  })
+
+  it("emits operation:rejected when undo processing fails", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    whiteboardObjectsService.restoreObject.mockRejectedValue(
+      new ConflictException({
+        code: "OBJECT_VERSION_CONFLICT",
+        message: "Whiteboard object has changed since your last edit.",
+        details: {
+          latestObject: {
+            ...whiteboardObject,
+            deletedAt: now,
+            version: 5,
+          },
+          currentRoomRevision: 9,
+        },
+      }),
+    )
+
+    await gateway.handleUndoRequest(socket, {
+      roomId,
+      clientOpId,
+      inverseOperation: {
+        type: "OBJECT_RESTORE",
+        objectId,
+        baseObjectVersion: 4,
+      },
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "operation:rejected",
+      expect.objectContaining({
+        clientOpId,
+        roomId,
+        reason: "OBJECT_VERSION_CONFLICT",
+        latestObject: expect.objectContaining({
+          id: objectId,
+          version: 5,
+        }),
+        currentRoomRevision: 9,
+      }),
+    )
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "operation:applied",
+      expect.anything(),
     )
   })
 })

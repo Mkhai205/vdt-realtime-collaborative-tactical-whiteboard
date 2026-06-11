@@ -633,8 +633,6 @@ Server broadcasts `operation:applied`.
 
 ```ts
 type ObjectRestoreRequest = {
-  clientOpId: string;
-  roomId: string;
   objectId: string;
   baseObjectVersion: number;
 };
@@ -972,17 +970,20 @@ Send an inverse operation from the client's undo stack.
 type UndoRequest = {
   clientOpId: string;
   roomId: string;
-  inverseOperation:
-    | ObjectUpdateRequest
-    | ObjectDeleteRequest
-    | ObjectCreateRequest
-    | ObjectRestoreRequest;
+  inverseOperation: UndoRedoOperation;
 };
+
+type UndoRedoOperation =
+  | ({ type: "OBJECT_CREATE" } & Pick<ObjectCreateRequest, "object">)
+  | ({ type: "OBJECT_UPDATE"; objectId: string } & Pick<ObjectUpdateRequest, "baseObjectVersion" | "patch">)
+  | ({ type: "OBJECT_DELETE"; objectId: string } & Pick<ObjectDeleteRequest, "baseObjectVersion">)
+  | ({ type: "OBJECT_RESTORE"; objectId: string } & Pick<ObjectRestoreRequest, "baseObjectVersion">);
 ```
 
 ### Rule
 
 Undo is not local-only. Undo must become a new accepted operation and be broadcast to other clients.
+The wrapper `clientOpId` and `roomId` identify the accepted undo/redo operation; nested operation bodies do not carry their own `clientOpId` or `roomId`.
 
 ---
 
@@ -1000,11 +1001,7 @@ Client -> Server
 type RedoRequest = {
   clientOpId: string;
   roomId: string;
-  redoOperation:
-    | ObjectUpdateRequest
-    | ObjectDeleteRequest
-    | ObjectCreateRequest
-    | ObjectRestoreRequest;
+  redoOperation: UndoRedoOperation;
 };
 ```
 

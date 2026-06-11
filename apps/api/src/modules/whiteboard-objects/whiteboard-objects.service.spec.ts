@@ -354,6 +354,71 @@ describe("WhiteboardObjectsService", () => {
     expect(response.resultingObject?.version).toBe(4)
   })
 
+  it("restores soft-deleted objects and records a restore operation", async () => {
+    tx.whiteboardObject.findFirst
+      .mockResolvedValueOnce(
+        makeObject({
+          deletedAt: now,
+          version: 4,
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeObject({
+          deletedAt: null,
+          version: 5,
+          updatedById: userId,
+        }),
+      )
+
+    const response = await service.restoreObject(currentUser, roomId, objectId, {
+      clientOpId,
+      baseObjectVersion: 4,
+    })
+
+    expect(tx.whiteboardObject.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: objectId,
+        roomId,
+        deletedAt: {
+          not: null,
+        },
+        version: 4,
+      },
+      data: expect.objectContaining({
+        deletedAt: null,
+        updatedById: userId,
+        version: {
+          increment: 1,
+        },
+      }),
+    })
+    expectMutationTransactionUsed()
+    expectRoomRevisionIncrementedOnce()
+    expect(tx.whiteboardOperation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        revision: 7n,
+        type: "OBJECT_RESTORE",
+        baseObjectVersion: 4,
+        payload: expect.objectContaining({
+          previousObject: expect.objectContaining({
+            id: objectId,
+            deletedAt: now.toISOString(),
+          }),
+          resultingObject: expect.objectContaining({
+            id: objectId,
+            deletedAt: null,
+          }),
+        }),
+        inversePayload: {
+          objectId,
+        },
+      }),
+    })
+    expect(response.type).toBe("OBJECT_RESTORE")
+    expect(response.resultingObject?.deletedAt).toBeNull()
+    expect(response.resultingObject?.version).toBe(5)
+  })
+
   it("rejects viewer create attempts", async () => {
     tx.room.findFirst.mockResolvedValue({
       members: [{ role: "VIEWER" }],
@@ -371,6 +436,69 @@ describe("WhiteboardObjectsService", () => {
       }),
     ).rejects.toThrow(ForbiddenException)
     expect(tx.whiteboardObject.create).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
+  })
+
+  it("rejects viewer restore attempts", async () => {
+    tx.room.findFirst.mockResolvedValue({
+      members: [{ role: "VIEWER" }],
+    })
+
+    await expect(
+      service.restoreObject(currentUser, roomId, objectId, {
+        clientOpId,
+        baseObjectVersion: 4,
+      }),
+    ).rejects.toThrow(ForbiddenException)
+    expect(tx.whiteboardObject.updateMany).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
+  })
+
+  it("rejects restore attempts for missing objects", async () => {
+    tx.whiteboardObject.findFirst.mockResolvedValue(null)
+
+    await expect(
+      service.restoreObject(currentUser, roomId, objectId, {
+        clientOpId,
+        baseObjectVersion: 4,
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: "OBJECT_NOT_FOUND",
+      },
+    })
+    expect(tx.whiteboardObject.updateMany).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
+  })
+
+  it("rejects restore attempts for active objects", async () => {
+    tx.room.findFirst
+      .mockResolvedValueOnce({
+        members: [{ role: "EDITOR" }],
+      })
+      .mockResolvedValueOnce({
+        currentRevision: 8n,
+      })
+    tx.whiteboardObject.findFirst.mockResolvedValue(makeObject({ version: 4 }))
+
+    await expect(
+      service.restoreObject(currentUser, roomId, objectId, {
+        clientOpId,
+        baseObjectVersion: 4,
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: "OBJECT_VERSION_CONFLICT",
+        details: {
+          currentRoomRevision: 8,
+          latestObject: expect.objectContaining({
+            id: objectId,
+            version: 4,
+          }),
+        },
+      },
+    })
+    expect(tx.whiteboardObject.updateMany).not.toHaveBeenCalled()
     expectNoRevisionWrite()
   })
 
@@ -419,6 +547,64 @@ describe("WhiteboardObjectsService", () => {
       },
       data: expect.objectContaining({
         x: 130,
+      }),
+    })
+    expectNoRevisionWrite()
+  })
+
+  it("rejects stale restores after a conditional write miss", async () => {
+    tx.whiteboardObject.updateMany.mockResolvedValue({
+      count: 0,
+    })
+    tx.whiteboardObject.findFirst
+      .mockResolvedValueOnce(
+        makeObject({
+          deletedAt: now,
+          version: 4,
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeObject({
+          deletedAt: now,
+          version: 5,
+        }),
+      )
+    tx.room.findFirst
+      .mockResolvedValueOnce({
+        members: [{ role: "EDITOR" }],
+      })
+      .mockResolvedValueOnce({
+        currentRevision: 8n,
+      })
+
+    await expect(
+      service.restoreObject(currentUser, roomId, objectId, {
+        clientOpId,
+        baseObjectVersion: 4,
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: "OBJECT_VERSION_CONFLICT",
+        details: {
+          currentRoomRevision: 8,
+          latestObject: expect.objectContaining({
+            id: objectId,
+            version: 5,
+          }),
+        },
+      },
+    })
+    expect(tx.whiteboardObject.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: objectId,
+        roomId,
+        deletedAt: {
+          not: null,
+        },
+        version: 4,
+      },
+      data: expect.objectContaining({
+        deletedAt: null,
       }),
     })
     expectNoRevisionWrite()
@@ -539,6 +725,21 @@ describe("WhiteboardObjectsService", () => {
       service.deleteObject(currentUser, roomId, objectId, {
         clientOpId,
         baseObjectVersion: 3,
+      }),
+    ).rejects.toThrow(ConflictException)
+    expect(tx.whiteboardObject.findFirst).not.toHaveBeenCalled()
+    expectNoRevisionWrite()
+  })
+
+  it("rejects duplicate client operation ids for restore", async () => {
+    tx.whiteboardOperation.findUnique.mockResolvedValue({
+      id: operationId,
+    })
+
+    await expect(
+      service.restoreObject(currentUser, roomId, objectId, {
+        clientOpId,
+        baseObjectVersion: 4,
       }),
     ).rejects.toThrow(ConflictException)
     expect(tx.whiteboardObject.findFirst).not.toHaveBeenCalled()

@@ -11,6 +11,7 @@ import type {
   ObjectCreateRequest,
   ObjectDeleteRequest,
   ObjectMutablePatch,
+  ObjectRestoreRequest,
   ObjectUpdateRequest,
   OperationAppliedEvent,
   UserSummary,
@@ -238,6 +239,71 @@ export class WhiteboardObjectsService {
     })
   }
 
+  async restoreObject(
+    currentUser: UserSummary,
+    roomId: string,
+    objectId: string,
+    request: ObjectRestoreRequest,
+  ): Promise<OperationAppliedEvent> {
+    return this.runObjectMutation(async (tx) => {
+      await this.assertCanMutateRoom(tx, currentUser.id, roomId)
+      await this.assertUniqueClientOpId(tx, roomId, request.clientOpId)
+
+      const currentObject = await this.loadObjectIncludingDeleted(
+        tx,
+        roomId,
+        objectId,
+      )
+
+      if (!currentObject.deletedAt) {
+        throw this.objectVersionConflict(
+          toWhiteboardObject(currentObject),
+          await this.getCurrentRoomRevision(tx, roomId),
+        )
+      }
+
+      const previousObject = toWhiteboardObject(currentObject)
+      const restoredObject = await this.restoreObjectConditionally(
+        tx,
+        roomId,
+        objectId,
+        request.baseObjectVersion,
+        {
+          deletedAt: null,
+          updatedById: currentUser.id,
+          version: {
+            increment: 1,
+          },
+        },
+      )
+      const resultingObject = toWhiteboardObject(restoredObject)
+      const payload = {
+        objectId,
+        previousObject,
+        resultingObject,
+      }
+      const operation = await this.createOperation(tx, {
+        currentUser,
+        roomId,
+        clientOpId: request.clientOpId,
+        objectId,
+        type: "OBJECT_RESTORE",
+        baseObjectVersion: request.baseObjectVersion,
+        payload,
+        inversePayload: {
+          objectId,
+        },
+      })
+
+      return toOperationAppliedEvent({
+        operation,
+        actor: currentUser,
+        payload,
+        resultingObject,
+      })
+    })
+  }
+
   private async runObjectMutation<T>(
     mutation: (tx: WhiteboardTransactionClient) => Promise<T>,
   ): Promise<T> {
@@ -338,6 +404,25 @@ export class WhiteboardObjectsService {
     return object
   }
 
+  private async loadObjectIncludingDeleted(
+    tx: WhiteboardTransactionClient,
+    roomId: string,
+    objectId: string,
+  ): Promise<WhiteboardObjectRecord> {
+    const object = await tx.whiteboardObject.findFirst({
+      where: {
+        id: objectId,
+        roomId,
+      },
+    })
+
+    if (!object) {
+      throw this.objectNotFound()
+    }
+
+    return object
+  }
+
   private async updateObjectConditionally(
     tx: WhiteboardTransactionClient,
     roomId: string,
@@ -373,6 +458,43 @@ export class WhiteboardObjectsService {
     return object
   }
 
+  private async restoreObjectConditionally(
+    tx: WhiteboardTransactionClient,
+    roomId: string,
+    objectId: string,
+    baseObjectVersion: number,
+    data: Prisma.WhiteboardObjectUncheckedUpdateManyInput,
+  ): Promise<WhiteboardObjectRecord> {
+    const result = await tx.whiteboardObject.updateMany({
+      where: {
+        id: objectId,
+        roomId,
+        deletedAt: {
+          not: null,
+        },
+        version: baseObjectVersion,
+      },
+      data,
+    })
+
+    if (result.count === 0) {
+      await this.rejectRestoreConditionalMutationMiss(tx, roomId, objectId)
+    }
+
+    const object = await tx.whiteboardObject.findFirst({
+      where: {
+        id: objectId,
+        roomId,
+      },
+    })
+
+    if (!object) {
+      throw this.objectNotFound()
+    }
+
+    return object
+  }
+
   private async rejectConditionalMutationMiss(
     tx: WhiteboardTransactionClient,
     roomId: string,
@@ -391,6 +513,28 @@ export class WhiteboardObjectsService {
 
     if (object.deletedAt) {
       throw this.objectAlreadyDeleted()
+    }
+
+    throw this.objectVersionConflict(
+      toWhiteboardObject(object),
+      await this.getCurrentRoomRevision(tx, roomId),
+    )
+  }
+
+  private async rejectRestoreConditionalMutationMiss(
+    tx: WhiteboardTransactionClient,
+    roomId: string,
+    objectId: string,
+  ): Promise<never> {
+    const object = await tx.whiteboardObject.findFirst({
+      where: {
+        id: objectId,
+        roomId,
+      },
+    })
+
+    if (!object) {
+      throw this.objectNotFound()
     }
 
     throw this.objectVersionConflict(
@@ -540,7 +684,11 @@ export class WhiteboardObjectsService {
     tx: WhiteboardTransactionClient,
     input: MutationContext & {
       objectId: string
-      type: "OBJECT_CREATE" | "OBJECT_UPDATE" | "OBJECT_DELETE"
+      type:
+        | "OBJECT_CREATE"
+        | "OBJECT_UPDATE"
+        | "OBJECT_DELETE"
+        | "OBJECT_RESTORE"
       payload: unknown
       inversePayload?: unknown
     },

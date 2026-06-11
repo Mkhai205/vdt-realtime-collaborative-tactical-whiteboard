@@ -3,6 +3,7 @@ import type {
   ObjectMutablePatch,
   OperationAppliedEvent,
   OperationRejectedEvent,
+  UndoRedoOperation,
   UserSummary,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
@@ -13,6 +14,8 @@ import {
   useWhiteboardStore,
 } from "@/stores/whiteboard-store"
 import {
+  createRedoOperation,
+  createUndoOperation,
   moveLatestRedoToUndo,
   moveLatestUndoToRedo,
   pushUndoStackEntry,
@@ -82,6 +85,144 @@ describe("whiteboard history stacks", () => {
       secondEntry.operationId,
     ])
     expect(redoSecond.redoStack).toEqual([])
+  })
+
+  it("creates inverse operations for create, update, and delete entries", () => {
+    const createEntry = makeHistoryEntry({
+      type: "OBJECT_CREATE",
+      beforeObject: null,
+      afterObject: makeObject({ id: objectId, version: 1 }),
+      forwardAction: {
+        type: "OBJECT_CREATE",
+        object: {
+          type: "RECTANGLE",
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 80,
+          style: {
+            fill: "#ffffff",
+          },
+        },
+      },
+    })
+    const updateEntry = makeHistoryEntry({
+      beforeObject: makeObject({
+        id: objectId,
+        x: 10,
+        style: {
+          fill: "#ffffff",
+          stroke: "#111111",
+        },
+      }),
+      afterObject: makeObject({
+        id: objectId,
+        x: 40,
+        version: 4,
+        style: {
+          fill: "#ffffff",
+          stroke: "#ff0000",
+        },
+      }),
+      forwardAction: {
+        type: "OBJECT_UPDATE",
+        patch: {
+          x: 40,
+          style: {
+            stroke: "#ff0000",
+          },
+        },
+      },
+    })
+    const deleteEntry = makeHistoryEntry({
+      type: "OBJECT_DELETE",
+      afterObject: makeObject({
+        id: objectId,
+        deletedAt: timestamp,
+        version: 6,
+      }),
+      forwardAction: {
+        type: "OBJECT_DELETE",
+      },
+    })
+
+    expect(createUndoOperation(createEntry)).toEqual({
+      type: "OBJECT_DELETE",
+      objectId,
+      baseObjectVersion: 1,
+    })
+    expect(createUndoOperation(updateEntry)).toEqual({
+      type: "OBJECT_UPDATE",
+      objectId,
+      baseObjectVersion: 4,
+      patch: {
+        x: 10,
+        style: {
+          fill: "#ffffff",
+          stroke: "#111111",
+        },
+      },
+    })
+    expect(createUndoOperation(deleteEntry)).toEqual({
+      type: "OBJECT_RESTORE",
+      objectId,
+      baseObjectVersion: 6,
+    })
+  })
+
+  it("creates redo operations for create, update, and delete entries", () => {
+    const createEntry = makeHistoryEntry({
+      type: "OBJECT_CREATE",
+      objectId,
+      redoBaseObjectVersion: 2,
+      forwardAction: {
+        type: "OBJECT_CREATE",
+        object: {
+          type: "RECTANGLE",
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 80,
+        },
+      },
+    })
+    const updateEntry = makeHistoryEntry({
+      redoBaseObjectVersion: 5,
+      forwardAction: {
+        type: "OBJECT_UPDATE",
+        patch: {
+          x: 42,
+          points: [0, 0, 10, 10],
+        },
+      },
+    })
+    const deleteEntry = makeHistoryEntry({
+      type: "OBJECT_DELETE",
+      redoBaseObjectVersion: 8,
+      forwardAction: {
+        type: "OBJECT_DELETE",
+      },
+    })
+
+    expect(createRedoOperation(createEntry)).toEqual({
+      type: "OBJECT_RESTORE",
+      objectId,
+      baseObjectVersion: 2,
+    })
+    expect(createRedoOperation(updateEntry)).toEqual({
+      type: "OBJECT_UPDATE",
+      objectId,
+      baseObjectVersion: 5,
+      patch: {
+        x: 42,
+        points: [0, 0, 10, 10],
+      },
+    })
+    expect(createRedoOperation(deleteEntry)).toEqual({
+      type: "OBJECT_DELETE",
+      objectId,
+      baseObjectVersion: 8,
+    })
   })
 
   it("pushes one undo entry for an accepted local create using the server object id", async () => {
@@ -191,7 +332,9 @@ describe("whiteboard history stacks", () => {
 
         throw rejection
       }),
-  deleteObject: vi.fn(),
+      deleteObject: vi.fn(),
+      undoOperation: vi.fn(),
+      redoOperation: vi.fn(),
     }
 
     loadRoom([object], 1)
@@ -213,6 +356,8 @@ describe("whiteboard history stacks", () => {
         throw new Error("Socket unavailable.")
       }),
       deleteObject: vi.fn(),
+      undoOperation: vi.fn(),
+      redoOperation: vi.fn(),
     }
 
     loadRoom([object], 1)
@@ -295,6 +440,98 @@ describe("whiteboard history stacks", () => {
     useWhiteboardStore.getState().setRoomId(uuid(999))
     expectHistoryToBeEmpty()
   })
+
+  it("submits accepted undo and redo operations without adding fresh history entries", async () => {
+    const object = makeObject({ id: objectId, x: 10, version: 3 })
+    const patch: ObjectMutablePatch = {
+      x: 42,
+    }
+    const sender = installAcceptingOperationSender()
+
+    loadRoom([object], 3)
+    useWhiteboardStore.getState().setObjectOperationSender(sender)
+    useWhiteboardStore.getState().updateObjectPatch(object.id, patch)
+
+    await waitFor(() => useWhiteboardStore.getState().undoStack.length === 1)
+
+    useWhiteboardStore.getState().undoLastOperation()
+
+    await waitFor(() => useWhiteboardStore.getState().redoStack.length === 1)
+
+    expect(sender.undoOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roomId: activeRoomId,
+        inverseOperation: {
+          type: "OBJECT_UPDATE",
+          objectId,
+          baseObjectVersion: 4,
+          patch: {
+            x: 10,
+          },
+        },
+      }),
+    )
+    expect(useWhiteboardStore.getState().objects[objectId]?.x).toBe(10)
+    expect(useWhiteboardStore.getState().undoStack).toEqual([])
+    expect(useWhiteboardStore.getState().redoStack[0]?.redoBaseObjectVersion).toBe(5)
+
+    useWhiteboardStore.getState().redoLastOperation()
+
+    await waitFor(() => useWhiteboardStore.getState().undoStack.length === 1)
+
+    expect(sender.redoOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roomId: activeRoomId,
+        redoOperation: {
+          type: "OBJECT_UPDATE",
+          objectId,
+          baseObjectVersion: 5,
+          patch,
+        },
+      }),
+    )
+    expect(useWhiteboardStore.getState().objects[objectId]?.x).toBe(42)
+    expect(useWhiteboardStore.getState().undoStack).toHaveLength(1)
+    expect(useWhiteboardStore.getState().undoStack[0]?.afterObject?.version).toBe(6)
+    expect(useWhiteboardStore.getState().redoStack).toEqual([])
+  })
+
+  it("leaves stacks unchanged when undo is rejected", async () => {
+    const object = makeObject({ id: objectId, version: 1 })
+    const entry = makeHistoryEntry({
+      objectId,
+      afterObject: makeObject({ id: objectId, version: 2 }),
+    })
+    const rejection: OperationRejectedEvent = {
+      clientOpId: "undo-client-op",
+      roomId: activeRoomId,
+      reason: "OBJECT_VERSION_CONFLICT",
+      message: "Object changed before undo.",
+      latestObject: makeObject({ id: objectId, version: 3 }),
+      currentRoomRevision: 3,
+    }
+    const sender: WhiteboardOperationSender = {
+      createObject: vi.fn(),
+      updateObject: vi.fn(),
+      deleteObject: vi.fn(),
+      undoOperation: vi.fn(async () => {
+        throw rejection
+      }),
+      redoOperation: vi.fn(),
+    }
+
+    loadRoom([object], 1)
+    useWhiteboardStore.getState().setObjectOperationSender(sender)
+    useWhiteboardStore.getState().pushUndoEntry(entry)
+    useWhiteboardStore.getState().undoLastOperation()
+
+    await waitFor(() => vi.mocked(sender.undoOperation).mock.calls.length === 1)
+    await flushAsync()
+
+    expect(useWhiteboardStore.getState().undoStack).toEqual([entry])
+    expect(useWhiteboardStore.getState().redoStack).toEqual([])
+    expect(useWhiteboardStore.getState().objects[objectId]?.version).toBe(3)
+  })
 })
 
 function installAcceptingOperationSender() {
@@ -369,6 +606,26 @@ function installAcceptingOperationSender() {
       applyAcceptedOperation(operation, options)
       return operation
     }),
+    undoOperation: vi.fn(async (request) => {
+      const operation = makeOperationFromUndoRedoOperation(
+        request.inverseOperation,
+        request.clientOpId,
+        request.roomId,
+      )
+
+      applyAcceptedOperation(operation, undefined)
+      return operation
+    }),
+    redoOperation: vi.fn(async (request) => {
+      const operation = makeOperationFromUndoRedoOperation(
+        request.redoOperation,
+        request.clientOpId,
+        request.roomId,
+      )
+
+      applyAcceptedOperation(operation, undefined)
+      return operation
+    }),
   }
 
   useWhiteboardStore.getState().setObjectOperationSender(sender)
@@ -383,6 +640,115 @@ function applyAcceptedOperation(
     removeObjectId: options?.tempObjectId,
     historyCandidate: options?.historyCandidate,
   })
+}
+
+function makeOperationFromUndoRedoOperation(
+  undoRedoOperation: UndoRedoOperation,
+  clientOpId: string,
+  roomId: string,
+): OperationAppliedEvent {
+  const state = useWhiteboardStore.getState()
+
+  switch (undoRedoOperation.type) {
+    case "OBJECT_CREATE": {
+      const resultingObject = makeObject({
+        id: serverCreateObjectId,
+        roomId,
+        ...undoRedoOperation.object,
+        rotation: undoRedoOperation.object.rotation ?? 0,
+        style: undoRedoOperation.object.style ?? {},
+        zIndex: undoRedoOperation.object.zIndex ?? 10,
+        version: 1,
+      })
+
+      return makeOperation({
+        clientOpId,
+        roomId,
+        objectId: resultingObject.id,
+        resultingObject,
+        revision: state.currentRevision + 1,
+        type: "OBJECT_CREATE",
+      })
+    }
+    case "OBJECT_UPDATE": {
+      const object =
+        state.objects[undoRedoOperation.objectId] ??
+        makeObject({ id: undoRedoOperation.objectId, roomId })
+      const resultingObject = makeObject({
+        ...applyMutablePatchForTest(object, undoRedoOperation.patch),
+        id: undoRedoOperation.objectId,
+        roomId,
+        version: object.version + 1,
+      })
+
+      return makeOperation({
+        clientOpId,
+        roomId,
+        objectId: undoRedoOperation.objectId,
+        resultingObject,
+        revision: state.currentRevision + 1,
+        type: "OBJECT_UPDATE",
+      })
+    }
+    case "OBJECT_DELETE": {
+      const object =
+        state.objects[undoRedoOperation.objectId] ??
+        makeObject({ id: undoRedoOperation.objectId, roomId })
+      const resultingObject = makeObject({
+        ...object,
+        id: undoRedoOperation.objectId,
+        roomId,
+        deletedAt: object.deletedAt ?? timestamp,
+        version: object.version + 1,
+      })
+
+      return makeOperation({
+        clientOpId,
+        roomId,
+        objectId: undoRedoOperation.objectId,
+        resultingObject,
+        revision: state.currentRevision + 1,
+        type: "OBJECT_DELETE",
+      })
+    }
+    case "OBJECT_RESTORE": {
+      const object =
+        state.objects[undoRedoOperation.objectId] ??
+        makeObject({ id: undoRedoOperation.objectId, roomId })
+      const resultingObject = makeObject({
+        ...object,
+        id: undoRedoOperation.objectId,
+        roomId,
+        deletedAt: null,
+        version: object.version + 1,
+      })
+
+      return makeOperation({
+        clientOpId,
+        roomId,
+        objectId: undoRedoOperation.objectId,
+        resultingObject,
+        revision: state.currentRevision + 1,
+        type: "OBJECT_RESTORE",
+      })
+    }
+  }
+}
+
+function applyMutablePatchForTest(
+  object: WhiteboardObject,
+  patch: ObjectMutablePatch,
+): WhiteboardObject {
+  return {
+    ...object,
+    ...patch,
+    style: patch.style
+      ? {
+          ...object.style,
+          ...patch.style,
+        }
+      : object.style,
+  }
 }
 
 function loadRoom(objects: WhiteboardObject[] = [], currentRevision = 0) {

@@ -11,9 +11,11 @@ import {
   MousePointer2Icon,
   MoveRightIcon,
   PlusIcon,
+  Redo2Icon,
   SquareIcon,
   Trash2Icon,
   TypeIcon,
+  Undo2Icon,
   XIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -76,6 +78,12 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
   const deleteSelectedObject = useWhiteboardStore(
     (state) => state.deleteSelectedObject,
   )
+  const undoLastOperation = useWhiteboardStore(
+    (state) => state.undoLastOperation,
+  )
+  const redoLastOperation = useWhiteboardStore(
+    (state) => state.redoLastOperation,
+  )
   const dismissToast = useWhiteboardStore((state) => state.dismissToast)
   const hasLoadedRoom = room?.id === roomId && Boolean(currentUser)
   const loadState: LoadState =
@@ -89,17 +97,43 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (
-        (event.key !== "Delete" && event.key !== "Backspace") ||
-        isEditableEventTarget(event.target)
-      ) {
+      if (isEditableEventTarget(event.target)) {
         return
       }
 
-      const selectedObjectId = useWhiteboardStore.getState().selectedObjectId
-      const role = useWhiteboardStore.getState().currentUser?.role
+      const state = useWhiteboardStore.getState()
+      const role = state.currentUser?.role
+      const canEdit = canEditRole(role)
+      const key = event.key.toLowerCase()
+      const isUndoShortcut =
+        (event.metaKey || event.ctrlKey) && !event.altKey && key === "z"
+      const isRedoShortcut =
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        (key === "y" || (key === "z" && event.shiftKey))
 
-      if (!selectedObjectId || !canEditRole(role)) {
+      if (canEdit && isRedoShortcut && state.redoStack.length > 0) {
+        event.preventDefault()
+        redoLastOperation()
+        return
+      }
+
+      if (
+        canEdit &&
+        isUndoShortcut &&
+        !event.shiftKey &&
+        state.undoStack.length > 0
+      ) {
+        event.preventDefault()
+        undoLastOperation()
+        return
+      }
+
+      if (event.key !== "Delete" && event.key !== "Backspace") {
+        return
+      }
+
+      if (!state.selectedObjectId || !canEdit) {
         return
       }
 
@@ -112,7 +146,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [deleteSelectedObject])
+  }, [deleteSelectedObject, redoLastOperation, undoLastOperation])
 
   return (
     <main className="flex h-dvh min-h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -316,13 +350,23 @@ function ZoomControls() {
 function ToolPalette() {
   const currentTool = useWhiteboardStore((state) => state.currentTool)
   const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
+  const undoCount = useWhiteboardStore((state) => state.undoStack.length)
+  const redoCount = useWhiteboardStore((state) => state.redoStack.length)
   const role = useWhiteboardStore((state) => state.currentUser?.role)
   const deleteSelectedObject = useWhiteboardStore(
     (state) => state.deleteSelectedObject,
   )
+  const undoLastOperation = useWhiteboardStore(
+    (state) => state.undoLastOperation,
+  )
+  const redoLastOperation = useWhiteboardStore(
+    (state) => state.redoLastOperation,
+  )
   const setTool = useWhiteboardStore((state) => state.setTool)
   const canEdit = canEditRole(role)
   const canDelete = canEdit && Boolean(selectedObjectId)
+  const canUndo = canEdit && undoCount > 0
+  const canRedo = canEdit && redoCount > 0
 
   return (
     <aside
@@ -356,6 +400,28 @@ function ToolPalette() {
           )
         })}
       </ToggleGroup>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        title="Undo"
+        aria-label="Undo"
+        disabled={!canUndo}
+        onClick={undoLastOperation}
+      >
+        <Undo2Icon data-icon="inline-start" />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        title="Redo"
+        aria-label="Redo"
+        disabled={!canRedo}
+        onClick={redoLastOperation}
+      >
+        <Redo2Icon data-icon="inline-start" />
+      </Button>
       <Button
         type="button"
         variant="destructive"

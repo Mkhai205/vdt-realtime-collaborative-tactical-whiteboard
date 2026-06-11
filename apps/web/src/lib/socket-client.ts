@@ -12,11 +12,13 @@ import type {
   OperationAppliedEvent,
   OperationRejectedEvent,
   PresenceUpdateEvent,
+  RedoRequest,
   RoomJoinRequest,
   RoomLeaveRequest,
   SelectionUpdateRequest,
   RoomStateEvent,
   SocketErrorEvent,
+  UndoRequest,
 } from "@rctw/shared-contracts"
 import { io, type Socket } from "socket.io-client"
 import { getIdentitySocketAuth } from "@/features/identity/auth-token"
@@ -45,6 +47,8 @@ type ClientToServerEvents = {
   "object:create": (request: ObjectCreateSocketRequest) => void
   "object:update": (request: ObjectUpdateSocketRequest) => void
   "object:delete": (request: ObjectDeleteSocketRequest) => void
+  "undo:request": (request: UndoRequest) => void
+  "redo:request": (request: RedoRequest) => void
   "object:transform-preview": (
     request: ObjectTransformPreviewRequest,
   ) => void

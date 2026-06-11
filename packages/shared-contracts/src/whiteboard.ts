@@ -150,6 +150,12 @@ export const objectDeleteRequestSchema = z.object({
   baseObjectVersion: z.number().int().positive(),
 })
 
+export const objectRestoreRequestSchema = z.object({
+  clientOpId: clientOpIdSchema,
+  baseRoomRevision: z.number().int().nonnegative().optional(),
+  baseObjectVersion: z.number().int().positive(),
+})
+
 export const objectCreateSocketRequestSchema =
   objectCreateRequestSchema.extend({
     roomId: z.uuid(),
@@ -166,6 +172,59 @@ export const objectDeleteSocketRequestSchema =
     roomId: z.uuid(),
     objectId: z.uuid(),
   })
+
+export const objectRestoreSocketRequestSchema =
+  objectRestoreRequestSchema.extend({
+    roomId: z.uuid(),
+    objectId: z.uuid(),
+  })
+
+export const objectCreateOperationSchema = z.object({
+  type: z.literal("OBJECT_CREATE"),
+  baseRoomRevision: z.number().int().nonnegative().optional(),
+  object: objectCreateInputSchema,
+})
+
+export const objectUpdateOperationSchema = z.object({
+  type: z.literal("OBJECT_UPDATE"),
+  objectId: z.uuid(),
+  baseRoomRevision: z.number().int().nonnegative().optional(),
+  baseObjectVersion: z.number().int().positive(),
+  patch: nonEmptyObjectMutablePatchSchema,
+})
+
+export const objectDeleteOperationSchema = z.object({
+  type: z.literal("OBJECT_DELETE"),
+  objectId: z.uuid(),
+  baseRoomRevision: z.number().int().nonnegative().optional(),
+  baseObjectVersion: z.number().int().positive(),
+})
+
+export const objectRestoreOperationSchema = z.object({
+  type: z.literal("OBJECT_RESTORE"),
+  objectId: z.uuid(),
+  baseRoomRevision: z.number().int().nonnegative().optional(),
+  baseObjectVersion: z.number().int().positive(),
+})
+
+export const undoRedoOperationSchema = z.discriminatedUnion("type", [
+  objectCreateOperationSchema,
+  objectUpdateOperationSchema,
+  objectDeleteOperationSchema,
+  objectRestoreOperationSchema,
+])
+
+export const undoRequestSchema = z.object({
+  clientOpId: clientOpIdSchema,
+  roomId: z.uuid(),
+  inverseOperation: undoRedoOperationSchema,
+})
+
+export const redoRequestSchema = z.object({
+  clientOpId: clientOpIdSchema,
+  roomId: z.uuid(),
+  redoOperation: undoRedoOperationSchema,
+})
 
 export const getRoomObjectsResponseSchema = z.object({
   roomId: z.uuid(),
@@ -213,6 +272,7 @@ export type ObjectCreateInput = z.infer<typeof objectCreateInputSchema>
 export type ObjectCreateRequest = z.infer<typeof objectCreateRequestSchema>
 export type ObjectUpdateRequest = z.infer<typeof objectUpdateRequestSchema>
 export type ObjectDeleteRequest = z.infer<typeof objectDeleteRequestSchema>
+export type ObjectRestoreRequest = z.infer<typeof objectRestoreRequestSchema>
 export type ObjectCreateSocketRequest = z.infer<
   typeof objectCreateSocketRequestSchema
 >
@@ -222,6 +282,18 @@ export type ObjectUpdateSocketRequest = z.infer<
 export type ObjectDeleteSocketRequest = z.infer<
   typeof objectDeleteSocketRequestSchema
 >
+export type ObjectRestoreSocketRequest = z.infer<
+  typeof objectRestoreSocketRequestSchema
+>
+export type ObjectCreateOperation = z.infer<typeof objectCreateOperationSchema>
+export type ObjectUpdateOperation = z.infer<typeof objectUpdateOperationSchema>
+export type ObjectDeleteOperation = z.infer<typeof objectDeleteOperationSchema>
+export type ObjectRestoreOperation = z.infer<
+  typeof objectRestoreOperationSchema
+>
+export type UndoRedoOperation = z.infer<typeof undoRedoOperationSchema>
+export type UndoRequest = z.infer<typeof undoRequestSchema>
+export type RedoRequest = z.infer<typeof redoRequestSchema>
 export type GetRoomObjectsResponse = z.infer<
   typeof getRoomObjectsResponseSchema
 >
