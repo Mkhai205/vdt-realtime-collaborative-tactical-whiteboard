@@ -89,6 +89,7 @@ export function WhiteboardStage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const objectNodesRef = useRef(new Map<string, Konva.Node>())
   const panDragRef = useRef<PanDrag | null>(null)
+  const activeEditingObjectIdsRef = useRef(new Set<string>())
   const transformPreviewTimersRef = useRef(
     new Map<string, ReturnType<typeof setTimeout>>(),
   )
@@ -131,6 +132,10 @@ export function WhiteboardStage() {
   const sendCursorUpdate = useWhiteboardStore(
     (state) => state.sendCursorUpdate,
   )
+  const sendEditingStart = useWhiteboardStore(
+    (state) => state.sendEditingStart,
+  )
+  const sendEditingEnd = useWhiteboardStore((state) => state.sendEditingEnd)
   const colors = useCanvasThemeColors()
   const canEdit = currentUserRole === "OWNER" || currentUserRole === "EDITOR"
   const isTransformToolActive = currentTool === "SELECT"
@@ -161,6 +166,37 @@ export function WhiteboardStage() {
     transformPreviewTimersRef.current.clear()
     transformPreviewPendingRef.current.clear()
   }, [])
+
+  const startLocalEditing = useCallback(
+    (objectId: string) => {
+      if (activeEditingObjectIdsRef.current.has(objectId)) {
+        return
+      }
+
+      activeEditingObjectIdsRef.current.add(objectId)
+      sendEditingStart(objectId)
+    },
+    [sendEditingStart],
+  )
+
+  const endLocalEditing = useCallback(
+    (objectId: string) => {
+      if (!activeEditingObjectIdsRef.current.delete(objectId)) {
+        return
+      }
+
+      sendEditingEnd(objectId)
+    },
+    [sendEditingEnd],
+  )
+
+  const endAllLocalEditing = useCallback(() => {
+    for (const objectId of activeEditingObjectIdsRef.current) {
+      sendEditingEnd(objectId)
+    }
+
+    activeEditingObjectIdsRef.current.clear()
+  }, [sendEditingEnd])
 
   const queueTransformPreview = useCallback(
     (objectId: string, preview: ObjectTransformPreviewPatch) => {
@@ -265,8 +301,9 @@ export function WhiteboardStage() {
   useEffect(() => {
     return () => {
       cancelAllTransformPreviews()
+      endAllLocalEditing()
     }
-  }, [cancelAllTransformPreviews])
+  }, [cancelAllTransformPreviews, endAllLocalEditing])
 
   useEffect(() => {
     return () => {
@@ -333,6 +370,7 @@ export function WhiteboardStage() {
       setIsSpacePanning(false)
       clearPanDrag()
       cancelAllTransformPreviews()
+      endAllLocalEditing()
     }
 
     window.addEventListener("keydown", handleKeyDown)
@@ -344,7 +382,7 @@ export function WhiteboardStage() {
       window.removeEventListener("keyup", handleKeyUp)
       window.removeEventListener("blur", handleWindowBlur)
     }
-  }, [cancelAllTransformPreviews, clearPanDrag])
+  }, [cancelAllTransformPreviews, clearPanDrag, endAllLocalEditing])
 
   const visibleWorldRect = useMemo(
     () => getVisibleWorldRect(viewport, stageSize),
@@ -375,6 +413,20 @@ export function WhiteboardStage() {
     transformer.forceUpdate()
     transformer.getLayer()?.batchDraw()
   }, [canTransformObjects, selectedObject, selectedObjectId])
+
+  useEffect(() => {
+    for (const objectId of activeEditingObjectIdsRef.current) {
+      if (objectId !== selectedObjectId) {
+        endLocalEditing(objectId)
+      }
+    }
+  }, [endLocalEditing, selectedObjectId])
+
+  useEffect(() => {
+    if (currentTool !== "SELECT") {
+      endAllLocalEditing()
+    }
+  }, [currentTool, endAllLocalEditing])
 
   const registerObjectNode = useCallback(
     (objectId: string, node: Konva.Node | null) => {
@@ -409,6 +461,7 @@ export function WhiteboardStage() {
       const currentObject = useWhiteboardStore.getState().objects[objectId]
 
       if (!currentObject || currentObject.deletedAt) {
+        endLocalEditing(objectId)
         return
       }
 
@@ -418,7 +471,25 @@ export function WhiteboardStage() {
         buildDragPatch(currentObject, event.target),
       )
     },
-    [canEdit, currentTool, queueTransformPreview],
+    [canEdit, currentTool, endLocalEditing, queueTransformPreview],
+  )
+
+  const handleObjectDragStart = useCallback(
+    (objectId: string, event: KonvaEventObject<DragEvent>) => {
+      if (!canEdit || currentTool !== "SELECT") {
+        return
+      }
+
+      const currentObject = useWhiteboardStore.getState().objects[objectId]
+
+      if (!currentObject || currentObject.deletedAt) {
+        return
+      }
+
+      event.cancelBubble = true
+      startLocalEditing(objectId)
+    },
+    [canEdit, currentTool, startLocalEditing],
   )
 
   const handleObjectDragEnd = useCallback(
@@ -439,9 +510,16 @@ export function WhiteboardStage() {
         objectId,
         buildDragPatch(currentObject, event.target),
       )
+      endLocalEditing(objectId)
       transformerRef.current?.forceUpdate()
     },
-    [canEdit, cancelTransformPreview, currentTool, updateObjectPatch],
+    [
+      canEdit,
+      cancelTransformPreview,
+      currentTool,
+      endLocalEditing,
+      updateObjectPatch,
+    ],
   )
 
   const handleTransformerBoundBox = useCallback(
@@ -467,6 +545,21 @@ export function WhiteboardStage() {
     },
     [selectedObjectId],
   )
+
+  const handleTransformStart = useCallback(() => {
+    if (!canTransformObjects || !selectedObjectId) {
+      return
+    }
+
+    const currentObject =
+      useWhiteboardStore.getState().objects[selectedObjectId]
+
+    if (!currentObject || currentObject.deletedAt) {
+      return
+    }
+
+    startLocalEditing(selectedObjectId)
+  }, [canTransformObjects, selectedObjectId, startLocalEditing])
 
   const handleTransform = useCallback(() => {
     if (!canTransformObjects || !selectedObjectId) {
@@ -500,6 +593,7 @@ export function WhiteboardStage() {
     const selectedNode = objectNodesRef.current.get(selectedObjectId)
 
     if (!selectedNode) {
+      endLocalEditing(selectedObjectId)
       return
     }
 
@@ -507,6 +601,7 @@ export function WhiteboardStage() {
       useWhiteboardStore.getState().objects[selectedObjectId]
 
     if (!currentObject || currentObject.deletedAt) {
+      endLocalEditing(selectedObjectId)
       return
     }
 
@@ -515,10 +610,12 @@ export function WhiteboardStage() {
     cancelTransformPreview(selectedObjectId)
     applyCommittedPatchToNode(currentObject, selectedNode, patch)
     updateObjectPatch(selectedObjectId, patch)
+    endLocalEditing(selectedObjectId)
     transformerRef.current?.forceUpdate()
   }, [
     canTransformObjects,
     cancelTransformPreview,
+    endLocalEditing,
     selectedObjectId,
     updateObjectPatch,
   ])
@@ -666,6 +763,7 @@ export function WhiteboardStage() {
     clearPanDrag()
     cancelCursorUpdate()
     cancelAllTransformPreviews()
+    endAllLocalEditing()
     setLineDraft(null)
   }
 
@@ -730,6 +828,7 @@ export function WhiteboardStage() {
             }}
             draggable={canTransformObjects && !isPanningModeActive}
             onObjectPointerDown={handleObjectPointerDown}
+            onObjectDragStart={handleObjectDragStart}
             onObjectDragMove={handleObjectDragMove}
             onObjectDragEnd={handleObjectDragEnd}
             registerObjectNode={registerObjectNode}
@@ -774,6 +873,7 @@ export function WhiteboardStage() {
             borderStroke={colors.primary}
             borderStrokeWidth={1 / viewport.scale}
             rotateAnchorOffset={36 / viewport.scale}
+            onTransformStart={handleTransformStart}
             onTransform={handleTransform}
             onTransformEnd={handleTransformEnd}
           />

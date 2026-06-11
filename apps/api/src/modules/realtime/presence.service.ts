@@ -4,6 +4,13 @@ import type { OnlineUser, RoomRole, UserSummary } from "@rctw/shared-contracts"
 type PresenceSession = OnlineUser & {
   socketId: string
   selectedObjectUpdatedAt: number
+  activeEditingObjectIds: Set<string>
+}
+
+export type ActiveEditingState = {
+  roomId: string
+  objectId: string
+  user: UserSummary
 }
 
 @Injectable()
@@ -30,6 +37,7 @@ export class PresenceService {
       status: "ONLINE",
       selectedObjectId: null,
       selectedObjectUpdatedAt: 0,
+      activeEditingObjectIds: new Set<string>(),
       connectedAt,
     })
 
@@ -41,6 +49,7 @@ export class PresenceService {
   }
 
   leaveRoom(socketId: string, roomId: string): OnlineUser[] {
+    this.clearEditingForSocketRoom(socketId, roomId)
     this.roomSessions.get(roomId)?.delete(socketId)
     this.socketRooms.get(socketId)?.delete(roomId)
     this.deleteEmptyRoom(roomId)
@@ -53,6 +62,7 @@ export class PresenceService {
     const roomIds = [...(this.socketRooms.get(socketId) ?? [])]
 
     for (const roomId of roomIds) {
+      this.clearEditingForSocketRoom(socketId, roomId)
       this.roomSessions.get(roomId)?.delete(socketId)
       this.deleteEmptyRoom(roomId)
     }
@@ -129,6 +139,62 @@ export class PresenceService {
     return this.getOnlineUsers(input.roomId)
   }
 
+  startEditing(input: {
+    socketId: string
+    roomId: string
+    objectId: string
+  }): boolean {
+    const session = this.roomSessions.get(input.roomId)?.get(input.socketId)
+
+    if (!session) {
+      return false
+    }
+
+    session.activeEditingObjectIds.add(input.objectId)
+    return true
+  }
+
+  endEditing(input: {
+    socketId: string
+    roomId: string
+    objectId: string
+  }): boolean {
+    const session = this.roomSessions.get(input.roomId)?.get(input.socketId)
+
+    if (!session) {
+      return false
+    }
+
+    session.activeEditingObjectIds.delete(input.objectId)
+    return true
+  }
+
+  clearEditingForSocketRoom(
+    socketId: string,
+    roomId: string,
+  ): ActiveEditingState[] {
+    const session = this.roomSessions.get(roomId)?.get(socketId)
+
+    if (!session || session.activeEditingObjectIds.size === 0) {
+      return []
+    }
+
+    const states = [...session.activeEditingObjectIds].map((objectId) => ({
+      roomId,
+      objectId,
+      user: this.toUserSummary(session),
+    }))
+
+    session.activeEditingObjectIds.clear()
+    return states
+  }
+
+  clearEditingForSocket(socketId: string): ActiveEditingState[] {
+    return [...(this.socketRooms.get(socketId) ?? [])].flatMap((roomId) =>
+      this.clearEditingForSocketRoom(socketId, roomId),
+    )
+  }
+
   private getOrCreateRoom(roomId: string): Map<string, PresenceSession> {
     const existingRoom = this.roomSessions.get(roomId)
 
@@ -166,6 +232,15 @@ export class PresenceService {
       status: session.status,
       selectedObjectId: latestSelectionSession.selectedObjectId,
       connectedAt: session.connectedAt,
+    }
+  }
+
+  private toUserSummary(session: PresenceSession): UserSummary {
+    return {
+      id: session.id,
+      name: session.name,
+      avatarUrl: session.avatarUrl,
+      avatarColor: session.avatarColor,
     }
   }
 }

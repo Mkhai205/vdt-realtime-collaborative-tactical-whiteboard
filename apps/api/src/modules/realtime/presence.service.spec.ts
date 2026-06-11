@@ -145,6 +145,100 @@ describe("PresenceService", () => {
     ])
   })
 
+  it("tracks and clears active editing states by socket and room", () => {
+    service.joinRoom({
+      socketId: "socket-1",
+      roomId,
+      user: userOne,
+      role: "EDITOR",
+    })
+
+    expect(
+      service.startEditing({
+        socketId: "socket-1",
+        roomId,
+        objectId,
+      }),
+    ).toBe(true)
+    expect(
+      service.startEditing({
+        socketId: "socket-1",
+        roomId,
+        objectId: otherObjectId,
+      }),
+    ).toBe(true)
+
+    expect(service.clearEditingForSocketRoom("socket-1", roomId)).toEqual([
+      {
+        roomId,
+        objectId,
+        user: userOne,
+      },
+      {
+        roomId,
+        objectId: otherObjectId,
+        user: userOne,
+      },
+    ])
+    expect(service.clearEditingForSocketRoom("socket-1", roomId)).toEqual([])
+  })
+
+  it("returns false when editing state is sent before joining a room", () => {
+    expect(
+      service.startEditing({
+        socketId: "socket-1",
+        roomId,
+        objectId,
+      }),
+    ).toBe(false)
+    expect(
+      service.endEditing({
+        socketId: "socket-1",
+        roomId,
+        objectId,
+      }),
+    ).toBe(false)
+  })
+
+  it("clears active editing states across all joined rooms", () => {
+    service.joinRoom({
+      socketId: "socket-1",
+      roomId,
+      user: userOne,
+      role: "OWNER",
+    })
+    service.joinRoom({
+      socketId: "socket-1",
+      roomId: otherRoomId,
+      user: userOne,
+      role: "OWNER",
+    })
+    service.startEditing({
+      socketId: "socket-1",
+      roomId,
+      objectId,
+    })
+    service.startEditing({
+      socketId: "socket-1",
+      roomId: otherRoomId,
+      objectId: otherObjectId,
+    })
+
+    expect(service.clearEditingForSocket("socket-1")).toEqual([
+      {
+        roomId,
+        objectId,
+        user: userOne,
+      },
+      {
+        roomId: otherRoomId,
+        objectId: otherObjectId,
+        user: userOne,
+      },
+    ])
+    expect(service.clearEditingForSocket("socket-1")).toEqual([])
+  })
+
   it("uses the latest active socket selection for duplicated users", () => {
     const dateNowSpy = jest.spyOn(Date, "now")
 

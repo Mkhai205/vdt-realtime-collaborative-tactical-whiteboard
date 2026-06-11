@@ -49,6 +49,19 @@ export const selectionUpdateRequestSchema = z.object({
     selectedObjectId: z.uuid().nullable(),
 });
 
+export const editingStartRequestSchema = z.object({
+    roomId: z.uuid(),
+    objectId: z.uuid(),
+});
+
+export const editingEndRequestSchema = editingStartRequestSchema;
+
+export const objectEditingEventSchema = editingStartRequestSchema.extend({
+    user: userSummarySchema,
+    status: z.enum(["STARTED", "ENDED"]),
+    timestamp: z.string(),
+});
+
 export const cursorUpdateRequestSchema = z.object({
     roomId: z.uuid(),
     x: z.number().finite(),
@@ -101,6 +114,9 @@ export type PresenceUpdateEvent = z.infer<typeof presenceUpdateEventSchema>;
 export type SelectionUpdateRequest = z.infer<
     typeof selectionUpdateRequestSchema
 >;
+export type EditingStartRequest = z.infer<typeof editingStartRequestSchema>;
+export type EditingEndRequest = z.infer<typeof editingEndRequestSchema>;
+export type ObjectEditingEvent = z.infer<typeof objectEditingEventSchema>;
 export type CursorUpdateRequest = z.infer<typeof cursorUpdateRequestSchema>;
 export type CursorUpdatedEvent = z.infer<typeof cursorUpdatedEventSchema>;
 export type ObjectTransformPreviewPatch = z.infer<

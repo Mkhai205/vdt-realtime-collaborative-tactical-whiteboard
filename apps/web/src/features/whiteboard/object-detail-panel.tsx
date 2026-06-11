@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type FocusEvent } from "react"
 import type {
   ObjectMutablePatch,
   ShapeStyle,
@@ -46,7 +46,10 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import {
+  type RemoteEditingState,
+  useWhiteboardStore,
+} from "@/stores/whiteboard-store"
 
 type LinePoints = [number, number, number, number]
 
@@ -78,16 +81,46 @@ export function ObjectDetailPanel() {
     state.selectedObjectId ? state.objects[state.selectedObjectId] : null,
   )
   const currentUserRole = useWhiteboardStore((state) => state.currentUser?.role)
+  const remoteEditorsByUserId = useWhiteboardStore((state) =>
+    state.selectedObjectId ? state.remoteEditors[state.selectedObjectId] : null,
+  )
   const updateObjectPatch = useWhiteboardStore(
     (state) => state.updateObjectPatch,
   )
   const deleteSelectedObject = useWhiteboardStore(
     (state) => state.deleteSelectedObject,
   )
+  const sendEditingStart = useWhiteboardStore(
+    (state) => state.sendEditingStart,
+  )
+  const sendEditingEnd = useWhiteboardStore((state) => state.sendEditingEnd)
+  const panelEditingObjectIdRef = useRef<string | null>(null)
   const object =
     selectedObject && !selectedObject.deletedAt ? selectedObject : null
+  const objectId = object?.id ?? null
+  const remoteEditors = Object.values(remoteEditorsByUserId ?? {})
   const canEdit =
     currentUserRole === "OWNER" || currentUserRole === "EDITOR"
+
+  useEffect(() => {
+    const activeObjectId = panelEditingObjectIdRef.current
+
+    if (activeObjectId && activeObjectId !== objectId) {
+      panelEditingObjectIdRef.current = null
+      sendEditingEnd(activeObjectId)
+    }
+  }, [objectId, sendEditingEnd])
+
+  useEffect(() => {
+    return () => {
+      const activeObjectId = panelEditingObjectIdRef.current
+
+      if (activeObjectId) {
+        panelEditingObjectIdRef.current = null
+        sendEditingEnd(activeObjectId)
+      }
+    }
+  }, [sendEditingEnd])
 
   if (!object) {
     return (
@@ -121,18 +154,60 @@ export function ObjectDetailPanel() {
     )
   }
 
-  const objectId = object.id
+  const activeObjectId = object.id
 
   function patchObject(patch: ObjectMutablePatch) {
     if (!canEdit) {
       return
     }
 
-    updateObjectPatch(objectId, patch)
+    updateObjectPatch(activeObjectId, patch)
   }
 
   function patchStyle(stylePatch: ShapeStyle) {
     patchObject({ style: stylePatch })
+  }
+
+  function handleEditorFocus(event: FocusEvent<HTMLDivElement>) {
+    if (!canEdit) {
+      return
+    }
+
+    if (
+      event.relatedTarget instanceof Node &&
+      event.currentTarget.contains(event.relatedTarget)
+    ) {
+      return
+    }
+
+    const currentEditingObjectId = panelEditingObjectIdRef.current
+
+    if (currentEditingObjectId === activeObjectId) {
+      return
+    }
+
+    if (currentEditingObjectId) {
+      sendEditingEnd(currentEditingObjectId)
+    }
+
+    panelEditingObjectIdRef.current = activeObjectId
+    sendEditingStart(activeObjectId)
+  }
+
+  function handleEditorBlur(event: FocusEvent<HTMLDivElement>) {
+    if (
+      event.relatedTarget instanceof Node &&
+      event.currentTarget.contains(event.relatedTarget)
+    ) {
+      return
+    }
+
+    if (panelEditingObjectIdRef.current !== activeObjectId) {
+      return
+    }
+
+    panelEditingObjectIdRef.current = null
+    sendEditingEnd(activeObjectId)
   }
 
   return (
@@ -148,9 +223,21 @@ export function ObjectDetailPanel() {
         <CardDescription className="truncate font-mono text-xs">
           {object.id}
         </CardDescription>
+        {remoteEditors.length > 0 ? (
+          <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+            <Badge variant="outline">Soft lock</Badge>
+            <span className="min-w-0 truncate">
+              {formatRemoteEditorWarning(remoteEditors)}
+            </span>
+          </div>
+        ) : null}
       </CardHeader>
 
-      <CardContent className="min-h-0 flex-1 overflow-y-auto">
+      <CardContent
+        className="min-h-0 flex-1 overflow-y-auto"
+        onFocusCapture={handleEditorFocus}
+        onBlurCapture={handleEditorBlur}
+      >
         <FieldGroup key={object.id} className="gap-4 pb-1">
           <MetadataSection object={object} />
           <FieldSeparator label="Geometry" />
@@ -875,6 +962,23 @@ function formatTimestamp(value: string | null | undefined): string {
   }
 
   return value.replace("T", " ").replace(".000Z", "Z")
+}
+
+function formatRemoteEditorWarning(editors: RemoteEditingState[]): string {
+  const names = editors
+    .map((editor) => editor.user.name.trim())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right))
+
+  if (names.length === 0) {
+    return "Another user is editing this object."
+  }
+
+  if (names.length === 1) {
+    return `${names[0]} is editing this object.`
+  }
+
+  return `${names[0]} and ${names.length - 1} more are editing this object.`
 }
 
 function toColorInputValue(value: string | undefined, fallback: string): string {

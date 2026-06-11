@@ -170,7 +170,7 @@ Transient events are realtime-only and not stored in database.
 |---|---|
 | cursor:update | Broadcast user's cursor position. |
 | selection:update | Update selected object in transient presence state. |
-| editing:start | User starts editing/dragging/selecting an object. |
+| editing:start | User starts actively editing or transforming an object. |
 | editing:end | User stops editing/dragging/selecting an object. |
 | presence:update | User online/offline/current state. |
 | object:transform-preview | Client sends transient drag/resize preview. |
@@ -480,6 +480,7 @@ Selection presence does not prevent other users from editing.
 Soft lock is a should-have feature.
 
 It does not block editing by default. It warns other users that an object is being edited.
+Selection alone does not start a soft lock; selection presence remains handled by `selection:update`.
 
 ```ts
 type EditingStartRequest = {

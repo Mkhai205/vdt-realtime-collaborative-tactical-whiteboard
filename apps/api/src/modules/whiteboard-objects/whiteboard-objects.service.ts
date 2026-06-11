@@ -149,11 +149,7 @@ export class WhiteboardObjectsService {
         roomId,
         objectId,
         request.baseObjectVersion,
-        this.toUpdateObjectData(
-          currentObject,
-          request.patch,
-          currentUser.id,
-        ),
+        this.toUpdateObjectData(currentObject, request.patch, currentUser.id),
       )
       const resultingObject = toWhiteboardObject(updatedObject)
       const payload = {
@@ -246,9 +242,7 @@ export class WhiteboardObjectsService {
     mutation: (tx: WhiteboardTransactionClient) => Promise<T>,
   ): Promise<T> {
     try {
-      return await this.prismaService.client.$transaction((tx) =>
-        mutation(tx),
-      )
+      return await this.prismaService.client.$transaction((tx) => mutation(tx))
     } catch (error) {
       if (this.isDuplicateClientOperationConstraintError(error)) {
         throw this.duplicateOperation()

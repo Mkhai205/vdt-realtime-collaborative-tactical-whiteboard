@@ -819,6 +819,10 @@ If mode = FULL_STATE:
 Client -> Server
 ```
 
+### Description
+
+Announce that the user started an active edit, such as dragging, resizing, rotating, or editing object fields. Plain selection stays on `selection:update` and does not imply editing.
+
 ### Payload
 
 ```ts

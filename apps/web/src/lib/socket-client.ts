@@ -1,6 +1,9 @@
 import type {
   CursorUpdateRequest,
   CursorUpdatedEvent,
+  EditingEndRequest,
+  EditingStartRequest,
+  ObjectEditingEvent,
   ObjectCreateSocketRequest,
   ObjectDeleteSocketRequest,
   ObjectTransformPreviewRequest,
@@ -23,6 +26,7 @@ type ServerToClientEvents = {
   "room:state": (event: RoomStateEvent) => void
   "presence:update": (event: PresenceUpdateEvent) => void
   "cursor:updated": (event: CursorUpdatedEvent) => void
+  "object:editing": (event: ObjectEditingEvent) => void
   "object:transform-previewed": (
     event: ObjectTransformPreviewedEvent,
   ) => void
@@ -36,6 +40,8 @@ type ClientToServerEvents = {
   "room:leave": (request: RoomLeaveRequest) => void
   "selection:update": (request: SelectionUpdateRequest) => void
   "cursor:update": (request: CursorUpdateRequest) => void
+  "editing:start": (request: EditingStartRequest) => void
+  "editing:end": (request: EditingEndRequest) => void
   "object:create": (request: ObjectCreateSocketRequest) => void
   "object:update": (request: ObjectUpdateSocketRequest) => void
   "object:delete": (request: ObjectDeleteSocketRequest) => void

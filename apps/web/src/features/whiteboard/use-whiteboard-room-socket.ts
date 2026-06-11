@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import type {
   CursorUpdatedEvent,
+  ObjectEditingEvent,
   OperationAppliedEvent,
   OperationRejectedEvent,
   ObjectTransformPreviewedEvent,
@@ -14,6 +15,7 @@ import { createWhiteboardSocket } from "@/lib/socket-client"
 import {
   type WhiteboardOperationSender,
   type WhiteboardCursorSender,
+  type WhiteboardEditingSender,
   type WhiteboardSelectionSender,
   type WhiteboardTransformPreviewSender,
   useWhiteboardStore,
@@ -42,6 +44,9 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     (state) => state.setTransformPreviewSender,
   )
   const setCursorSender = useWhiteboardStore((state) => state.setCursorSender)
+  const setEditingSender = useWhiteboardStore(
+    (state) => state.setEditingSender,
+  )
   const setSelectionSender = useWhiteboardStore(
     (state) => state.setSelectionSender,
   )
@@ -55,6 +60,9 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   const applyRemoteCursor = useWhiteboardStore(
     (state) => state.applyRemoteCursor,
   )
+  const applyRemoteEditing = useWhiteboardStore(
+    (state) => state.applyRemoteEditing,
+  )
 
   useEffect(() => {
     const socket = createWhiteboardSocket()
@@ -66,6 +74,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setObjectOperationSender(createOperationSender())
     setTransformPreviewSender(createTransformPreviewSender())
     setCursorSender(createCursorSender())
+    setEditingSender(createEditingSender())
     setSelectionSender(createSelectionSender())
 
     function handleConnect() {
@@ -123,6 +132,14 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       }
 
       applyRemoteCursor(event)
+    }
+
+    function handleObjectEditing(event: ObjectEditingEvent) {
+      if (event.roomId !== roomId) {
+        return
+      }
+
+      applyRemoteEditing(event)
     }
 
     function handleOperationApplied(event: OperationAppliedEvent) {
@@ -201,6 +218,25 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       }
     }
 
+    function createEditingSender(): WhiteboardEditingSender {
+      return {
+        startEditing: (request) => {
+          if (request.roomId !== roomId || !socket.connected) {
+            return
+          }
+
+          socket.emit("editing:start", request)
+        },
+        endEditing: (request) => {
+          if (request.roomId !== roomId || !socket.connected) {
+            return
+          }
+
+          socket.emit("editing:end", request)
+        },
+      }
+    }
+
     function createSelectionSender(): WhiteboardSelectionSender {
       return {
         sendSelectionUpdate: (request) => {
@@ -244,6 +280,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     socket.on("room:state", handleRoomState)
     socket.on("presence:update", handlePresenceUpdate)
     socket.on("cursor:updated", handleCursorUpdated)
+    socket.on("object:editing", handleObjectEditing)
     socket.on("object:transform-previewed", handleTransformPreviewed)
     socket.on("operation:applied", handleOperationApplied)
     socket.on("operation:rejected", handleOperationRejected)
@@ -254,6 +291,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       setObjectOperationSender(null)
       setTransformPreviewSender(null)
       setCursorSender(null)
+      setEditingSender(null)
       setSelectionSender(null)
 
       for (const pendingOperation of pendingOperations.values()) {
@@ -274,6 +312,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       socket.off("room:state", handleRoomState)
       socket.off("presence:update", handlePresenceUpdate)
       socket.off("cursor:updated", handleCursorUpdated)
+      socket.off("object:editing", handleObjectEditing)
       socket.off("object:transform-previewed", handleTransformPreviewed)
       socket.off("operation:applied", handleOperationApplied)
       socket.off("operation:rejected", handleOperationRejected)
@@ -284,6 +323,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     applyOperationRejection,
     applyOperation,
     applyRemoteCursor,
+    applyRemoteEditing,
     applyRemoteTransformPreview,
     roomId,
     setConnectionStatus,
@@ -292,6 +332,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setOnlineUsers,
     setRoomId,
     setCursorSender,
+    setEditingSender,
     setSelectionSender,
     setSocketError,
     setTransformPreviewSender,

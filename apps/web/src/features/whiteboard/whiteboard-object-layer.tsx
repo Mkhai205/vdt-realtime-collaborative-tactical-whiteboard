@@ -24,6 +24,10 @@ type WhiteboardObjectLayerProps = {
     objectId: string,
     event: KonvaEventObject<DragEvent>,
   ) => void
+  onObjectDragStart?: (
+    objectId: string,
+    event: KonvaEventObject<DragEvent>,
+  ) => void
   onObjectDragMove?: (
     objectId: string,
     event: KonvaEventObject<DragEvent>,
@@ -36,6 +40,7 @@ export function WhiteboardObjectLayer({
   draggable = false,
   onObjectPointerDown,
   onObjectDragEnd,
+  onObjectDragStart,
   onObjectDragMove,
   registerObjectNode,
 }: WhiteboardObjectLayerProps) {
@@ -67,6 +72,7 @@ export function WhiteboardObjectLayer({
           draggable={draggable}
           onObjectPointerDown={onObjectPointerDown}
           onObjectDragEnd={onObjectDragEnd}
+          onObjectDragStart={onObjectDragStart}
           onObjectDragMove={onObjectDragMove}
           registerObjectNode={registerObjectNode}
         />

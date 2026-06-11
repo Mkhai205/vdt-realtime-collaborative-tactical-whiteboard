@@ -153,12 +153,16 @@ describe("RealtimeGateway", () => {
     updateObject: jest.fn(),
   }
   const presenceService = {
+    clearEditingForSocket: jest.fn(),
+    clearEditingForSocketRoom: jest.fn(),
+    endEditing: jest.fn(),
     getOnlineUsers: jest.fn(),
     getSocketRoomRole: jest.fn(),
     hasSocketInRoom: jest.fn(),
     joinRoom: jest.fn(),
     leaveAllRooms: jest.fn(),
     leaveRoom: jest.fn(),
+    startEditing: jest.fn(),
     updateSelectedObject: jest.fn(),
   }
   let gateway: RealtimeGateway
@@ -182,8 +186,12 @@ describe("RealtimeGateway", () => {
     presenceService.getSocketRoomRole.mockReturnValue("EDITOR")
     presenceService.hasSocketInRoom.mockReturnValue(true)
     presenceService.joinRoom.mockReturnValue([onlineUser])
+    presenceService.clearEditingForSocket.mockReturnValue([])
+    presenceService.clearEditingForSocketRoom.mockReturnValue([])
+    presenceService.endEditing.mockReturnValue(true)
     presenceService.leaveAllRooms.mockReturnValue([])
     presenceService.leaveRoom.mockReturnValue([])
+    presenceService.startEditing.mockReturnValue(true)
     presenceService.updateSelectedObject.mockReturnValue([onlineUser])
     roomEmitter.except.mockReturnValue(roomEmitter)
 
@@ -314,6 +322,10 @@ describe("RealtimeGateway", () => {
 
     await gateway.handleRoomLeave(socket, { roomId })
 
+    expect(presenceService.clearEditingForSocketRoom).toHaveBeenCalledWith(
+      socket.id,
+      roomId,
+    )
     expect(socketMocks.leave).toHaveBeenCalledWith(toRoomSocketName(roomId))
     expect(presenceService.leaveRoom).toHaveBeenCalledWith(socket.id, roomId)
     expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
@@ -329,11 +341,188 @@ describe("RealtimeGateway", () => {
 
     gateway.handleDisconnect(socket)
 
+    expect(presenceService.clearEditingForSocket).toHaveBeenCalledWith(
+      socket.id,
+    )
     expect(presenceService.leaveAllRooms).toHaveBeenCalledWith(socket.id)
     expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
     expect(roomEmitter.emit).toHaveBeenCalledWith("presence:update", {
       roomId,
       onlineUsers: [onlineUser],
+    })
+  })
+
+  it("broadcasts editing start to the room excluding the sender without persistence", () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    gateway.handleEditingStart(socket, {
+      roomId,
+      objectId,
+    })
+
+    expect(presenceService.getSocketRoomRole).toHaveBeenCalledWith(
+      socket.id,
+      roomId,
+    )
+    expect(presenceService.startEditing).toHaveBeenCalledWith({
+      socketId: socket.id,
+      roomId,
+      objectId,
+    })
+    expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(roomEmitter.except).toHaveBeenCalledWith(socket.id)
+    expect(roomEmitter.emit).toHaveBeenCalledWith("object:editing", {
+      roomId,
+      objectId,
+      user: currentUser,
+      status: "STARTED",
+      timestamp: expect.any(String),
+    })
+    expect(whiteboardObjectsService.createObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.deleteObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.getRoomObjects).not.toHaveBeenCalled()
+  })
+
+  it("broadcasts editing end to the room excluding the sender without persistence", () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+
+    gateway.handleEditingEnd(socket, {
+      roomId,
+      objectId,
+    })
+
+    expect(presenceService.endEditing).toHaveBeenCalledWith({
+      socketId: socket.id,
+      roomId,
+      objectId,
+    })
+    expect(roomEmitter.except).toHaveBeenCalledWith(socket.id)
+    expect(roomEmitter.emit).toHaveBeenCalledWith("object:editing", {
+      roomId,
+      objectId,
+      user: currentUser,
+      status: "ENDED",
+      timestamp: expect.any(String),
+    })
+    expect(whiteboardObjectsService.createObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.updateObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.deleteObject).not.toHaveBeenCalled()
+    expect(whiteboardObjectsService.getRoomObjects).not.toHaveBeenCalled()
+  })
+
+  it("emits validation errors for invalid editing payloads", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    gateway.handleEditingStart(socket, {
+      roomId,
+      objectId: "not-a-uuid",
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({
+        code: "VALIDATION_ERROR",
+      }),
+    )
+    expect(presenceService.startEditing).not.toHaveBeenCalled()
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "object:editing",
+      expect.anything(),
+    )
+  })
+
+  it("rejects editing state from sockets that have not joined the room", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    presenceService.getSocketRoomRole.mockReturnValue(null)
+
+    gateway.handleEditingStart(socket, {
+      roomId,
+      objectId,
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("error", {
+      code: "USER_NOT_IN_ROOM",
+      message: "Join the room before announcing editing state.",
+    })
+    expect(presenceService.startEditing).not.toHaveBeenCalled()
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "object:editing",
+      expect.anything(),
+    )
+  })
+
+  it("rejects editing state from viewers", () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    presenceService.getSocketRoomRole.mockReturnValue("VIEWER")
+
+    gateway.handleEditingStart(socket, {
+      roomId,
+      objectId,
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("error", {
+      code: "PERMISSION_DENIED",
+      message: "Only room owners and editors can announce editing state.",
+    })
+    expect(presenceService.startEditing).not.toHaveBeenCalled()
+    expect(roomEmitter.emit).not.toHaveBeenCalledWith(
+      "object:editing",
+      expect.anything(),
+    )
+  })
+
+  it("broadcasts editing end for active edits when leaving a room", async () => {
+    const socket = makeSocket()
+    socket.data.currentUser = currentUser
+    presenceService.clearEditingForSocketRoom.mockReturnValue([
+      {
+        roomId,
+        objectId,
+        user: currentUser,
+      },
+    ])
+
+    await gateway.handleRoomLeave(socket, { roomId })
+
+    expect(roomEmitter.except).toHaveBeenCalledWith(socket.id)
+    expect(roomEmitter.emit).toHaveBeenCalledWith("object:editing", {
+      roomId,
+      objectId,
+      user: currentUser,
+      status: "ENDED",
+      timestamp: expect.any(String),
+    })
+  })
+
+  it("broadcasts editing end for active edits when disconnecting", () => {
+    const socket = makeSocket()
+    presenceService.clearEditingForSocket.mockReturnValue([
+      {
+        roomId,
+        objectId,
+        user: currentUser,
+      },
+    ])
+    presenceService.leaveAllRooms.mockReturnValue([roomId])
+
+    gateway.handleDisconnect(socket)
+
+    expect(roomEmitter.except).toHaveBeenCalledWith(socket.id)
+    expect(roomEmitter.emit).toHaveBeenCalledWith("object:editing", {
+      roomId,
+      objectId,
+      user: currentUser,
+      status: "ENDED",
+      timestamp: expect.any(String),
     })
   })
 
@@ -750,16 +939,26 @@ describe("RealtimeGateway", () => {
   })
 
   it.each([
-    ["object:update", () => gateway.handleObjectUpdate, "updateObject"],
-    ["object:delete", () => gateway.handleObjectDelete, "deleteObject"],
+    [
+      "object:update",
+      (socket: TestSocket, payload: unknown) =>
+        gateway.handleObjectUpdate(socket, payload),
+      "updateObject",
+    ],
+    [
+      "object:delete",
+      (socket: TestSocket, payload: unknown) =>
+        gateway.handleObjectDelete(socket, payload),
+      "deleteObject",
+    ],
   ] as const)(
     "rejects %s when baseObjectVersion is missing",
-    async (_eventName, getHandler, serviceMethodName) => {
+    async (_eventName, handleOperation, serviceMethodName) => {
       const socket = makeSocket()
       const socketMocks = getSocketMocks(socket)
       socket.data.currentUser = currentUser
 
-      await getHandler().call(gateway, socket, {
+      await handleOperation(socket, {
         roomId,
         objectId,
         clientOpId,

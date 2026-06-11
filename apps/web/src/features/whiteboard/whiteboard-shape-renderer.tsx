@@ -30,6 +30,10 @@ type WhiteboardShapeRendererProps = {
     objectId: string,
     event: KonvaEventObject<DragEvent>,
   ) => void
+  onObjectDragStart?: (
+    objectId: string,
+    event: KonvaEventObject<DragEvent>,
+  ) => void
   onObjectDragMove?: (
     objectId: string,
     event: KonvaEventObject<DragEvent>,
@@ -43,6 +47,7 @@ export function WhiteboardShapeRenderer({
   draggable = false,
   onObjectPointerDown,
   onObjectDragEnd,
+  onObjectDragStart,
   onObjectDragMove,
   registerObjectNode,
 }: WhiteboardShapeRendererProps) {
@@ -63,6 +68,12 @@ export function WhiteboardShapeRenderer({
       onObjectDragEnd?.(object.id, event)
     },
     [object.id, onObjectDragEnd],
+  )
+  const handleDragStart = useCallback(
+    (event: KonvaEventObject<DragEvent>) => {
+      onObjectDragStart?.(object.id, event)
+    },
+    [object.id, onObjectDragStart],
   )
   const handleDragMove = useCallback(
     (event: KonvaEventObject<DragEvent>) => {
@@ -87,6 +98,7 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragStart={handleDragStart}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
@@ -109,6 +121,7 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragStart={handleDragStart}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
@@ -130,6 +143,7 @@ export function WhiteboardShapeRenderer({
           pointerAtEnding={object.style.arrowEnd ?? true}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragStart={handleDragStart}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
@@ -153,6 +167,7 @@ export function WhiteboardShapeRenderer({
           opacity={object.style.opacity ?? 1}
           draggable={draggable}
           onPointerDown={handlePointerDown}
+          onDragStart={handleDragStart}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />

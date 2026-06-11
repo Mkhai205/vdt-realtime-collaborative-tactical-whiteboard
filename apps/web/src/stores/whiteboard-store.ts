@@ -3,6 +3,9 @@
 import type {
   CursorUpdateRequest,
   CursorUpdatedEvent,
+  EditingEndRequest,
+  EditingStartRequest,
+  ObjectEditingEvent,
   ObjectCreateSocketRequest,
   ObjectDeleteSocketRequest,
   ObjectMutablePatch,
@@ -49,6 +52,7 @@ type WhiteboardState = {
   toasts: WhiteboardToast[]
   objects: Record<string, WhiteboardObject>
   remoteCursors: Record<string, RemoteCursor>
+  remoteEditors: Record<string, Record<string, RemoteEditingState>>
   remoteTransformPreviews: Record<string, RemoteTransformPreview>
   appliedClientOpIds: Record<string, true>
   selectedObjectId: string | null
@@ -57,6 +61,7 @@ type WhiteboardState = {
   objectOperationSender: WhiteboardOperationSender | null
   transformPreviewSender: WhiteboardTransformPreviewSender | null
   cursorSender: WhiteboardCursorSender | null
+  editingSender: WhiteboardEditingSender | null
   selectionSender: WhiteboardSelectionSender | null
   viewport: Viewport
   stageSize: StageSize
@@ -74,6 +79,7 @@ type WhiteboardState = {
     sender: WhiteboardTransformPreviewSender | null,
   ) => void
   setCursorSender: (sender: WhiteboardCursorSender | null) => void
+  setEditingSender: (sender: WhiteboardEditingSender | null) => void
   setSelectionSender: (sender: WhiteboardSelectionSender | null) => void
   setObjects: (objects: WhiteboardObject[]) => void
   setObjectsWithRevision: (
@@ -90,7 +96,10 @@ type WhiteboardState = {
     event: ObjectTransformPreviewedEvent,
   ) => void
   applyRemoteCursor: (event: CursorUpdatedEvent) => void
+  applyRemoteEditing: (event: ObjectEditingEvent) => void
   sendCursorUpdate: (point: CanvasPoint) => void
+  sendEditingStart: (objectId: string) => void
+  sendEditingEnd: (objectId: string) => void
   sendSelectionUpdate: (selectedObjectId: string | null) => void
   clearRemoteTransformPreview: (objectId: string) => void
   sendTransformPreview: (
@@ -150,6 +159,10 @@ export type RemoteCursor = CursorUpdatedEvent & {
   receivedAt: number
 }
 
+export type RemoteEditingState = ObjectEditingEvent & {
+  receivedAt: number
+}
+
 export type LocalObjectInput = {
   type: ObjectType
   x: number
@@ -181,6 +194,11 @@ export type WhiteboardTransformPreviewSender = {
 
 export type WhiteboardCursorSender = {
   sendCursorUpdate: (request: CursorUpdateRequest) => void
+}
+
+export type WhiteboardEditingSender = {
+  startEditing: (request: EditingStartRequest) => void
+  endEditing: (request: EditingEndRequest) => void
 }
 
 export type WhiteboardSelectionSender = {
@@ -328,6 +346,74 @@ function pruneRemoteCursors(
   }
 
   return nextCursors
+}
+
+function pruneRemoteEditors(
+  editors: Record<string, Record<string, RemoteEditingState>>,
+  onlineUsers: OnlineUser[],
+  currentUserId: string | null | undefined,
+): Record<string, Record<string, RemoteEditingState>> {
+  const onlineUserIds = new Set(onlineUsers.map((user) => user.id))
+  let nextEditors = editors
+
+  for (const [objectId, editorsByUserId] of Object.entries(editors)) {
+    let nextEditorsByUserId = editorsByUserId
+
+    for (const userId of Object.keys(editorsByUserId)) {
+      if (userId !== currentUserId && onlineUserIds.has(userId)) {
+        continue
+      }
+
+      if (nextEditors === editors) {
+        nextEditors = { ...editors }
+      }
+
+      if (nextEditorsByUserId === editorsByUserId) {
+        nextEditorsByUserId = { ...editorsByUserId }
+        nextEditors[objectId] = nextEditorsByUserId
+      }
+
+      delete nextEditorsByUserId[userId]
+    }
+
+    if (
+      nextEditorsByUserId !== editorsByUserId &&
+      Object.keys(nextEditorsByUserId).length === 0
+    ) {
+      delete nextEditors[objectId]
+    }
+  }
+
+  return nextEditors
+}
+
+function removeRemoteEditorsForObjects(
+  editors: Record<string, Record<string, RemoteEditingState>>,
+  objectIds: Array<string | null | undefined>,
+): Record<string, Record<string, RemoteEditingState>> {
+  const targetObjectIds = objectIds.filter(
+    (objectId): objectId is string => Boolean(objectId),
+  )
+
+  if (targetObjectIds.length === 0) {
+    return editors
+  }
+
+  let nextEditors = editors
+
+  for (const objectId of targetObjectIds) {
+    if (!(objectId in nextEditors)) {
+      continue
+    }
+
+    if (nextEditors === editors) {
+      nextEditors = { ...editors }
+    }
+
+    delete nextEditors[objectId]
+  }
+
+  return nextEditors
 }
 
 function getLocalActorId(): string {
@@ -615,6 +701,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   toasts: [],
   objects: {},
   remoteCursors: {},
+  remoteEditors: {},
   remoteTransformPreviews: {},
   appliedClientOpIds: {},
   selectedObjectId: null,
@@ -623,6 +710,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   objectOperationSender: null,
   transformPreviewSender: null,
   cursorSender: null,
+  editingSender: null,
   selectionSender: null,
   viewport: initialViewport,
   stageSize: emptyStageSize,
@@ -648,6 +736,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         toasts: [],
         objects: {},
         remoteCursors: {},
+        remoteEditors: {},
         remoteTransformPreviews: {},
         appliedClientOpIds: {},
         selectedObjectId: null,
@@ -656,6 +745,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         objectOperationSender: null,
         transformPreviewSender: null,
         cursorSender: null,
+        editingSender: null,
         selectionSender: null,
         viewport: getCenteredViewport(state.stageSize),
       }
@@ -724,6 +814,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         mutationError: null,
         objects: nextObjects,
         remoteCursors: {},
+        remoteEditors: {},
         remoteTransformPreviews: {},
         appliedClientOpIds: {},
         selectedObjectId: resolvedSelectedObjectId,
@@ -753,6 +844,11 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         onlineUsers,
         state.currentUser?.id,
       ),
+      remoteEditors: pruneRemoteEditors(
+        state.remoteEditors,
+        onlineUsers,
+        state.currentUser?.id,
+      ),
     })),
   setMutationError: (message) =>
     set({
@@ -773,6 +869,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   setCursorSender: (sender) =>
     set({
       cursorSender: sender,
+    }),
+  setEditingSender: (sender) =>
+    set({
+      editingSender: sender,
     }),
   setSelectionSender: (sender) =>
     set({
@@ -799,6 +899,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
+        remoteEditors: {},
         remoteTransformPreviews: {},
         selectedObjectId: resolvedSelectedObjectId,
       }
@@ -829,6 +930,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
+        remoteEditors: {},
         remoteTransformPreviews: {},
         currentRevision,
         selectedObjectId: resolvedSelectedObjectId,
@@ -861,14 +963,26 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         state.remoteTransformPreviews,
         [operation.objectId, operation.resultingObject?.id],
       )
+      const deletedObjectId =
+        operation.type === "OBJECT_DELETE"
+          ? operation.objectId
+          : operation.resultingObject?.deletedAt
+            ? operation.resultingObject.id
+            : null
+      const nextRemoteEditors = removeRemoteEditorsForObjects(
+        state.remoteEditors,
+        [deletedObjectId, options?.removeObjectId],
+      )
 
       if (
         state.appliedClientOpIds[operation.clientOpId] ||
         operation.revision <= state.currentRevision
       ) {
-        return nextRemoteTransformPreviews === state.remoteTransformPreviews
+        return nextRemoteTransformPreviews === state.remoteTransformPreviews &&
+          nextRemoteEditors === state.remoteEditors
           ? state
           : {
+              remoteEditors: nextRemoteEditors,
               remoteTransformPreviews: nextRemoteTransformPreviews,
             }
       }
@@ -898,6 +1012,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         },
         currentRevision: operation.revision,
         mutationError: null,
+        remoteEditors: nextRemoteEditors,
         remoteTransformPreviews: nextRemoteTransformPreviews,
         selectedObjectId: resolvedSelectedObjectId,
       }
@@ -949,6 +1064,11 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           rejection.currentRoomRevision,
         ),
         mutationError: showConflictToast ? null : rejection.message,
+        remoteEditors: rejection.latestObject.deletedAt
+          ? removeRemoteEditorsForObjects(state.remoteEditors, [
+              rejection.latestObject.id,
+            ])
+          : state.remoteEditors,
         toasts: showConflictToast
           ? appendWhiteboardToast(
               state.toasts,
@@ -1025,6 +1145,56 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         },
       }
     }),
+  applyRemoteEditing: (event) =>
+    set((state) => {
+      if (
+        state.roomId !== event.roomId ||
+        state.currentUser?.id === event.user.id
+      ) {
+        return state
+      }
+
+      const object = state.objects[event.objectId]
+      const currentEditors = state.remoteEditors[event.objectId]
+
+      if (event.status === "ENDED") {
+        if (!currentEditors?.[event.user.id]) {
+          return state
+        }
+
+        const nextObjectEditors = { ...currentEditors }
+        delete nextObjectEditors[event.user.id]
+
+        const nextRemoteEditors = { ...state.remoteEditors }
+
+        if (Object.keys(nextObjectEditors).length === 0) {
+          delete nextRemoteEditors[event.objectId]
+        } else {
+          nextRemoteEditors[event.objectId] = nextObjectEditors
+        }
+
+        return {
+          remoteEditors: nextRemoteEditors,
+        }
+      }
+
+      if (!object || object.deletedAt) {
+        return state
+      }
+
+      return {
+        remoteEditors: {
+          ...state.remoteEditors,
+          [event.objectId]: {
+            ...currentEditors,
+            [event.user.id]: {
+              ...event,
+              receivedAt: Date.now(),
+            },
+          },
+        },
+      }
+    }),
   sendCursorUpdate: (point) => {
     const state = get()
 
@@ -1038,6 +1208,41 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       y: point.y,
       selectedObjectId: state.selectedObjectId,
       currentTool: state.currentTool,
+    })
+  },
+  sendEditingStart: (objectId) => {
+    const state = get()
+    const object = state.objects[objectId]
+
+    if (
+      !state.roomId ||
+      !state.editingSender ||
+      !canEditRoom(state.currentUser?.role) ||
+      !object ||
+      object.deletedAt
+    ) {
+      return
+    }
+
+    state.editingSender.startEditing({
+      roomId: state.roomId,
+      objectId,
+    })
+  },
+  sendEditingEnd: (objectId) => {
+    const state = get()
+
+    if (
+      !state.roomId ||
+      !state.editingSender ||
+      !canEditRoom(state.currentUser?.role)
+    ) {
+      return
+    }
+
+    state.editingSender.endEditing({
+      roomId: state.roomId,
+      objectId,
     })
   },
   sendSelectionUpdate: (selectedObjectId) => {
@@ -1173,6 +1378,9 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       return {
         objects: nextObjects,
+        remoteEditors: removeRemoteEditorsForObjects(state.remoteEditors, [
+          objectId,
+        ]),
         remoteTransformPreviews: nextRemoteTransformPreviews,
         selectedObjectId: resolvedSelectedObjectId,
       }
@@ -1219,6 +1427,10 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       },
       remoteTransformPreviews: removeRemoteTransformPreviews(
         currentState.remoteTransformPreviews,
+        [selectedObjectId],
+      ),
+      remoteEditors: removeRemoteEditorsForObjects(
+        currentState.remoteEditors,
         [selectedObjectId],
       ),
       selectedObjectId: null,

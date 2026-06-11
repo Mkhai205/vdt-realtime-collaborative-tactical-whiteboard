@@ -15,6 +15,8 @@ import {
 import {
   clientOpIdSchema,
   cursorUpdateRequestSchema,
+  editingEndRequestSchema,
+  editingStartRequestSchema,
   objectTransformPreviewRequestSchema,
   objectCreateSocketRequestSchema,
   objectDeleteSocketRequestSchema,
@@ -26,6 +28,7 @@ import {
   toRoomSocketName,
   whiteboardObjectSchema,
   type CursorUpdatedEvent,
+  type ObjectEditingEvent,
   type OperationAppliedEvent,
   type OperationRejectedEvent,
   type OperationRejectedReason,
@@ -97,7 +100,12 @@ export class RealtimeGateway
   }
 
   handleDisconnect(client: RealtimeSocket): void {
+    const endedEditingStates = this.presenceService.clearEditingForSocket(
+      client.id,
+    )
     const affectedRoomIds = this.presenceService.leaveAllRooms(client.id)
+
+    this.emitEndedEditingStates(endedEditingStates, client.id)
 
     for (const roomId of affectedRoomIds) {
       this.emitPresenceUpdate(roomId)
@@ -167,9 +175,115 @@ export class RealtimeGateway
 
     const { roomId } = parsed.data
 
+    const endedEditingStates = this.presenceService.clearEditingForSocketRoom(
+      client.id,
+      roomId,
+    )
+
     await client.leave(toRoomSocketName(roomId))
     this.presenceService.leaveRoom(client.id, roomId)
+    this.emitEndedEditingStates(endedEditingStates, client.id)
     this.emitPresenceUpdate(roomId)
+  }
+
+  @SubscribeMessage("editing:start")
+  handleEditingStart(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): void {
+    const parsed = editingStartRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      client.emit("error", this.validationError(parsed.error))
+      return
+    }
+
+    try {
+      const currentUser = this.requireCurrentUser(client)
+      const { roomId, objectId } = parsed.data
+      const role = this.presenceService.getSocketRoomRole(client.id, roomId)
+
+      if (!role) {
+        client.emit("error", {
+          code: "USER_NOT_IN_ROOM",
+          message: "Join the room before announcing editing state.",
+        })
+        return
+      }
+
+      if (!this.canEditObjects(role)) {
+        client.emit("error", {
+          code: "PERMISSION_DENIED",
+          message: "Only room owners and editors can announce editing state.",
+        })
+        return
+      }
+
+      this.presenceService.startEditing({
+        socketId: client.id,
+        roomId,
+        objectId,
+      })
+      this.emitEditingEvent({
+        roomId,
+        objectId,
+        user: currentUser,
+        status: "STARTED",
+        exceptSocketId: client.id,
+      })
+    } catch (error) {
+      client.emit("error", this.toSocketError(error))
+    }
+  }
+
+  @SubscribeMessage("editing:end")
+  handleEditingEnd(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): void {
+    const parsed = editingEndRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      client.emit("error", this.validationError(parsed.error))
+      return
+    }
+
+    try {
+      const currentUser = this.requireCurrentUser(client)
+      const { roomId, objectId } = parsed.data
+      const role = this.presenceService.getSocketRoomRole(client.id, roomId)
+
+      if (!role) {
+        client.emit("error", {
+          code: "USER_NOT_IN_ROOM",
+          message: "Join the room before announcing editing state.",
+        })
+        return
+      }
+
+      if (!this.canEditObjects(role)) {
+        client.emit("error", {
+          code: "PERMISSION_DENIED",
+          message: "Only room owners and editors can announce editing state.",
+        })
+        return
+      }
+
+      this.presenceService.endEditing({
+        socketId: client.id,
+        roomId,
+        objectId,
+      })
+      this.emitEditingEvent({
+        roomId,
+        objectId,
+        user: currentUser,
+        status: "ENDED",
+        exceptSocketId: client.id,
+      })
+    } catch (error) {
+      client.emit("error", this.toSocketError(error))
+    }
   }
 
   @SubscribeMessage("object:create")
@@ -264,7 +378,7 @@ export class RealtimeGateway
         return
       }
 
-      if (!this.canPreviewTransform(role)) {
+      if (!this.canEditObjects(role)) {
         client.emit("error", {
           code: "PERMISSION_DENIED",
           message: "Only room owners and editors can preview transforms.",
@@ -372,7 +486,38 @@ export class RealtimeGateway
     })
   }
 
-  private canPreviewTransform(role: RoomRole): boolean {
+  private emitEditingEvent(
+    input: Omit<ObjectEditingEvent, "timestamp"> & { exceptSocketId?: string },
+  ): void {
+    const { exceptSocketId, ...eventInput } = input
+    const event: ObjectEditingEvent = {
+      ...eventInput,
+      timestamp: new Date().toISOString(),
+    }
+    const emitter = this.server.to(toRoomSocketName(input.roomId))
+
+    if (exceptSocketId) {
+      emitter.except(exceptSocketId).emit("object:editing", event)
+      return
+    }
+
+    emitter.emit("object:editing", event)
+  }
+
+  private emitEndedEditingStates(
+    states: Array<{ roomId: string; objectId: string; user: UserSummary }>,
+    exceptSocketId?: string,
+  ): void {
+    for (const state of states) {
+      this.emitEditingEvent({
+        ...state,
+        status: "ENDED",
+        exceptSocketId,
+      })
+    }
+  }
+
+  private canEditObjects(role: RoomRole): boolean {
     return role === "OWNER" || role === "EDITOR"
   }
 
