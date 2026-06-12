@@ -8,6 +8,7 @@ import type {
   JoinRoomResponse,
   OnlineUser,
   OperationAppliedEvent,
+  SyncResponse,
   UserSummary,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
@@ -104,6 +105,14 @@ const operationApplied: OperationAppliedEvent = {
   createdAt: now,
 }
 
+const syncResponse: SyncResponse = {
+  mode: "OPERATIONS",
+  roomId,
+  fromRevision: 7,
+  toRevision: 8,
+  operations: [operationApplied],
+}
+
 type TestSocket = Parameters<RealtimeGateway["handleConnection"]>[0]
 
 type TestSocketMocks = {
@@ -149,6 +158,7 @@ describe("RealtimeGateway", () => {
   const whiteboardObjectsService = {
     createObject: jest.fn(),
     deleteObject: jest.fn(),
+    getRoomOperationReplay: jest.fn(),
     getRoomObjects: jest.fn(),
     restoreObject: jest.fn(),
     updateObject: jest.fn(),
@@ -187,6 +197,9 @@ describe("RealtimeGateway", () => {
       type: "OBJECT_RESTORE",
     })
     whiteboardObjectsService.getRoomObjects.mockResolvedValue(objectsResponse)
+    whiteboardObjectsService.getRoomOperationReplay.mockResolvedValue(
+      syncResponse,
+    )
     presenceService.getOnlineUsers.mockReturnValue([onlineUser])
     presenceService.getSocketRoomRole.mockReturnValue("EDITOR")
     presenceService.hasSocketInRoom.mockReturnValue(true)
@@ -337,6 +350,76 @@ describe("RealtimeGateway", () => {
     expect(roomEmitter.emit).toHaveBeenCalledWith("presence:update", {
       roomId,
       onlineUsers: [onlineUser],
+    })
+  })
+
+  it("handles sync requests by rejoining the room and emitting replayed operations", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    await gateway.handleSyncRequest(socket, { roomId, lastSeenRevision: 7 })
+
+    expect(roomsService.joinRoom).toHaveBeenCalledWith(currentUser, roomId)
+    expect(socketMocks.join).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(presenceService.joinRoom).toHaveBeenCalledWith({
+      socketId: socket.id,
+      roomId,
+      user: currentUser,
+      role: "EDITOR",
+    })
+    expect(whiteboardObjectsService.getRoomOperationReplay).toHaveBeenCalledWith(
+      currentUser,
+      roomId,
+      7,
+    )
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "sync:response",
+      syncResponse,
+    )
+    expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
+    expect(roomEmitter.emit).toHaveBeenCalledWith("presence:update", {
+      roomId,
+      onlineUsers: [onlineUser],
+    })
+  })
+
+  it("emits validation errors for invalid sync request payloads", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+
+    await gateway.handleSyncRequest(socket, {
+      roomId,
+      lastSeenRevision: -1,
+    })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({
+        code: "VALIDATION_ERROR",
+      }),
+    )
+    expect(whiteboardObjectsService.getRoomOperationReplay).not.toHaveBeenCalled()
+  })
+
+  it("maps sync replay failures to socket errors", async () => {
+    const socket = makeSocket()
+    const socketMocks = getSocketMocks(socket)
+    socket.data.currentUser = currentUser
+    whiteboardObjectsService.getRoomOperationReplay.mockRejectedValue(
+      new ForbiddenException({
+        code: "PERMISSION_DENIED",
+        message: "You must join this room first.",
+      }),
+    )
+
+    await gateway.handleSyncRequest(socket, { roomId, lastSeenRevision: 7 })
+
+    expect(socketMocks.emit).toHaveBeenCalledWith("error", {
+      code: "PERMISSION_DENIED",
+      message: "You must join this room first.",
+      details: undefined,
     })
   })
 

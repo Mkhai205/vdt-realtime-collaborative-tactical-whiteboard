@@ -61,6 +61,7 @@ type WhiteboardState = {
   room: WhiteboardRoomState | null
   currentUser: WhiteboardCurrentUser | null
   currentRevision: number
+  lastSeenRevision: number
   connectionStatus: ConnectionStatus
   socketError: string | null
   onlineUsers: OnlineUser[]
@@ -104,6 +105,7 @@ type WhiteboardState = {
     objects: WhiteboardObject[],
     currentRevision: number,
   ) => void
+  markRevisionSynced: (revision: number) => void
   upsertObject: (object: WhiteboardObject) => void
   applyOperation: (
     operation: OperationAppliedEvent,
@@ -769,6 +771,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
   room: null,
   currentUser: null,
   currentRevision: 0,
+  lastSeenRevision: 0,
   connectionStatus: "idle",
   socketError: null,
   onlineUsers: [],
@@ -806,6 +809,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         room: null,
         currentUser: null,
         currentRevision: 0,
+        lastSeenRevision: 0,
         connectionStatus: "idle",
         socketError: null,
         onlineUsers: [],
@@ -880,6 +884,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         room: input.room,
         currentUser: input.currentUser,
         currentRevision: input.currentRevision,
+        lastSeenRevision: input.currentRevision,
         connectionStatus: "connected",
         socketError: null,
         onlineUsers: input.onlineUsers ?? state.onlineUsers,
@@ -989,6 +994,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
         remoteEditors: {},
         remoteTransformPreviews: {},
         currentRevision,
+        lastSeenRevision: currentRevision,
         undoStack: [],
         redoStack: [],
         selectedObjectId: null,
@@ -999,6 +1005,11 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
       get().sendSelectionUpdate(null)
     }
   },
+  markRevisionSynced: (revision) =>
+    set((state) => ({
+      currentRevision: getMonotonicRevision(state.currentRevision, revision),
+      lastSeenRevision: getMonotonicRevision(state.lastSeenRevision, revision),
+    })),
   upsertObject: (object) =>
     set((state) => ({
       objects: {
@@ -1034,7 +1045,7 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
 
       if (
         state.appliedClientOpIds[operation.clientOpId] ||
-        operation.revision <= state.currentRevision
+        operation.revision <= state.lastSeenRevision
       ) {
         return nextRemoteTransformPreviews === state.remoteTransformPreviews &&
           nextRemoteEditors === state.remoteEditors
@@ -1078,7 +1089,14 @@ export const useWhiteboardStore = create<WhiteboardState>((set, get) => ({
           ...state.appliedClientOpIds,
           [operation.clientOpId]: true,
         },
-        currentRevision: operation.revision,
+        currentRevision: getMonotonicRevision(
+          state.currentRevision,
+          operation.revision,
+        ),
+        lastSeenRevision: getMonotonicRevision(
+          state.lastSeenRevision,
+          operation.revision,
+        ),
         mutationError: null,
         remoteEditors: nextRemoteEditors,
         remoteTransformPreviews: nextRemoteTransformPreviews,

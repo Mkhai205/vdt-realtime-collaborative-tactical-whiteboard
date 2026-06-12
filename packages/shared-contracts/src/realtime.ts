@@ -2,7 +2,11 @@ import { z } from "zod";
 import { userSummarySchema } from "./common.js";
 import { defaultJoinRoleSchema } from "./room.js";
 import { roomRoleSchema } from "./identity.js";
-import { toolSchema, whiteboardObjectSchema } from "./whiteboard.js";
+import {
+    operationAppliedEventSchema,
+    toolSchema,
+    whiteboardObjectSchema,
+} from "./whiteboard.js";
 
 export const roomSocketPrefix = "room:";
 
@@ -15,6 +19,11 @@ export const roomJoinRequestSchema = z.object({
 });
 
 export const roomLeaveRequestSchema = roomJoinRequestSchema;
+
+export const syncRequestSchema = z.object({
+    roomId: z.uuid(),
+    lastSeenRevision: z.number().int().nonnegative(),
+});
 
 export const onlineUserSchema = userSummarySchema.extend({
     role: roomRoleSchema,
@@ -100,6 +109,26 @@ export const objectTransformPreviewedEventSchema =
         timestamp: z.string(),
     });
 
+export const syncOperationsResponseSchema = z.object({
+    mode: z.literal("OPERATIONS"),
+    roomId: z.uuid(),
+    fromRevision: z.number().int().nonnegative(),
+    toRevision: z.number().int().nonnegative(),
+    operations: z.array(operationAppliedEventSchema),
+});
+
+export const syncFullStateResponseSchema = z.object({
+    mode: z.literal("FULL_STATE"),
+    roomId: z.uuid(),
+    revision: z.number().int().nonnegative(),
+    objects: z.array(whiteboardObjectSchema),
+});
+
+export const syncResponseSchema = z.discriminatedUnion("mode", [
+    syncOperationsResponseSchema,
+    syncFullStateResponseSchema,
+]);
+
 export const socketErrorEventSchema = z.object({
     code: z.string().min(1),
     message: z.string().min(1),
@@ -108,6 +137,7 @@ export const socketErrorEventSchema = z.object({
 
 export type RoomJoinRequest = z.infer<typeof roomJoinRequestSchema>;
 export type RoomLeaveRequest = z.infer<typeof roomLeaveRequestSchema>;
+export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type OnlineUser = z.infer<typeof onlineUserSchema>;
 export type RoomStateEvent = z.infer<typeof roomStateEventSchema>;
 export type PresenceUpdateEvent = z.infer<typeof presenceUpdateEventSchema>;
@@ -128,4 +158,11 @@ export type ObjectTransformPreviewRequest = z.infer<
 export type ObjectTransformPreviewedEvent = z.infer<
     typeof objectTransformPreviewedEventSchema
 >;
+export type SyncOperationsResponse = z.infer<
+    typeof syncOperationsResponseSchema
+>;
+export type SyncFullStateResponse = z.infer<
+    typeof syncFullStateResponseSchema
+>;
+export type SyncResponse = z.infer<typeof syncResponseSchema>;
 export type SocketErrorEvent = z.infer<typeof socketErrorEventSchema>;

@@ -46,6 +46,15 @@ function makeObject(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function makeSerializedObject(overrides: Record<string, unknown> = {}) {
+  return makeObject({
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    deletedAt: null,
+    ...overrides,
+  })
+}
+
 function makeOperation(overrides: Record<string, unknown> = {}) {
   return {
     id: operationId,
@@ -303,6 +312,163 @@ describe("WhiteboardObjectsService", () => {
     await expect(
       service.getRoomOperations(currentUser, roomId),
     ).rejects.toThrow(ForbiddenException)
+    expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
+  })
+
+  it("returns empty operation replay when the client has the current revision", async () => {
+    prismaClient.room.findFirst.mockResolvedValue({
+      currentRevision: 7n,
+    })
+
+    const response = await service.getRoomOperationReplay(currentUser, roomId, 7)
+
+    expect(permissionService.assertRoomMember).toHaveBeenCalledWith(
+      userId,
+      roomId,
+    )
+    expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
+    expect(response).toEqual({
+      mode: "OPERATIONS",
+      roomId,
+      fromRevision: 7,
+      toRevision: 7,
+      operations: [],
+    })
+  })
+
+  it("loads operation replay after the last seen revision in ascending order", async () => {
+    const createdObject = makeSerializedObject({
+      id: "22222222-2222-4222-8222-222222222223",
+    })
+    const updatedObject = makeSerializedObject({
+      id: "22222222-2222-4222-8222-222222222224",
+      x: 240,
+      version: 4,
+    })
+    prismaClient.room.findFirst.mockResolvedValue({
+      currentRevision: 8n,
+    })
+    prismaClient.whiteboardOperation.findMany.mockResolvedValue([
+      makeOperation({
+        id: "44444444-4444-4444-8444-444444444445",
+        clientOpId: "create-client-op",
+        objectId: createdObject.id,
+        revision: 6n,
+        type: "OBJECT_CREATE",
+        payload: {
+          object: createdObject,
+        },
+      }),
+      makeOperation({
+        id: "44444444-4444-4444-8444-444444444446",
+        clientOpId: "update-client-op",
+        objectId: updatedObject.id,
+        revision: 7n,
+        type: "OBJECT_UPDATE",
+        payload: {
+          objectId: updatedObject.id,
+          patch: {
+            x: 240,
+          },
+          resultingObject: updatedObject,
+        },
+      }),
+      makeOperation({
+        id: "44444444-4444-4444-8444-444444444447",
+        clientOpId: "delete-client-op",
+        objectId,
+        revision: 8n,
+        type: "OBJECT_DELETE",
+        payload: {
+          objectId,
+          previousObject: makeSerializedObject(),
+        },
+      }),
+    ])
+
+    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+
+    expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalledWith({
+      where: {
+        roomId,
+        revision: {
+          gt: 5n,
+          lte: 8n,
+        },
+      },
+      orderBy: {
+        revision: "asc",
+      },
+      select: {
+        id: true,
+        clientOpId: true,
+        roomId: true,
+        objectId: true,
+        revision: true,
+        type: true,
+        payload: true,
+        createdAt: true,
+        actor: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            avatarColor: true,
+          },
+        },
+      },
+    })
+    expect(response).toEqual({
+      mode: "OPERATIONS",
+      roomId,
+      fromRevision: 5,
+      toRevision: 8,
+      operations: [
+        expect.objectContaining({
+          clientOpId: "create-client-op",
+          revision: 6,
+          type: "OBJECT_CREATE",
+          actor: currentUser,
+          payload: {
+            object: createdObject,
+          },
+          resultingObject: createdObject,
+        }),
+        expect.objectContaining({
+          clientOpId: "update-client-op",
+          revision: 7,
+          type: "OBJECT_UPDATE",
+          payload: {
+            objectId: updatedObject.id,
+            patch: {
+              x: 240,
+            },
+            resultingObject: updatedObject,
+          },
+          resultingObject: updatedObject,
+        }),
+        expect.objectContaining({
+          clientOpId: "delete-client-op",
+          revision: 8,
+          type: "OBJECT_DELETE",
+          resultingObject: null,
+        }),
+      ],
+    })
+  })
+
+  it("requires room membership before loading operation replay", async () => {
+    permissionService.assertRoomMember.mockRejectedValue(
+      new ForbiddenException({
+        code: "PERMISSION_DENIED",
+        message: "You must join this room first.",
+      }),
+    )
+
+    await expect(
+      service.getRoomOperationReplay(currentUser, roomId, 5),
+    ).rejects.toThrow(ForbiddenException)
+    expect(prismaClient.room.findFirst).not.toHaveBeenCalled()
     expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
   })
 

@@ -26,6 +26,7 @@ import {
   roomJoinRequestSchema,
   roomLeaveRequestSchema,
   selectionUpdateRequestSchema,
+  syncRequestSchema,
   toRoomSocketName,
   undoRequestSchema,
   whiteboardObjectSchema,
@@ -37,6 +38,7 @@ import {
   type RoomStateEvent,
   type RoomRole,
   type SocketErrorEvent,
+  type SyncResponse,
   type UndoRedoOperation,
   type UserSummary,
   type WhiteboardObject,
@@ -187,6 +189,46 @@ export class RealtimeGateway
     this.presenceService.leaveRoom(client.id, roomId)
     this.emitEndedEditingStates(endedEditingStates, client.id)
     this.emitPresenceUpdate(roomId)
+  }
+
+  @SubscribeMessage("sync:request")
+  async handleSyncRequest(
+    @ConnectedSocket() client: RealtimeSocket,
+    @MessageBody() payload: unknown,
+  ): Promise<void> {
+    const parsed = syncRequestSchema.safeParse(payload)
+
+    if (!parsed.success) {
+      client.emit("error", this.validationError(parsed.error))
+      return
+    }
+
+    const { roomId, lastSeenRevision } = parsed.data
+
+    try {
+      const currentUser = this.requireCurrentUser(client)
+      const joinResponse = await this.roomsService.joinRoom(currentUser, roomId)
+
+      await client.join(toRoomSocketName(roomId))
+      this.presenceService.joinRoom({
+        socketId: client.id,
+        roomId,
+        user: currentUser,
+        role: joinResponse.currentUser.role,
+      })
+
+      const response: SyncResponse =
+        await this.whiteboardObjectsService.getRoomOperationReplay(
+          currentUser,
+          roomId,
+          lastSeenRevision,
+        )
+
+      client.emit("sync:response", response)
+      this.emitPresenceUpdate(roomId)
+    } catch (error) {
+      client.emit("error", this.toSocketError(error))
+    }
   }
 
   @SubscribeMessage("editing:start")

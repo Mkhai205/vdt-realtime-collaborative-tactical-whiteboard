@@ -4,6 +4,7 @@ import type {
   ObjectEditingEvent,
   ObjectTransformPreviewedEvent,
   OperationAppliedEvent,
+  OperationRejectedEvent,
   UserSummary,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
@@ -59,6 +60,7 @@ describe("whiteboard room state loading", () => {
     expect(state.roomId).toBe(activeRoomId)
     expect(state.room?.currentRevision).toBe(12)
     expect(state.currentRevision).toBe(12)
+    expect(state.lastSeenRevision).toBe(12)
     expect(state.connectionStatus).toBe("connected")
     expect(state.objects[firstObject.id]).toEqual(firstObject)
     expect(state.objects[secondObject.id]).toEqual(secondObject)
@@ -157,6 +159,7 @@ describe("whiteboard room state loading", () => {
     const state = useWhiteboardStore.getState()
 
     expect(state.currentRevision).toBe(9)
+    expect(state.lastSeenRevision).toBe(9)
     expect(state.objects).toEqual({
       [reloadedObject.id]: reloadedObject,
     })
@@ -165,6 +168,72 @@ describe("whiteboard room state loading", () => {
       roomId: activeRoomId,
       selectedObjectId: null,
     })
+  })
+
+  it("advances last seen revision after applying accepted operations", () => {
+    const object = makeObject({ id: objectId, version: 1 })
+    const updatedObject = makeObject({ id: objectId, x: 64, version: 2 })
+
+    loadRoom([object], 1)
+    useWhiteboardStore.getState().applyOperation(
+      makeOperation({
+        revision: 2,
+        resultingObject: updatedObject,
+      }),
+    )
+
+    const state = useWhiteboardStore.getState()
+
+    expect(state.currentRevision).toBe(2)
+    expect(state.lastSeenRevision).toBe(2)
+    expect(state.objects[objectId]).toEqual(updatedObject)
+  })
+
+  it("ignores operations older than the last seen revision", () => {
+    const object = makeObject({ id: objectId, x: 10, version: 1 })
+
+    loadRoom([object], 5)
+    useWhiteboardStore.getState().applyOperation(
+      makeOperation({
+        clientOpId: "older-client-op",
+        revision: 4,
+        resultingObject: makeObject({ id: objectId, x: 99, version: 2 }),
+      }),
+    )
+
+    const state = useWhiteboardStore.getState()
+
+    expect(state.currentRevision).toBe(5)
+    expect(state.lastSeenRevision).toBe(5)
+    expect(state.objects[objectId]).toEqual(object)
+    expect(state.appliedClientOpIds).toEqual({})
+  })
+
+  it("replays missed operations after a rejection advances current revision", () => {
+    const object = makeObject({ id: objectId, x: 10, version: 1 })
+    const replayedObject = makeObject({ id: objectId, x: 42, version: 2 })
+
+    loadRoom([object], 3)
+    useWhiteboardStore
+      .getState()
+      .applyOperationRejection(makeOperationRejection({ currentRoomRevision: 6 }))
+
+    expect(useWhiteboardStore.getState().currentRevision).toBe(6)
+    expect(useWhiteboardStore.getState().lastSeenRevision).toBe(3)
+
+    useWhiteboardStore.getState().applyOperation(
+      makeOperation({
+        clientOpId: "replayed-client-op",
+        revision: 4,
+        resultingObject: replayedObject,
+      }),
+    )
+
+    const state = useWhiteboardStore.getState()
+
+    expect(state.currentRevision).toBe(6)
+    expect(state.lastSeenRevision).toBe(4)
+    expect(state.objects[objectId]).toEqual(replayedObject)
   })
 })
 
@@ -247,6 +316,18 @@ function makeOperation(
     payload: {},
     resultingObject: makeObject({ id: objectId }),
     createdAt: timestamp,
+    ...overrides,
+  }
+}
+
+function makeOperationRejection(
+  overrides: Partial<OperationRejectedEvent> = {},
+): OperationRejectedEvent {
+  return {
+    clientOpId: "rejected-client-op",
+    roomId: activeRoomId,
+    reason: "INTERNAL_ERROR",
+    message: "Operation failed.",
     ...overrides,
   }
 }

@@ -10,6 +10,7 @@ import type {
   PresenceUpdateEvent,
   RoomStateEvent,
   SocketErrorEvent,
+  SyncResponse,
 } from "@rctw/shared-contracts"
 import { createWhiteboardSocket } from "@/lib/socket-client"
 import {
@@ -34,6 +35,9 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   const setLoadedRoomState = useWhiteboardStore(
     (state) => state.setLoadedRoomState,
   )
+  const setObjectsWithRevision = useWhiteboardStore(
+    (state) => state.setObjectsWithRevision,
+  )
   const setConnectionStatus = useWhiteboardStore(
     (state) => state.setConnectionStatus,
   )
@@ -53,6 +57,9 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     (state) => state.setSelectionSender,
   )
   const applyOperation = useWhiteboardStore((state) => state.applyOperation)
+  const markRevisionSynced = useWhiteboardStore(
+    (state) => state.markRevisionSynced,
+  )
   const applyOperationRejection = useWhiteboardStore(
     (state) => state.applyOperationRejection,
   )
@@ -69,6 +76,9 @@ export function useWhiteboardRoomSocket(roomId: string): void {
   useEffect(() => {
     const socket = createWhiteboardSocket()
     const pendingOperations = new Map<string, PendingOperation>()
+    const bufferedOperations: OperationAppliedEvent[] = []
+    let hasLoadedInitialRoomState = false
+    let isSyncing = false
 
     setRoomId(roomId)
     setConnectionStatus("connecting")
@@ -81,6 +91,17 @@ export function useWhiteboardRoomSocket(roomId: string): void {
 
     function handleConnect() {
       setSocketError(null)
+
+      if (hasLoadedInitialRoomState) {
+        isSyncing = true
+        bufferedOperations.length = 0
+        socket.emit("sync:request", {
+          roomId,
+          lastSeenRevision: useWhiteboardStore.getState().lastSeenRevision,
+        })
+        return
+      }
+
       socket.emit("room:join", { roomId })
     }
 
@@ -98,6 +119,9 @@ export function useWhiteboardRoomSocket(roomId: string): void {
         return
       }
 
+      hasLoadedInitialRoomState = true
+      isSyncing = false
+      bufferedOperations.length = 0
       setLoadedRoomState({
         room: event.room,
         currentUser: event.currentUser,
@@ -116,6 +140,15 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     }
 
     function handleSocketError(event: SocketErrorEvent) {
+      if (isSyncing) {
+        isSyncing = false
+        bufferedOperations.length = 0
+
+        if (socket.connected) {
+          socket.emit("room:join", { roomId })
+        }
+      }
+
       setSocketError(event.message)
     }
 
@@ -148,6 +181,46 @@ export function useWhiteboardRoomSocket(roomId: string): void {
         return
       }
 
+      if (isSyncing) {
+        bufferedOperations.push(event)
+        return
+      }
+
+      applyAcceptedOperation(event)
+    }
+
+    function handleSyncResponse(event: SyncResponse) {
+      if (event.roomId !== roomId) {
+        return
+      }
+
+      if (event.mode === "FULL_STATE") {
+        isSyncing = false
+        bufferedOperations.length = 0
+        setObjectsWithRevision(event.objects, event.revision)
+        setConnectionStatus("connected")
+        return
+      }
+
+      for (const operation of sortOperationsByRevision(event.operations)) {
+        applyAcceptedOperation(operation)
+      }
+
+      markRevisionSynced(event.toRevision)
+
+      const operationsBufferedDuringSync =
+        sortOperationsByRevision(bufferedOperations)
+      bufferedOperations.length = 0
+      isSyncing = false
+
+      for (const operation of operationsBufferedDuringSync) {
+        applyAcceptedOperation(operation)
+      }
+
+      setConnectionStatus("connected")
+    }
+
+    function applyAcceptedOperation(event: OperationAppliedEvent) {
       const pendingOperation = pendingOperations.get(event.clientOpId)
 
       pendingOperations.delete(event.clientOpId)
@@ -156,6 +229,12 @@ export function useWhiteboardRoomSocket(roomId: string): void {
         historyCandidate: pendingOperation?.historyCandidate,
       })
       pendingOperation?.resolve(event)
+    }
+
+    function sortOperationsByRevision(
+      operations: OperationAppliedEvent[],
+    ): OperationAppliedEvent[] {
+      return [...operations].sort((left, right) => left.revision - right.revision)
     }
 
     function handleOperationRejected(event: OperationRejectedEvent) {
@@ -293,6 +372,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     socket.on("object:transform-previewed", handleTransformPreviewed)
     socket.on("operation:applied", handleOperationApplied)
     socket.on("operation:rejected", handleOperationRejected)
+    socket.on("sync:response", handleSyncResponse)
     socket.on("error", handleSocketError)
     socket.connect()
 
@@ -310,6 +390,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       }
 
       pendingOperations.clear()
+      bufferedOperations.length = 0
 
       if (socket.connected) {
         socket.emit("room:leave", { roomId })
@@ -325,6 +406,7 @@ export function useWhiteboardRoomSocket(roomId: string): void {
       socket.off("object:transform-previewed", handleTransformPreviewed)
       socket.off("operation:applied", handleOperationApplied)
       socket.off("operation:rejected", handleOperationRejected)
+      socket.off("sync:response", handleSyncResponse)
       socket.off("error", handleSocketError)
       socket.disconnect()
     }
@@ -334,11 +416,13 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     applyRemoteCursor,
     applyRemoteEditing,
     applyRemoteTransformPreview,
+    markRevisionSynced,
     roomId,
     setConnectionStatus,
     setLoadedRoomState,
     setObjectOperationSender,
     setOnlineUsers,
+    setObjectsWithRevision,
     setRoomId,
     setCursorSender,
     setEditingSender,

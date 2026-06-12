@@ -5,19 +5,21 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import { Prisma, type PrismaClient } from "@rctw/database"
-import type {
-  GetRoomObjectsResponse,
-  GetRoomOperationsQuery,
-  GetRoomOperationsResponse,
-  ObjectCreateInput,
-  ObjectCreateRequest,
-  ObjectDeleteRequest,
-  ObjectMutablePatch,
-  ObjectRestoreRequest,
-  ObjectUpdateRequest,
-  OperationAppliedEvent,
-  UserSummary,
-  WhiteboardObject,
+import {
+  whiteboardObjectSchema,
+  type GetRoomObjectsResponse,
+  type GetRoomOperationsQuery,
+  type GetRoomOperationsResponse,
+  type ObjectCreateInput,
+  type ObjectCreateRequest,
+  type ObjectDeleteRequest,
+  type ObjectMutablePatch,
+  type ObjectRestoreRequest,
+  type ObjectUpdateRequest,
+  type OperationAppliedEvent,
+  type SyncOperationsResponse,
+  type UserSummary,
+  type WhiteboardObject,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 import { RoomsPermissionService } from "../rooms"
@@ -134,6 +136,82 @@ export class WhiteboardObjectsService {
     return {
       roomId,
       operations: operations.map(toOperationSummary),
+    }
+  }
+
+  async getRoomOperationReplay(
+    currentUser: UserSummary,
+    roomId: string,
+    lastSeenRevision: number,
+  ): Promise<SyncOperationsResponse> {
+    await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
+
+    const room = await this.prismaService.client.room.findFirst({
+      where: {
+        id: roomId,
+        deletedAt: null,
+      },
+      select: {
+        currentRevision: true,
+      },
+    })
+
+    if (!room) {
+      throw this.roomNotFound()
+    }
+
+    const currentRevision = Number(room.currentRevision)
+
+    if (lastSeenRevision >= currentRevision) {
+      return {
+        mode: "OPERATIONS",
+        roomId,
+        fromRevision: lastSeenRevision,
+        toRevision: currentRevision,
+        operations: [],
+      }
+    }
+
+    const operations =
+      await this.prismaService.client.whiteboardOperation.findMany({
+        where: {
+          roomId,
+          revision: {
+            gt: BigInt(lastSeenRevision),
+            lte: room.currentRevision,
+          },
+        },
+        orderBy: {
+          revision: "asc",
+        },
+        select: {
+          id: true,
+          clientOpId: true,
+          roomId: true,
+          objectId: true,
+          revision: true,
+          type: true,
+          payload: true,
+          createdAt: true,
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+              avatarColor: true,
+            },
+          },
+        },
+      })
+
+    return {
+      mode: "OPERATIONS",
+      roomId,
+      fromRevision: lastSeenRevision,
+      toRevision: currentRevision,
+      operations: operations.map((operation) =>
+        this.toOperationReplayEvent(operation),
+      ),
     }
   }
 
@@ -785,6 +863,47 @@ export class WhiteboardObjectsService {
     }
 
     return Math.min(Math.max(Math.trunc(limit), 1), 100)
+  }
+
+  private toOperationReplayEvent(operation: {
+    id: string
+    clientOpId: string
+    roomId: string
+    objectId?: string | null
+    revision: bigint | number
+    type: string
+    payload: unknown
+    createdAt: Date | string
+    actor: UserSummary
+  }): OperationAppliedEvent {
+    return toOperationAppliedEvent({
+      operation,
+      actor: operation.actor,
+      payload: operation.payload,
+      resultingObject: this.getReplayResultingObject(
+        operation.type,
+        operation.payload,
+      ),
+    })
+  }
+
+  private getReplayResultingObject(
+    operationType: string,
+    payload: unknown,
+  ): WhiteboardObject | null {
+    if (operationType === "OBJECT_DELETE" || !this.isRecord(payload)) {
+      return null
+    }
+
+    const payloadKey =
+      operationType === "OBJECT_CREATE" ? "object" : "resultingObject"
+    const parsed = whiteboardObjectSchema.safeParse(payload[payloadKey])
+
+    return parsed.success ? parsed.data : null
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value)
   }
 
   private isDuplicateClientOperationConstraintError(error: unknown): boolean {

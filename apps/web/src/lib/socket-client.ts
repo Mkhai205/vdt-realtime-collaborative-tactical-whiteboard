@@ -18,6 +18,8 @@ import type {
   SelectionUpdateRequest,
   RoomStateEvent,
   SocketErrorEvent,
+  SyncRequest,
+  SyncResponse,
   UndoRequest,
 } from "@rctw/shared-contracts"
 import { io, type Socket } from "socket.io-client"
@@ -34,12 +36,14 @@ type ServerToClientEvents = {
   ) => void
   "operation:applied": (event: OperationAppliedEvent) => void
   "operation:rejected": (event: OperationRejectedEvent) => void
+  "sync:response": (event: SyncResponse) => void
   error: (event: SocketErrorEvent) => void
 }
 
 type ClientToServerEvents = {
   "room:join": (request: RoomJoinRequest) => void
   "room:leave": (request: RoomLeaveRequest) => void
+  "sync:request": (request: SyncRequest) => void
   "selection:update": (request: SelectionUpdateRequest) => void
   "cursor:update": (request: CursorUpdateRequest) => void
   "editing:start": (request: EditingStartRequest) => void
