@@ -138,6 +138,16 @@ describe("WhiteboardObjectsService", () => {
     expect(tx.whiteboardOperation.create).not.toHaveBeenCalled()
   }
 
+  function expectActiveObjectLoad() {
+    expect(prismaClient.whiteboardObject.findMany).toHaveBeenCalledWith({
+      where: {
+        roomId,
+        deletedAt: null,
+      },
+      orderBy: [{ zIndex: "asc" }, { createdAt: "asc" }],
+    })
+  }
+
   beforeEach(() => {
     jest.clearAllMocks()
 
@@ -327,6 +337,7 @@ describe("WhiteboardObjectsService", () => {
       roomId,
     )
     expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
+    expect(prismaClient.whiteboardObject.findMany).not.toHaveBeenCalled()
     expect(response).toEqual({
       mode: "OPERATIONS",
       roomId,
@@ -452,6 +463,114 @@ describe("WhiteboardObjectsService", () => {
           revision: 8,
           type: "OBJECT_DELETE",
           resultingObject: null,
+        }),
+      ],
+    })
+    expect(prismaClient.whiteboardObject.findMany).not.toHaveBeenCalled()
+  })
+
+  it("falls back to full state when the client revision is ahead of the room", async () => {
+    const activeObject = makeObject({
+      id: "22222222-2222-4222-8222-222222222225",
+    })
+    prismaClient.room.findFirst.mockResolvedValue({
+      currentRevision: 8n,
+    })
+    prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
+
+    const response = await service.getRoomOperationReplay(currentUser, roomId, 9)
+
+    expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
+    expectActiveObjectLoad()
+    expect(response).toEqual({
+      mode: "FULL_STATE",
+      roomId,
+      revision: 8,
+      objects: [
+        expect.objectContaining({
+          id: activeObject.id,
+          deletedAt: null,
+        }),
+      ],
+    })
+  })
+
+  it("falls back to full state when the replay range exceeds 100 revisions", async () => {
+    const activeObject = makeObject()
+    prismaClient.room.findFirst.mockResolvedValue({
+      currentRevision: 106n,
+    })
+    prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
+
+    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+
+    expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
+    expectActiveObjectLoad()
+    expect(response).toEqual({
+      mode: "FULL_STATE",
+      roomId,
+      revision: 106,
+      objects: [
+        expect.objectContaining({
+          id: activeObject.id,
+          deletedAt: null,
+        }),
+      ],
+    })
+  })
+
+  it("falls back to full state when replay rows are missing", async () => {
+    const activeObject = makeObject()
+    prismaClient.room.findFirst.mockResolvedValue({
+      currentRevision: 8n,
+    })
+    prismaClient.whiteboardOperation.findMany.mockResolvedValue([
+      makeOperation({ revision: 6n }),
+      makeOperation({ revision: 7n }),
+    ])
+    prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
+
+    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+
+    expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalled()
+    expectActiveObjectLoad()
+    expect(response).toEqual({
+      mode: "FULL_STATE",
+      roomId,
+      revision: 8,
+      objects: [
+        expect.objectContaining({
+          id: activeObject.id,
+          deletedAt: null,
+        }),
+      ],
+    })
+  })
+
+  it("falls back to full state when replay revisions are not contiguous", async () => {
+    const activeObject = makeObject()
+    prismaClient.room.findFirst.mockResolvedValue({
+      currentRevision: 8n,
+    })
+    prismaClient.whiteboardOperation.findMany.mockResolvedValue([
+      makeOperation({ revision: 6n }),
+      makeOperation({ revision: 8n }),
+      makeOperation({ revision: 8n }),
+    ])
+    prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
+
+    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+
+    expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalled()
+    expectActiveObjectLoad()
+    expect(response).toEqual({
+      mode: "FULL_STATE",
+      roomId,
+      revision: 8,
+      objects: [
+        expect.objectContaining({
+          id: activeObject.id,
+          deletedAt: null,
         }),
       ],
     })

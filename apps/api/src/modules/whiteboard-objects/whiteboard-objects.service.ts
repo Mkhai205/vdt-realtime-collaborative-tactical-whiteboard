@@ -17,7 +17,7 @@ import {
   type ObjectRestoreRequest,
   type ObjectUpdateRequest,
   type OperationAppliedEvent,
-  type SyncOperationsResponse,
+  type SyncResponse,
   type UserSummary,
   type WhiteboardObject,
 } from "@rctw/shared-contracts"
@@ -42,6 +42,8 @@ type MutationContext = {
   clientOpId: string
   baseObjectVersion?: number
 }
+
+const maxOperationReplayCount = 100
 
 @Injectable()
 export class WhiteboardObjectsService {
@@ -70,20 +72,7 @@ export class WhiteboardObjectsService {
       throw this.roomNotFound()
     }
 
-    const objects = await this.prismaService.client.whiteboardObject.findMany({
-      where: {
-        roomId,
-        deletedAt: null,
-      },
-      orderBy: [
-        {
-          zIndex: "asc",
-        },
-        {
-          createdAt: "asc",
-        },
-      ],
-    })
+    const objects = await this.getActiveRoomObjects(roomId)
 
     return {
       roomId,
@@ -143,7 +132,7 @@ export class WhiteboardObjectsService {
     currentUser: UserSummary,
     roomId: string,
     lastSeenRevision: number,
-  ): Promise<SyncOperationsResponse> {
+  ): Promise<SyncResponse> {
     await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
 
     const room = await this.prismaService.client.room.findFirst({
@@ -162,7 +151,7 @@ export class WhiteboardObjectsService {
 
     const currentRevision = Number(room.currentRevision)
 
-    if (lastSeenRevision >= currentRevision) {
+    if (lastSeenRevision === currentRevision) {
       return {
         mode: "OPERATIONS",
         roomId,
@@ -170,6 +159,13 @@ export class WhiteboardObjectsService {
         toRevision: currentRevision,
         operations: [],
       }
+    }
+
+    if (
+      lastSeenRevision > currentRevision ||
+      currentRevision - lastSeenRevision > maxOperationReplayCount
+    ) {
+      return this.getFullStateSyncResponse(roomId, currentRevision)
     }
 
     const operations =
@@ -204,6 +200,16 @@ export class WhiteboardObjectsService {
         },
       })
 
+    if (
+      !this.isCompleteOperationReplay(
+        operations,
+        lastSeenRevision,
+        currentRevision,
+      )
+    ) {
+      return this.getFullStateSyncResponse(roomId, currentRevision)
+    }
+
     return {
       mode: "OPERATIONS",
       roomId,
@@ -213,6 +219,54 @@ export class WhiteboardObjectsService {
         this.toOperationReplayEvent(operation),
       ),
     }
+  }
+
+  private async getActiveRoomObjects(
+    roomId: string,
+  ): Promise<WhiteboardObjectRecord[]> {
+    return this.prismaService.client.whiteboardObject.findMany({
+      where: {
+        roomId,
+        deletedAt: null,
+      },
+      orderBy: [
+        {
+          zIndex: "asc",
+        },
+        {
+          createdAt: "asc",
+        },
+      ],
+    })
+  }
+
+  private async getFullStateSyncResponse(
+    roomId: string,
+    revision: number,
+  ): Promise<SyncResponse> {
+    const objects = await this.getActiveRoomObjects(roomId)
+
+    return {
+      mode: "FULL_STATE",
+      roomId,
+      revision,
+      objects: objects.map(toWhiteboardObject),
+    }
+  }
+
+  private isCompleteOperationReplay(
+    operations: Array<{ revision: bigint | number }>,
+    lastSeenRevision: number,
+    currentRevision: number,
+  ): boolean {
+    if (operations.length !== currentRevision - lastSeenRevision) {
+      return false
+    }
+
+    return operations.every(
+      (operation, index) =>
+        Number(operation.revision) === lastSeenRevision + index + 1,
+    )
   }
 
   async createObject(
