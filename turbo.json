@@ -32,6 +32,9 @@
             "cache": false,
             "outputs": ["src/generated/**"]
         },
+        "db:migrate:deploy": {
+            "cache": false
+        },
         "db:migrate:status": {
             "cache": false
         },

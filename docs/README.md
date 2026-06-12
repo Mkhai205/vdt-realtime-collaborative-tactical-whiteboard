@@ -14,6 +14,7 @@
 10. 09_EPIC_FEATURE_TASK_BREAKDOWN.md
 11. 10_5_WEEK_DELIVERY_PLAN.md
 12. 11_CODING_AGENT_EXECUTION_PLAN.md
+13. 13_LOCAL_DOCKER_SETUP.md
 
 ## Source of Truth
 
@@ -24,6 +25,7 @@
 - WebSocket contract: 07
 - REST contract: 12
 - Task execution order: 09, 10, 11
+- Local Docker setup: 13
 
 ## For Coding Agents
 

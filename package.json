@@ -13,6 +13,7 @@
         "test": "turbo run test",
         "db:format": "turbo run db:format --filter=@rctw/database",
         "db:generate": "turbo run db:generate --filter=@rctw/database",
+        "db:migrate:deploy": "turbo run db:migrate:deploy --filter=@rctw/database",
         "db:migrate:status": "turbo run db:migrate:status --filter=@rctw/database"
     },
     "devDependencies": {
