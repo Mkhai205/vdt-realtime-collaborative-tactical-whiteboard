@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  UseGuards,
-} from "@nestjs/common"
+import { Controller, Delete, Get, Patch, Post, UseGuards } from "@nestjs/common"
 import {
   objectCreateRequestSchema,
   objectDeleteRequestSchema,
@@ -23,7 +14,7 @@ import {
   type UserSummary,
   type WhiteboardObjectParams,
 } from "@rctw/shared-contracts"
-import { ZodBody, ZodValidationPipe } from "../../common/pipes"
+import { ZodBody, ZodParam } from "../../common/pipes"
 import { CurrentUser, IdentityGuard } from "../identity"
 import { WhiteboardObjectsService } from "./whiteboard-objects.service"
 
@@ -37,7 +28,7 @@ export class WhiteboardObjectsController {
   @Get()
   async getRoomObjects(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
   ): Promise<GetRoomObjectsResponse> {
     return this.whiteboardObjectsService.getRoomObjects(
       currentUser,
@@ -48,7 +39,7 @@ export class WhiteboardObjectsController {
   @Post()
   async createObject(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
     @ZodBody(objectCreateRequestSchema) request: ObjectCreateRequest,
   ): Promise<OperationAppliedEvent> {
     return this.whiteboardObjectsService.createObject(
@@ -61,7 +52,7 @@ export class WhiteboardObjectsController {
   @Patch(":objectId")
   async updateObject(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(whiteboardObjectParamsSchema))
+    @ZodParam(whiteboardObjectParamsSchema)
     params: WhiteboardObjectParams,
     @ZodBody(objectUpdateRequestSchema) request: ObjectUpdateRequest,
   ): Promise<OperationAppliedEvent> {
@@ -76,10 +67,9 @@ export class WhiteboardObjectsController {
   @Delete(":objectId")
   async deleteObject(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(whiteboardObjectParamsSchema))
+    @ZodParam(whiteboardObjectParamsSchema)
     params: WhiteboardObjectParams,
-    @Body(new ZodValidationPipe(objectDeleteRequestSchema))
-    request: ObjectDeleteRequest,
+    @ZodBody(objectDeleteRequestSchema) request: ObjectDeleteRequest,
   ): Promise<OperationAppliedEvent> {
     return this.whiteboardObjectsService.deleteObject(
       currentUser,

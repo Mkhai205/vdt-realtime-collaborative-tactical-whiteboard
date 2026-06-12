@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   UseGuards,
@@ -33,7 +32,7 @@ import {
   type UpdateRoomResponse,
   type UserSummary,
 } from "@rctw/shared-contracts"
-import { ZodBody, ZodQuery, ZodValidationPipe } from "../../common/pipes"
+import { ZodBody, ZodParam, ZodQuery } from "../../common/pipes"
 import { CurrentUser, IdentityGuard } from "../identity"
 import { RoomsService } from "./rooms.service"
 
@@ -61,7 +60,7 @@ export class RoomsController {
   @Get(":roomId")
   async getRoom(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
   ): Promise<GetRoomResponse> {
     return this.roomsService.getRoom(currentUser, params.roomId)
   }
@@ -69,7 +68,7 @@ export class RoomsController {
   @Post(":roomId/join")
   async joinRoom(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
   ): Promise<JoinRoomResponse> {
     return this.roomsService.joinRoom(currentUser, params.roomId)
   }
@@ -77,7 +76,7 @@ export class RoomsController {
   @Get(":roomId/members")
   async getRoomMembers(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
   ): Promise<GetRoomMembersResponse> {
     return this.roomsService.getRoomMembers(currentUser, params.roomId)
   }
@@ -85,7 +84,7 @@ export class RoomsController {
   @Post(":roomId/members")
   async addRoomMember(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
     @ZodBody(addRoomMemberRequestSchema) request: AddRoomMemberRequest,
   ): Promise<RoomMemberMutationResponse> {
     return this.roomsService.addRoomMember(currentUser, params.roomId, request)
@@ -94,8 +93,7 @@ export class RoomsController {
   @Patch(":roomId/members/:memberId")
   async updateRoomMemberRole(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomMemberIdParamsSchema))
-    params: RoomMemberIdParams,
+    @ZodParam(roomMemberIdParamsSchema) params: RoomMemberIdParams,
     @ZodBody(updateRoomMemberRoleRequestSchema)
     request: UpdateRoomMemberRoleRequest,
   ): Promise<RoomMemberMutationResponse> {
@@ -110,7 +108,7 @@ export class RoomsController {
   @Patch(":roomId")
   async updateRoom(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
     @ZodBody(updateRoomRequestSchema) request: UpdateRoomRequest,
   ): Promise<UpdateRoomResponse> {
     return this.roomsService.updateRoom(currentUser, params.roomId, request)
@@ -120,7 +118,7 @@ export class RoomsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteRoom(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
   ): Promise<void> {
     await this.roomsService.deleteRoom(currentUser, params.roomId)
   }

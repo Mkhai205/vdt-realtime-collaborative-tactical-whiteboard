@@ -13,7 +13,7 @@ async function bootstrap() {
   const globalPrefix = "api/v1"
   app.setGlobalPrefix(globalPrefix)
 
-  const corsOrigins = configService.get<string>("CORS_ORIGIN")
+  const corsOrigins = configService.get<string[]>("CORS_ORIGIN")
   app.enableCors({
     credentials: true,
     origin: corsOrigins,

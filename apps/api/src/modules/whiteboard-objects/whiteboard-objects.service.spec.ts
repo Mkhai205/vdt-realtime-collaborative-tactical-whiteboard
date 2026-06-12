@@ -2,6 +2,8 @@ import { ConflictException, ForbiddenException } from "@nestjs/common"
 import type { UserSummary } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 import { RoomsPermissionService } from "../rooms"
+import { WhiteboardObjectsMutationService } from "./whiteboard-objects-mutation.service"
+import { WhiteboardObjectsQueryService } from "./whiteboard-objects-query.service"
 import { WhiteboardObjectsService } from "./whiteboard-objects.service"
 
 const roomId = "11111111-1111-4111-8111-111111111111"
@@ -178,11 +180,18 @@ describe("WhiteboardObjectsService", () => {
         }),
     )
 
+    const prismaService = {
+      client: prismaClient,
+    } as unknown as PrismaService
+    const roomsPermissionService =
+      permissionService as unknown as RoomsPermissionService
+
     service = new WhiteboardObjectsService(
-      {
-        client: prismaClient,
-      } as unknown as PrismaService,
-      permissionService as unknown as RoomsPermissionService,
+      new WhiteboardObjectsQueryService(prismaService, roomsPermissionService),
+      new WhiteboardObjectsMutationService(
+        prismaService,
+        roomsPermissionService,
+      ),
     )
   })
 

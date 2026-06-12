@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from "@nestjs/common"
+import { Controller, Get, UseGuards } from "@nestjs/common"
 import {
   getRoomOperationsQuerySchema,
   roomIdParamsSchema,
@@ -7,7 +7,7 @@ import {
   type RoomIdParams,
   type UserSummary,
 } from "@rctw/shared-contracts"
-import { ZodQuery, ZodValidationPipe } from "../../common/pipes"
+import { ZodParam, ZodQuery } from "../../common/pipes"
 import { CurrentUser, IdentityGuard } from "../identity"
 import { WhiteboardObjectsService } from "./whiteboard-objects.service"
 
@@ -21,7 +21,7 @@ export class WhiteboardOperationsController {
   @Get()
   async getRoomOperations(
     @CurrentUser() currentUser: UserSummary,
-    @Param(new ZodValidationPipe(roomIdParamsSchema)) params: RoomIdParams,
+    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
     @ZodQuery(getRoomOperationsQuerySchema) query: GetRoomOperationsQuery,
   ): Promise<GetRoomOperationsResponse> {
     return this.whiteboardObjectsService.getRoomOperations(

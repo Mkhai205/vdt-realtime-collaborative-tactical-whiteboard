@@ -1,8 +1,4 @@
-import {
-  Logger,
-  UnauthorizedException,
-  type HttpException,
-} from "@nestjs/common"
+import { Logger, UnauthorizedException } from "@nestjs/common"
 import {
   ConnectedSocket,
   MessageBody,
@@ -13,7 +9,6 @@ import {
   WebSocketServer,
 } from "@nestjs/websockets"
 import {
-  clientOpIdSchema,
   cursorUpdateRequestSchema,
   editingEndRequestSchema,
   editingStartRequestSchema,
@@ -21,7 +16,6 @@ import {
   objectCreateSocketRequestSchema,
   objectDeleteSocketRequestSchema,
   objectUpdateSocketRequestSchema,
-  operationRejectedReasonSchema,
   redoRequestSchema,
   roomJoinRequestSchema,
   roomLeaveRequestSchema,
@@ -29,19 +23,15 @@ import {
   syncRequestSchema,
   toRoomSocketName,
   undoRequestSchema,
-  whiteboardObjectSchema,
   type CursorUpdatedEvent,
   type ObjectEditingEvent,
   type OperationAppliedEvent,
   type OperationRejectedEvent,
-  type OperationRejectedReason,
   type RoomStateEvent,
   type RoomRole,
   type SocketErrorEvent,
   type SyncResponse,
-  type UndoRedoOperation,
   type UserSummary,
-  type WhiteboardObject,
 } from "@rctw/shared-contracts"
 import type { Server, Socket } from "socket.io"
 import { z } from "zod"
@@ -49,6 +39,15 @@ import { IdentityService } from "../identity"
 import { RoomsService } from "../rooms"
 import { WhiteboardObjectsService } from "../whiteboard-objects"
 import { PresenceService } from "./presence.service"
+import { processUndoRedoOperation } from "./realtime-operation-dispatcher"
+import {
+  operationRejected,
+  parseOperationRejectionContext,
+  toOperationRejectedEvent,
+  toSocketError,
+  toValidationSocketError,
+  type OperationRejectionContext,
+} from "./realtime-socket-errors"
 
 const socketCorsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
   .split(",")
@@ -59,19 +58,9 @@ type RealtimeSocketData = {
   currentUser?: UserSummary
 }
 
-type OperationRejectionContext = {
-  clientOpId: string
-  roomId: string
-}
-
 export type RealtimeSocket = Socket & {
   data: RealtimeSocketData
 }
-
-const operationRejectionContextSchema = z.object({
-  clientOpId: clientOpIdSchema,
-  roomId: z.uuid(),
-})
 
 @WebSocketGateway({
   cors: {
@@ -125,7 +114,7 @@ export class RealtimeGateway
     const parsed = roomJoinRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
@@ -174,7 +163,7 @@ export class RealtimeGateway
     const parsed = roomLeaveRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
@@ -199,7 +188,7 @@ export class RealtimeGateway
     const parsed = syncRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
@@ -239,28 +228,21 @@ export class RealtimeGateway
     const parsed = editingStartRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
     try {
       const currentUser = this.requireCurrentUser(client)
       const { roomId, objectId } = parsed.data
-      const role = this.presenceService.getSocketRoomRole(client.id, roomId)
 
-      if (!role) {
-        client.emit("error", {
-          code: "USER_NOT_IN_ROOM",
-          message: "Join the room before announcing editing state.",
+      if (
+        !this.getEditableRoomRole(client, roomId, {
+          notInRoom: "Join the room before announcing editing state.",
+          permissionDenied:
+            "Only room owners and editors can announce editing state.",
         })
-        return
-      }
-
-      if (!this.canEditObjects(role)) {
-        client.emit("error", {
-          code: "PERMISSION_DENIED",
-          message: "Only room owners and editors can announce editing state.",
-        })
+      ) {
         return
       }
 
@@ -289,28 +271,21 @@ export class RealtimeGateway
     const parsed = editingEndRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
     try {
       const currentUser = this.requireCurrentUser(client)
       const { roomId, objectId } = parsed.data
-      const role = this.presenceService.getSocketRoomRole(client.id, roomId)
 
-      if (!role) {
-        client.emit("error", {
-          code: "USER_NOT_IN_ROOM",
-          message: "Join the room before announcing editing state.",
+      if (
+        !this.getEditableRoomRole(client, roomId, {
+          notInRoom: "Join the room before announcing editing state.",
+          permissionDenied:
+            "Only room owners and editors can announce editing state.",
         })
-        return
-      }
-
-      if (!this.canEditObjects(role)) {
-        client.emit("error", {
-          code: "PERMISSION_DENIED",
-          message: "Only room owners and editors can announce editing state.",
-        })
+      ) {
         return
       }
 
@@ -413,7 +388,8 @@ export class RealtimeGateway
     const { roomId, clientOpId, inverseOperation } = parsed.data
 
     await this.processObjectOperation(client, parsed.data, (currentUser) =>
-      this.processUndoRedoOperation(
+      processUndoRedoOperation(
+        this.whiteboardObjectsService,
         currentUser,
         roomId,
         clientOpId,
@@ -437,7 +413,8 @@ export class RealtimeGateway
     const { roomId, clientOpId, redoOperation } = parsed.data
 
     await this.processObjectOperation(client, parsed.data, (currentUser) =>
-      this.processUndoRedoOperation(
+      processUndoRedoOperation(
+        this.whiteboardObjectsService,
         currentUser,
         roomId,
         clientOpId,
@@ -454,28 +431,21 @@ export class RealtimeGateway
     const parsed = objectTransformPreviewRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
     try {
       const currentUser = this.requireCurrentUser(client)
       const { roomId, objectId, preview } = parsed.data
-      const role = this.presenceService.getSocketRoomRole(client.id, roomId)
 
-      if (!role) {
-        client.emit("error", {
-          code: "USER_NOT_IN_ROOM",
-          message: "Join the room before sending transform previews.",
+      if (
+        !this.getEditableRoomRole(client, roomId, {
+          notInRoom: "Join the room before sending transform previews.",
+          permissionDenied:
+            "Only room owners and editors can preview transforms.",
         })
-        return
-      }
-
-      if (!this.canEditObjects(role)) {
-        client.emit("error", {
-          code: "PERMISSION_DENIED",
-          message: "Only room owners and editors can preview transforms.",
-        })
+      ) {
         return
       }
 
@@ -502,7 +472,7 @@ export class RealtimeGateway
     const parsed = cursorUpdateRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
@@ -541,7 +511,7 @@ export class RealtimeGateway
     const parsed = selectionUpdateRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
-      client.emit("error", this.validationError(parsed.error))
+      client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
@@ -610,71 +580,37 @@ export class RealtimeGateway
     }
   }
 
-  private processUndoRedoOperation(
-    currentUser: UserSummary,
-    roomId: string,
-    clientOpId: string,
-    operation: UndoRedoOperation,
-  ): Promise<OperationAppliedEvent> {
-    switch (operation.type) {
-      case "OBJECT_CREATE": {
-        const { object, baseRoomRevision } = operation
-
-        return this.whiteboardObjectsService.createObject(currentUser, roomId, {
-          clientOpId,
-          baseRoomRevision,
-          object,
-        })
-      }
-      case "OBJECT_UPDATE": {
-        const { objectId, baseRoomRevision, baseObjectVersion, patch } =
-          operation
-
-        return this.whiteboardObjectsService.updateObject(
-          currentUser,
-          roomId,
-          objectId,
-          {
-            clientOpId,
-            baseRoomRevision,
-            baseObjectVersion,
-            patch,
-          },
-        )
-      }
-      case "OBJECT_DELETE": {
-        const { objectId, baseRoomRevision, baseObjectVersion } = operation
-
-        return this.whiteboardObjectsService.deleteObject(
-          currentUser,
-          roomId,
-          objectId,
-          {
-            clientOpId,
-            baseRoomRevision,
-            baseObjectVersion,
-          },
-        )
-      }
-      case "OBJECT_RESTORE": {
-        const { objectId, baseRoomRevision, baseObjectVersion } = operation
-
-        return this.whiteboardObjectsService.restoreObject(
-          currentUser,
-          roomId,
-          objectId,
-          {
-            clientOpId,
-            baseRoomRevision,
-            baseObjectVersion,
-          },
-        )
-      }
-    }
-  }
-
   private canEditObjects(role: RoomRole): boolean {
     return role === "OWNER" || role === "EDITOR"
+  }
+
+  private getEditableRoomRole(
+    client: RealtimeSocket,
+    roomId: string,
+    messages: {
+      notInRoom: string
+      permissionDenied: string
+    },
+  ): RoomRole | null {
+    const role = this.presenceService.getSocketRoomRole(client.id, roomId)
+
+    if (!role) {
+      client.emit("error", {
+        code: "USER_NOT_IN_ROOM",
+        message: messages.notInRoom,
+      })
+      return null
+    }
+
+    if (!this.canEditObjects(role)) {
+      client.emit("error", {
+        code: "PERMISSION_DENIED",
+        message: messages.permissionDenied,
+      })
+      return null
+    }
+
+    return role
   }
 
   private async processObjectOperation(
@@ -690,7 +626,7 @@ export class RealtimeGateway
       if (!this.presenceService.hasSocketInRoom(client.id, context.roomId)) {
         client.emit(
           "operation:rejected",
-          this.operationRejected(context, {
+          operationRejected(context, {
             reason: "USER_NOT_IN_ROOM",
             message: "Join the room before sending object operations.",
           }),
@@ -716,16 +652,16 @@ export class RealtimeGateway
     payload: unknown,
     error: z.ZodError,
   ): void {
-    const context = this.parseOperationRejectionContext(payload)
+    const context = parseOperationRejectionContext(payload)
 
     if (!context) {
-      client.emit("error", this.validationError(error))
+      client.emit("error", toValidationSocketError(error))
       return
     }
 
     client.emit(
       "operation:rejected",
-      this.operationRejected(context, {
+      operationRejected(context, {
         reason: "INVALID_OPERATION_PAYLOAD",
         message: "Invalid object operation payload.",
       }),
@@ -745,202 +681,22 @@ export class RealtimeGateway
     return currentUser
   }
 
-  private validationError(error: z.ZodError): SocketErrorEvent {
-    return {
-      code: "VALIDATION_ERROR",
-      message: "Invalid socket payload.",
-      details: z.treeifyError(error),
-    }
-  }
-
   private toOperationRejectedEvent(
     error: unknown,
     context: OperationRejectionContext,
   ): OperationRejectedEvent {
-    if (this.isHttpException(error)) {
-      const response = error.getResponse()
-
-      if (this.isErrorResponse(response)) {
-        return this.operationRejected(context, {
-          reason: this.toOperationRejectedReason(
-            response.code,
-            error.getStatus(),
-          ),
-          message: response.message,
-          latestObject: this.latestObjectFromDetails(response.details),
-          currentRoomRevision: this.currentRoomRevisionFromDetails(
-            response.details,
-          ),
-        })
-      }
-
-      return this.operationRejected(context, {
-        reason: this.toOperationRejectedReason(undefined, error.getStatus()),
-        message: error.message,
-      })
-    }
-
-    this.logger.error("Unexpected realtime operation error", error)
-
-    return this.operationRejected(context, {
-      reason: "INTERNAL_ERROR",
-      message: "Unexpected realtime operation error.",
-    })
-  }
-
-  private operationRejected(
-    context: OperationRejectionContext,
-    input: {
-      reason: OperationRejectedReason
-      message: string
-      latestObject?: WhiteboardObject | null
-      currentRoomRevision?: number
-    },
-  ): OperationRejectedEvent {
-    return {
-      clientOpId: context.clientOpId,
-      roomId: context.roomId,
-      reason: input.reason,
-      message: input.message,
-      latestObject: input.latestObject,
-      currentRoomRevision: input.currentRoomRevision,
-    }
-  }
-
-  private parseOperationRejectionContext(
-    payload: unknown,
-  ): OperationRejectionContext | null {
-    const parsed = operationRejectionContextSchema.safeParse(payload)
-
-    return parsed.success ? parsed.data : null
-  }
-
-  private toOperationRejectedReason(
-    code: string | undefined,
-    status: number,
-  ): OperationRejectedReason {
-    if (code && operationRejectedReasonSchema.safeParse(code).success) {
-      return code as OperationRejectedReason
-    }
-
-    if (code === "VALIDATION_ERROR") {
-      return "INVALID_OPERATION_PAYLOAD"
-    }
-
-    if (code === "UNAUTHENTICATED") {
-      return "PERMISSION_DENIED"
-    }
-
-    switch (status) {
-      case 400:
-        return "INVALID_OPERATION_PAYLOAD"
-      case 403:
-      case 401:
-        return "PERMISSION_DENIED"
-      case 404:
-        return "OBJECT_NOT_FOUND"
-      default:
-        return "INTERNAL_ERROR"
-    }
-  }
-
-  private latestObjectFromDetails(
-    details: unknown,
-  ): WhiteboardObject | null | undefined {
-    if (
-      typeof details !== "object" ||
-      details === null ||
-      !("latestObject" in details)
-    ) {
-      return undefined
-    }
-
-    const parsed = whiteboardObjectSchema
-      .nullable()
-      .safeParse((details as { latestObject?: unknown }).latestObject)
-
-    return parsed.success ? parsed.data : undefined
-  }
-
-  private currentRoomRevisionFromDetails(details: unknown): number | undefined {
-    if (
-      typeof details !== "object" ||
-      details === null ||
-      !("currentRoomRevision" in details)
-    ) {
-      return undefined
-    }
-
-    const revision = (details as { currentRoomRevision?: unknown })
-      .currentRoomRevision
-
-    if (typeof revision !== "number") {
-      return undefined
-    }
-
-    return Number.isSafeInteger(revision) && revision >= 0
-      ? revision
-      : undefined
+    return toOperationRejectedEvent(error, context, (message, cause) =>
+      this.logUnexpectedError(message, cause),
+    )
   }
 
   private toSocketError(error: unknown): SocketErrorEvent {
-    if (this.isHttpException(error)) {
-      const response = error.getResponse()
-
-      if (this.isErrorResponse(response)) {
-        return {
-          code: response.code,
-          message: response.message,
-          details: response.details,
-        }
-      }
-
-      return {
-        code: this.codeForStatus(error.getStatus()),
-        message: error.message,
-      }
-    }
-
-    this.logger.error("Unexpected realtime error", error)
-
-    return {
-      code: "INTERNAL_ERROR",
-      message: "Unexpected realtime server error.",
-    }
-  }
-
-  private isHttpException(error: unknown): error is HttpException {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "getStatus" in error &&
-      "getResponse" in error
+    return toSocketError(error, (message, cause) =>
+      this.logUnexpectedError(message, cause),
     )
   }
 
-  private isErrorResponse(value: unknown): value is SocketErrorEvent {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      "code" in value &&
-      "message" in value &&
-      typeof (value as { code?: unknown }).code === "string" &&
-      typeof (value as { message?: unknown }).message === "string"
-    )
-  }
-
-  private codeForStatus(status: number): string {
-    switch (status) {
-      case 401:
-        return "UNAUTHENTICATED"
-      case 403:
-        return "PERMISSION_DENIED"
-      case 404:
-        return "ROOM_NOT_FOUND"
-      case 400:
-        return "VALIDATION_ERROR"
-      default:
-        return "INTERNAL_ERROR"
-    }
+  private logUnexpectedError(message: string, cause: unknown): void {
+    this.logger.error(message, cause instanceof Error ? cause.stack : undefined)
   }
 }

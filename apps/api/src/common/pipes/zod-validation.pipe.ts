@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Injectable,
+  Param,
   PipeTransform,
   Query,
 } from "@nestjs/common"
@@ -51,6 +52,9 @@ export class ZodValidationPipe<
 
 export const ZodBody = <T extends ZodSchemaLike>(schema: T) =>
   Body(new ZodSchemaValidationPipe(schema))
+
+export const ZodParam = <T extends ZodSchemaLike>(schema: T) =>
+  Param(new ZodSchemaValidationPipe(schema))
 
 export const ZodQuery = <T extends ZodSchemaLike>(schema: T) =>
   Query(new ZodSchemaValidationPipe(schema))
