@@ -85,3 +85,18 @@ export type GuestRestHeaders = z.infer<typeof guestRestHeadersSchema>;
 export type AuthRestHeaders = z.infer<typeof authRestHeadersSchema>;
 export type JwtIdentityPayload = z.infer<typeof jwtIdentityPayloadSchema>;
 export type SocketAuthPayload = z.infer<typeof socketAuthPayloadSchema>;
+
+export const editableRoomRoles = ["OWNER", "EDITOR"] as const;
+export const manageableRoomRoles = ["OWNER"] as const;
+
+export type EditableRoomRole = (typeof editableRoomRoles)[number];
+export type ManageableRoomRole = (typeof manageableRoomRoles)[number];
+
+export function canEditRoomRole(role: RoomRole): role is EditableRoomRole {
+  return editableRoomRoles.includes(role as EditableRoomRole);
+}
+
+export function canManageRoomRole(role: RoomRole): role is ManageableRoomRole {
+  return manageableRoomRoles.includes(role as ManageableRoomRole);
+}
+

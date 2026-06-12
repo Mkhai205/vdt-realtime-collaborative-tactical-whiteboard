@@ -3,6 +3,19 @@
 import { FormEvent, useMemo, useState, useSyncExternalStore } from "react"
 import { authTokenStorageKey } from "@rctw/shared-contracts"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 import { googleOAuthStartUrl } from "@/lib/api-url"
 import {
   clearStoredAuthToken,
@@ -87,142 +100,141 @@ export function GuestIdentityGate() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem]">
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col gap-5 rounded-lg border bg-card p-5 shadow-sm"
-          >
-            <div className="flex flex-col gap-3 rounded-md border bg-muted/40 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium">
-                    {authToken ? "Google session active" : "Sign in with Google"}
-                  </p>
+          <Card className="shadow-sm">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-5">
+              <CardContent className="flex flex-col gap-5 p-0">
+                <div className="flex flex-col gap-3 rounded-md border bg-muted/40 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm font-medium">
+                        {authToken ? "Google session active" : "Sign in with Google"}
+                      </p>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {authToken
+                          ? "REST and future socket auth will use the JWT before guest headers."
+                          : "Use a verified Google account for authenticated room identity."}
+                      </p>
+                    </div>
+                    {authToken ? (
+                      <Button type="button" variant="outline" onClick={handleLogout}>
+                        Log out
+                      </Button>
+                    ) : (
+                      <Button asChild>
+                        <a href={googleOAuthStartUrl}>Continue with Google</a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <Field>
+                  <FieldLabel htmlFor="guest-display-name">Display name</FieldLabel>
+                  <Input
+                    id="guest-display-name"
+                    name="guest-display-name"
+                    value={displayName}
+                    onChange={(event) => {
+                      setDraftDisplayName(event.target.value)
+                      setError("")
+                    }}
+                    placeholder="Example: Alpha Lead"
+                    maxLength={120}
+                    aria-invalid={Boolean(error)}
+                    className="h-11"
+                  />
+                  {error ? (
+                    <FieldDescription className="text-destructive">
+                      {error}
+                    </FieldDescription>
+                  ) : null}
+                </Field>
+
+                <div className="flex flex-col gap-3 rounded-md border bg-muted/50 p-3">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="size-10 rounded-md border"
+                      style={{ backgroundColor: avatarColor }}
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {identity?.name ?? "Guest preview"}
+                      </p>
+                      <p className="truncate font-mono text-xs text-muted-foreground">
+                        {identity?.id ?? "Identity will be created on submit"}
+                      </p>
+                    </div>
+                  </div>
                   <p className="text-xs leading-5 text-muted-foreground">
-                    {authToken
-                      ? "REST and future socket auth will use the JWT before guest headers."
-                      : "Use a verified Google account for authenticated room identity."}
+                    Color is generated once per guest session and is reused for
+                    presence, cursors, REST headers, and future socket auth when no
+                    JWT is active.
                   </p>
                 </div>
-                {authToken ? (
-                  <Button type="button" variant="outline" onClick={handleLogout}>
-                    Log out
-                  </Button>
-                ) : (
-                  <Button asChild>
-                    <a href={googleOAuthStartUrl}>Continue with Google</a>
-                  </Button>
-                )}
-              </div>
-            </div>
 
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="guest-display-name"
-                className="text-sm font-medium"
-              >
-                Display name
-              </label>
-              <input
-                id="guest-display-name"
-                name="guest-display-name"
-                value={displayName}
-                onChange={(event) => {
-                  setDraftDisplayName(event.target.value)
-                  setError("")
-                }}
-                placeholder="Example: Alpha Lead"
-                maxLength={120}
-                aria-invalid={Boolean(error)}
-                aria-describedby={
-                  error ? "guest-display-name-error" : undefined
-                }
-                className="h-11 rounded-md border bg-background px-3 text-base transition-[border-color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
-              />
-              {error ? (
-                <p
-                  id="guest-display-name-error"
-                  className="text-sm text-destructive"
-                >
-                  {error}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col gap-3 rounded-md border bg-muted/50 p-3">
-              <div className="flex items-center gap-3">
-                <span
-                  className="size-10 rounded-md border"
-                  style={{ backgroundColor: avatarColor }}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {identity?.name ?? "Guest preview"}
-                  </p>
-                  <p className="truncate font-mono text-xs text-muted-foreground">
-                    {identity?.id ?? "Identity will be created on submit"}
-                  </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit">
+                    {identity ? "Update guest" : "Create guest"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!identity}
+                    onClick={handleClear}
+                  >
+                    Clear session
+                  </Button>
                 </div>
-              </div>
-              <p className="text-xs leading-5 text-muted-foreground">
-                Color is generated once per guest session and is reused for
-                presence, cursors, REST headers, and future socket auth when no
-                JWT is active.
-              </p>
-            </div>
+              </CardContent>
+            </form>
+          </Card>
 
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit">
-                {identity ? "Update guest" : "Create guest"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!identity}
-                onClick={handleClear}
-              >
-                Clear session
-              </Button>
-            </div>
-          </form>
-
-          <aside className="flex flex-col justify-between gap-6 rounded-lg border bg-secondary p-5">
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-secondary-foreground">
+          <Card className="flex flex-col justify-between gap-6 bg-secondary p-5 border-none shadow-none">
+            <CardHeader className="p-0 gap-3">
+              <CardTitle className="text-sm font-medium text-secondary-foreground">
                 Current status
-              </p>
+              </CardTitle>
               <div className="flex items-center gap-2">
-                <span
-                  className="size-2 rounded-full bg-primary"
-                  aria-hidden="true"
-                />
-                <p className="text-sm text-muted-foreground">
+                <Badge variant={authToken ? "default" : identity ? "secondary" : "outline"} className="flex gap-1.5 items-center">
+                  <span
+                    className="size-2 rounded-full bg-current"
+                    aria-hidden="true"
+                  />
                   {authToken
-                    ? "Google identity is ready; JWT takes precedence."
+                    ? "Google Active"
                     : identity
-                      ? "Guest identity is ready for room APIs."
-                      : "No guest identity saved yet."}
+                      ? "Guest Active"
+                      : "Inactive"}
+                </Badge>
+                <p className="text-xs text-muted-foreground">
+                  {authToken
+                    ? "JWT takes precedence."
+                    : identity
+                      ? "Guest ready for room APIs."
+                      : "No guest identity saved."}
                 </p>
               </div>
-            </div>
+            </CardHeader>
 
-            <dl className="flex flex-col gap-3 text-sm">
-              <div className="flex flex-col gap-1">
-                <dt className="text-muted-foreground">REST headers</dt>
-                <dd className="font-mono text-xs break-all">
-                  {authToken
-                    ? "Authorization: Bearer <token>"
-                    : "x-guest-id, x-guest-name, x-guest-avatar-color"}
-                </dd>
-              </div>
-              <div className="flex flex-col gap-1">
-                <dt className="text-muted-foreground">Storage keys</dt>
-                <dd className="font-mono text-xs break-all">
-                  {authTokenStorageKey}, rctw.guestIdentity.v1
-                </dd>
-              </div>
-            </dl>
-          </aside>
+            <CardContent className="p-0">
+              <dl className="flex flex-col gap-3 text-sm">
+                <div className="flex flex-col gap-1">
+                  <dt className="text-muted-foreground">REST headers</dt>
+                  <dd className="font-mono text-xs break-all text-secondary-foreground">
+                    {authToken
+                      ? "Authorization: Bearer <token>"
+                      : "x-guest-id, x-guest-name, x-guest-avatar-color"}
+                  </dd>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <dt className="text-muted-foreground">Storage keys</dt>
+                  <dd className="font-mono text-xs break-all text-secondary-foreground">
+                    {authTokenStorageKey}, rctw.guestIdentity.v1
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
         </div>
       </section>
     </main>

@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -254,19 +255,20 @@ export function MemberManagementPage({ roomId }: { roomId: string }) {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleAddMember} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-2 text-sm font-medium">
-                  User ID
+                <Field>
+                  <FieldLabel htmlFor="add-member-userid">User ID</FieldLabel>
                   <Input
+                    id="add-member-userid"
                     value={draftUserId}
                     disabled={!isOwner || pendingAdd}
                     onChange={(event) => setDraftUserId(event.target.value)}
                     placeholder="00000000-0000-4000-8000-000000000000"
                     aria-invalid={Boolean(error)}
                   />
-                </label>
+                </Field>
 
-                <label className="flex flex-col gap-2 text-sm font-medium">
-                  Role
+                <Field>
+                  <FieldLabel htmlFor="add-member-role">Role</FieldLabel>
                   <Select
                     value={draftRole}
                     disabled={!isOwner || pendingAdd}
@@ -274,7 +276,7 @@ export function MemberManagementPage({ roomId }: { roomId: string }) {
                       setDraftRole(value as MemberRoleInput)
                     }
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger id="add-member-role" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -287,7 +289,7 @@ export function MemberManagementPage({ roomId }: { roomId: string }) {
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                </label>
+                </Field>
 
                 <Button type="submit" disabled={!isOwner || pendingAdd}>
                   <UserPlusIcon data-icon="inline-start" />
