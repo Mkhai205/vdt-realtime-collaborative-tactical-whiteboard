@@ -1,10 +1,12 @@
 import type {
+  GetRoomOperationsResponse,
   ObjectCreateRequest,
   ObjectDeleteRequest,
   ObjectUpdateRequest,
   OperationAppliedEvent,
   UserSummary,
 } from "@rctw/shared-contracts"
+import { WhiteboardOperationsController } from "./whiteboard-operations.controller"
 import { WhiteboardObjectsController } from "./whiteboard-objects.controller"
 import { WhiteboardObjectsService } from "./whiteboard-objects.service"
 
@@ -33,6 +35,7 @@ describe("WhiteboardObjectsController", () => {
   const whiteboardObjectsService = {
     createObject: jest.fn(),
     deleteObject: jest.fn(),
+    getRoomOperations: jest.fn(),
     getRoomObjects: jest.fn(),
     updateObject: jest.fn(),
   }
@@ -131,6 +134,48 @@ describe("WhiteboardObjectsController", () => {
       roomId,
       objectId,
       request,
+    )
+  })
+})
+
+describe("WhiteboardOperationsController", () => {
+  const roomId = "11111111-1111-4111-8111-111111111111"
+  const userId = "33333333-3333-4333-8333-333333333333"
+  const currentUser: UserSummary = {
+    id: userId,
+    name: "Editor",
+    avatarUrl: null,
+    avatarColor: "#3B82F6",
+  }
+  const whiteboardObjectsService = {
+    getRoomOperations: jest.fn(),
+  }
+  let controller: WhiteboardOperationsController
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    controller = new WhiteboardOperationsController(
+      whiteboardObjectsService as unknown as WhiteboardObjectsService,
+    )
+  })
+
+  it("delegates operation history loading to the service", async () => {
+    const response: GetRoomOperationsResponse = {
+      roomId,
+      operations: [],
+    }
+    const query = {
+      limit: 50,
+    }
+    whiteboardObjectsService.getRoomOperations.mockResolvedValue(response)
+
+    await expect(
+      controller.getRoomOperations(currentUser, { roomId }, query),
+    ).resolves.toBe(response)
+    expect(whiteboardObjectsService.getRoomOperations).toHaveBeenCalledWith(
+      currentUser,
+      roomId,
+      query,
     )
   })
 })

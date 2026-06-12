@@ -7,6 +7,8 @@ import {
 import { Prisma, type PrismaClient } from "@rctw/database"
 import type {
   GetRoomObjectsResponse,
+  GetRoomOperationsQuery,
+  GetRoomOperationsResponse,
   ObjectCreateInput,
   ObjectCreateRequest,
   ObjectDeleteRequest,
@@ -21,6 +23,7 @@ import { PrismaService } from "../../infrastructure/database"
 import { RoomsPermissionService } from "../rooms"
 import {
   toOperationAppliedEvent,
+  toOperationSummary,
   toShapeStyle,
   toWhiteboardObject,
   type WhiteboardObjectRecord,
@@ -84,6 +87,53 @@ export class WhiteboardObjectsService {
       roomId,
       currentRevision: Number(room.currentRevision),
       objects: objects.map(toWhiteboardObject),
+    }
+  }
+
+  async getRoomOperations(
+    currentUser: UserSummary,
+    roomId: string,
+    query: Partial<GetRoomOperationsQuery> = {},
+  ): Promise<GetRoomOperationsResponse> {
+    await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
+
+    const operations =
+      await this.prismaService.client.whiteboardOperation.findMany({
+        where: {
+          roomId,
+        },
+        orderBy: {
+          revision: "desc",
+        },
+        take: this.normalizeOperationLimit(query.limit),
+        select: {
+          id: true,
+          clientOpId: true,
+          roomId: true,
+          objectId: true,
+          revision: true,
+          type: true,
+          payload: true,
+          createdAt: true,
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+              avatarColor: true,
+            },
+          },
+          object: {
+            select: {
+              type: true,
+            },
+          },
+        },
+      })
+
+    return {
+      roomId,
+      operations: operations.map(toOperationSummary),
     }
   }
 
@@ -727,6 +777,14 @@ export class WhiteboardObjectsService {
 
   private toJsonValue(value: unknown): Prisma.InputJsonValue {
     return value as Prisma.InputJsonValue
+  }
+
+  private normalizeOperationLimit(limit: number | undefined): number {
+    if (!limit || !Number.isFinite(limit)) {
+      return 50
+    }
+
+    return Math.min(Math.max(Math.trunc(limit), 1), 100)
   }
 
   private isDuplicateClientOperationConstraintError(error: unknown): boolean {

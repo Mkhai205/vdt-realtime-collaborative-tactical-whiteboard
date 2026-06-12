@@ -217,6 +217,7 @@ type OperationSummary = {
   roomId: string;
   actor: UserSummary;
   objectId?: string | null;
+  objectType: "RECTANGLE" | "CIRCLE" | "LINE" | "TEXT" | null;
   revision: number;
   type: "OBJECT_CREATE" | "OBJECT_UPDATE" | "OBJECT_DELETE" | "OBJECT_RESTORE";
   summary: string;

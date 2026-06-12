@@ -232,6 +232,33 @@ export const getRoomObjectsResponseSchema = z.object({
   objects: z.array(whiteboardObjectSchema),
 })
 
+export const getRoomOperationsQuerySchema = z.object({
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(50)
+    .transform((limit) => Math.min(limit, 100)),
+})
+
+export const operationSummarySchema = z.object({
+  id: z.uuid(),
+  clientOpId: clientOpIdSchema,
+  roomId: z.uuid(),
+  actor: userSummarySchema,
+  objectId: z.uuid().nullable().optional(),
+  objectType: objectTypeSchema.nullable(),
+  revision: z.number().int().nonnegative(),
+  type: operationTypeSchema,
+  summary: z.string().min(1),
+  createdAt: z.string(),
+})
+
+export const getRoomOperationsResponseSchema = z.object({
+  roomId: z.uuid(),
+  operations: z.array(operationSummarySchema),
+})
+
 export const operationAppliedEventSchema = z.object({
   operationId: z.uuid(),
   clientOpId: clientOpIdSchema,
@@ -296,6 +323,13 @@ export type UndoRequest = z.infer<typeof undoRequestSchema>
 export type RedoRequest = z.infer<typeof redoRequestSchema>
 export type GetRoomObjectsResponse = z.infer<
   typeof getRoomObjectsResponseSchema
+>
+export type GetRoomOperationsQuery = z.infer<
+  typeof getRoomOperationsQuerySchema
+>
+export type OperationSummary = z.infer<typeof operationSummarySchema>
+export type GetRoomOperationsResponse = z.infer<
+  typeof getRoomOperationsResponseSchema
 >
 export type OperationAppliedEvent = z.infer<typeof operationAppliedEventSchema>
 export type OperationRejectedEvent = z.infer<

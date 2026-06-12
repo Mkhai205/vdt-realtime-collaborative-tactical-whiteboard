@@ -2,7 +2,9 @@ import {
   operationTypeSchema,
   objectTypeSchema,
   shapeStyleSchema,
+  type ObjectType,
   type OperationAppliedEvent,
+  type OperationSummary,
   type OperationType,
   type ShapeStyle,
   type UserSummary,
@@ -42,6 +44,14 @@ export type WhiteboardOperationRecord = {
   createdAt: TimestampValue
 }
 
+export type WhiteboardOperationSummaryRecord = WhiteboardOperationRecord & {
+  actor: UserSummary
+  payload: unknown
+  object?: {
+    type?: string | null
+  } | null
+}
+
 export function toWhiteboardObject(
   object: WhiteboardObjectRecord,
 ): WhiteboardObject {
@@ -64,6 +74,26 @@ export function toWhiteboardObject(
     createdAt: toIsoString(object.createdAt),
     updatedAt: toIsoString(object.updatedAt),
     deletedAt: object.deletedAt ? toIsoString(object.deletedAt) : null,
+  }
+}
+
+export function toOperationSummary(
+  operation: WhiteboardOperationSummaryRecord,
+): OperationSummary {
+  const type = toOperationType(operation.type)
+  const objectType = toSummaryObjectType(operation)
+
+  return {
+    id: operation.id,
+    clientOpId: operation.clientOpId,
+    roomId: operation.roomId,
+    actor: operation.actor,
+    objectId: operation.objectId ?? null,
+    objectType,
+    revision: Number(operation.revision),
+    type,
+    summary: createOperationSummary(type, objectType, operation.payload),
+    createdAt: toIsoString(operation.createdAt),
   }
 }
 
@@ -106,6 +136,92 @@ function toOperationType(value: string): OperationType {
   return operationTypeSchema.catch("OBJECT_UPDATE").parse(value)
 }
 
+function toSummaryObjectType(
+  operation: WhiteboardOperationSummaryRecord,
+): ObjectType | null {
+  return (
+    toOptionalObjectType(operation.object?.type) ??
+    getPayloadObjectType(operation.payload)
+  )
+}
+
+function getPayloadObjectType(payload: unknown): ObjectType | null {
+  if (!isRecord(payload)) {
+    return null
+  }
+
+  for (const key of [
+    "object",
+    "resultingObject",
+    "previousObject",
+    "restoredObject",
+  ]) {
+    const value = payload[key]
+
+    if (isRecord(value)) {
+      const objectType = toOptionalObjectType(value.type)
+
+      if (objectType) {
+        return objectType
+      }
+    }
+  }
+
+  return null
+}
+
+function toOptionalObjectType(value: unknown): ObjectType | null {
+  const parsed = objectTypeSchema.safeParse(value)
+
+  return parsed.success ? parsed.data : null
+}
+
+function createOperationSummary(
+  type: OperationType,
+  objectType: ObjectType | null,
+  payload: unknown,
+): string {
+  const objectLabel = objectType ? formatObjectType(objectType) : "object"
+
+  switch (type) {
+    case "OBJECT_CREATE":
+      return `Created ${objectLabel}`
+    case "OBJECT_UPDATE":
+      return `Updated ${objectLabel}${formatPatchSummary(payload)}`
+    case "OBJECT_DELETE":
+      return `Deleted ${objectLabel}`
+    case "OBJECT_RESTORE":
+      return `Restored ${objectLabel}`
+  }
+}
+
+function formatObjectType(objectType: ObjectType): string {
+  return objectType.toLowerCase()
+}
+
+function formatPatchSummary(payload: unknown): string {
+  if (!isRecord(payload) || !isRecord(payload.patch)) {
+    return ""
+  }
+
+  const fields = Object.keys(payload.patch)
+
+  if (fields.length === 0) {
+    return ""
+  }
+
+  return `: ${fields.map(formatPatchField).join(", ")}`
+}
+
+function formatPatchField(field: string): string {
+  switch (field) {
+    case "zIndex":
+      return "z index"
+    default:
+      return field
+  }
+}
+
 function toPoints(value: unknown): number[] | null {
   if (!Array.isArray(value)) {
     return null
@@ -120,4 +236,8 @@ function toPoints(value: unknown): number[] | null {
 
 function toIsoString(value: TimestampValue): string {
   return value instanceof Date ? value.toISOString() : value
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }

@@ -1,6 +1,7 @@
 import { isAxiosError } from "axios"
 import {
   apiErrorSchema,
+  type GetRoomOperationsResponse,
   type GetRoomObjectsResponse,
   type ObjectCreateRequest,
   type ObjectDeleteRequest,
@@ -14,6 +15,22 @@ export async function getRoomObjects(
 ): Promise<GetRoomObjectsResponse> {
   const response = await apiClient.get<GetRoomObjectsResponse>(
     `/rooms/${roomId}/objects`
+  )
+
+  return response.data
+}
+
+export async function getRoomOperations(
+  roomId: string,
+  limit = 50,
+): Promise<GetRoomOperationsResponse> {
+  const response = await apiClient.get<GetRoomOperationsResponse>(
+    `/rooms/${roomId}/operations`,
+    {
+      params: {
+        limit,
+      },
+    },
   )
 
   return response.data

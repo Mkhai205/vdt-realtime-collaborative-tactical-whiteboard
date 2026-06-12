@@ -1,15 +1,17 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import type { Tool } from "@rctw/shared-contracts"
 import {
   CircleIcon,
   HandIcon,
+  HistoryIcon,
   type LucideIcon,
   MinusIcon,
   MousePointer2Icon,
   MoveRightIcon,
+  PanelRightIcon,
   PlusIcon,
   Redo2Icon,
   SquareIcon,
@@ -20,6 +22,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   maxViewportScale,
@@ -32,6 +35,7 @@ import {
 } from "@/stores/whiteboard-store"
 import { ObjectDetailPanel } from "./object-detail-panel"
 import { OnlineUsersPanel } from "./online-users-panel"
+import { OperationHistoryPanel } from "./operation-history-panel"
 import { useWhiteboardRoomSocket } from "./use-whiteboard-room-socket"
 
 const WhiteboardStage = dynamic(
@@ -62,8 +66,10 @@ const toolbarItems = [
 const viewportScaleEpsilon = 0.001
 const toastAutoDismissMs = 5000
 type LoadState = "loading" | "ready" | "error"
+type RightRailTab = "details" | "history"
 
 export function WhiteboardPage({ roomId }: { roomId: string }) {
+  const [rightRailTab, setRightRailTab] = useState<RightRailTab>("details")
   const room = useWhiteboardStore((state) => state.room)
   const currentUser = useWhiteboardStore((state) => state.currentUser)
   const currentRevision = useWhiteboardStore((state) => state.currentRevision)
@@ -221,7 +227,38 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           aria-label="Room presence and details"
         >
           <OnlineUsersPanel />
-          <ObjectDetailPanel />
+          <Tabs
+            value={rightRailTab}
+            className="min-h-0 flex-1"
+            onValueChange={(value) => setRightRailTab(value as RightRailTab)}
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="details">
+                <PanelRightIcon data-icon="inline-start" />
+                Details
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <HistoryIcon data-icon="inline-start" />
+                History
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent
+              value="details"
+              className="min-h-0 flex flex-1 flex-col data-[state=inactive]:hidden"
+            >
+              <ObjectDetailPanel />
+            </TabsContent>
+            <TabsContent
+              value="history"
+              className="min-h-0 flex flex-1 flex-col data-[state=inactive]:hidden"
+            >
+              <OperationHistoryPanel
+                roomId={roomId}
+                active={rightRailTab === "history"}
+                currentRevision={currentRevision}
+              />
+            </TabsContent>
+          </Tabs>
         </aside>
       </section>
     </main>

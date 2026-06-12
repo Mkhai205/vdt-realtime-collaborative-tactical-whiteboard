@@ -46,6 +46,35 @@ function makeObject(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function makeOperation(overrides: Record<string, unknown> = {}) {
+  return {
+    id: operationId,
+    clientOpId,
+    roomId,
+    objectId,
+    revision: 7n,
+    type: "OBJECT_UPDATE",
+    payload: {
+      objectId,
+      patch: {
+        text: "Updated label",
+        style: {
+          fill: "#ffffff",
+        },
+      },
+      resultingObject: makeObject({
+        type: "TEXT",
+      }),
+    },
+    createdAt: now,
+    actor: currentUser,
+    object: {
+      type: "TEXT",
+    },
+    ...overrides,
+  }
+}
+
 describe("WhiteboardObjectsService", () => {
   const tx = {
     room: {
@@ -69,6 +98,9 @@ describe("WhiteboardObjectsService", () => {
       findFirst: jest.fn(),
     },
     whiteboardObject: {
+      findMany: jest.fn(),
+    },
+    whiteboardOperation: {
       findMany: jest.fn(),
     },
   }
@@ -164,6 +196,114 @@ describe("WhiteboardObjectsService", () => {
     expect(typeof response.currentRevision).toBe("number")
     expect(response.objects).toHaveLength(2)
     expect(prismaClient.$transaction).not.toHaveBeenCalled()
+  })
+
+  it.each(["OWNER", "EDITOR", "VIEWER"] as const)(
+    "loads latest room operations for %s members",
+    async (role) => {
+      permissionService.assertRoomMember.mockResolvedValue(role)
+      prismaClient.whiteboardOperation.findMany.mockResolvedValue([
+        makeOperation(),
+      ])
+
+      const response = await service.getRoomOperations(currentUser, roomId, {
+        limit: 50,
+      })
+
+      expect(permissionService.assertRoomMember).toHaveBeenCalledWith(
+        userId,
+        roomId,
+      )
+      expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalledWith({
+        where: {
+          roomId,
+        },
+        orderBy: {
+          revision: "desc",
+        },
+        take: 50,
+        select: {
+          id: true,
+          clientOpId: true,
+          roomId: true,
+          objectId: true,
+          revision: true,
+          type: true,
+          payload: true,
+          createdAt: true,
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+              avatarColor: true,
+            },
+          },
+          object: {
+            select: {
+              type: true,
+            },
+          },
+        },
+      })
+      expect(response).toEqual({
+        roomId,
+        operations: [
+          expect.objectContaining({
+            id: operationId,
+            clientOpId,
+            roomId,
+            objectId,
+            revision: 7,
+            type: "OBJECT_UPDATE",
+            actor: currentUser,
+            objectType: "TEXT",
+            summary: "Updated text: text, style",
+            createdAt: now.toISOString(),
+          }),
+        ],
+      })
+    },
+  )
+
+  it("uses a default limit of 50 for operation history", async () => {
+    prismaClient.whiteboardOperation.findMany.mockResolvedValue([])
+
+    await service.getRoomOperations(currentUser, roomId)
+
+    expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 50,
+      }),
+    )
+  })
+
+  it("caps operation history limits at 100", async () => {
+    prismaClient.whiteboardOperation.findMany.mockResolvedValue([])
+
+    await service.getRoomOperations(currentUser, roomId, {
+      limit: 150,
+    })
+
+    expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 100,
+      }),
+    )
+  })
+
+  it("requires room membership before loading operation history", async () => {
+    permissionService.assertRoomMember.mockRejectedValue(
+      new ForbiddenException({
+        code: "PERMISSION_DENIED",
+        message: "You must join this room first.",
+      }),
+    )
+
+    await expect(
+      service.getRoomOperations(currentUser, roomId),
+    ).rejects.toThrow(ForbiddenException)
+    expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
   })
 
   it("persists created objects and records an operation", async () => {
