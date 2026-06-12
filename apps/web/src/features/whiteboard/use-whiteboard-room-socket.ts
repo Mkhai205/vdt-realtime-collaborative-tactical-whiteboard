@@ -80,7 +80,6 @@ export function useWhiteboardRoomSocket(roomId: string): void {
     setSelectionSender(createSelectionSender())
 
     function handleConnect() {
-      setConnectionStatus("connected")
       setSocketError(null)
       socket.emit("room:join", { roomId })
     }
