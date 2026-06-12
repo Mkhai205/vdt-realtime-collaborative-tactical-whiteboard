@@ -620,15 +620,11 @@ export class RealtimeGateway
       case "OBJECT_CREATE": {
         const { object, baseRoomRevision } = operation
 
-        return this.whiteboardObjectsService.createObject(
-          currentUser,
-          roomId,
-          {
-            clientOpId,
-            baseRoomRevision,
-            object,
-          },
-        )
+        return this.whiteboardObjectsService.createObject(currentUser, roomId, {
+          clientOpId,
+          baseRoomRevision,
+          object,
+        })
       }
       case "OBJECT_UPDATE": {
         const { objectId, baseRoomRevision, baseObjectVersion, patch } =

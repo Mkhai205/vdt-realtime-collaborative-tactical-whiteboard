@@ -330,7 +330,11 @@ describe("WhiteboardObjectsService", () => {
       currentRevision: 7n,
     })
 
-    const response = await service.getRoomOperationReplay(currentUser, roomId, 7)
+    const response = await service.getRoomOperationReplay(
+      currentUser,
+      roomId,
+      7,
+    )
 
     expect(permissionService.assertRoomMember).toHaveBeenCalledWith(
       userId,
@@ -397,7 +401,11 @@ describe("WhiteboardObjectsService", () => {
       }),
     ])
 
-    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+    const response = await service.getRoomOperationReplay(
+      currentUser,
+      roomId,
+      5,
+    )
 
     expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalledWith({
       where: {
@@ -478,7 +486,11 @@ describe("WhiteboardObjectsService", () => {
     })
     prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
 
-    const response = await service.getRoomOperationReplay(currentUser, roomId, 9)
+    const response = await service.getRoomOperationReplay(
+      currentUser,
+      roomId,
+      9,
+    )
 
     expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
     expectActiveObjectLoad()
@@ -502,7 +514,11 @@ describe("WhiteboardObjectsService", () => {
     })
     prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
 
-    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+    const response = await service.getRoomOperationReplay(
+      currentUser,
+      roomId,
+      5,
+    )
 
     expect(prismaClient.whiteboardOperation.findMany).not.toHaveBeenCalled()
     expectActiveObjectLoad()
@@ -530,7 +546,11 @@ describe("WhiteboardObjectsService", () => {
     ])
     prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
 
-    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+    const response = await service.getRoomOperationReplay(
+      currentUser,
+      roomId,
+      5,
+    )
 
     expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalled()
     expectActiveObjectLoad()
@@ -559,7 +579,11 @@ describe("WhiteboardObjectsService", () => {
     ])
     prismaClient.whiteboardObject.findMany.mockResolvedValue([activeObject])
 
-    const response = await service.getRoomOperationReplay(currentUser, roomId, 5)
+    const response = await service.getRoomOperationReplay(
+      currentUser,
+      roomId,
+      5,
+    )
 
     expect(prismaClient.whiteboardOperation.findMany).toHaveBeenCalled()
     expectActiveObjectLoad()
@@ -795,10 +819,15 @@ describe("WhiteboardObjectsService", () => {
         }),
       )
 
-    const response = await service.restoreObject(currentUser, roomId, objectId, {
-      clientOpId,
-      baseObjectVersion: 4,
-    })
+    const response = await service.restoreObject(
+      currentUser,
+      roomId,
+      objectId,
+      {
+        clientOpId,
+        baseObjectVersion: 4,
+      },
+    )
 
     expect(tx.whiteboardObject.updateMany).toHaveBeenCalledWith({
       where: {

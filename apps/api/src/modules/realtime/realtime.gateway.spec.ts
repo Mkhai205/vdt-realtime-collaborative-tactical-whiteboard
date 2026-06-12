@@ -368,15 +368,10 @@ describe("RealtimeGateway", () => {
       user: currentUser,
       role: "EDITOR",
     })
-    expect(whiteboardObjectsService.getRoomOperationReplay).toHaveBeenCalledWith(
-      currentUser,
-      roomId,
-      7,
-    )
-    expect(socketMocks.emit).toHaveBeenCalledWith(
-      "sync:response",
-      syncResponse,
-    )
+    expect(
+      whiteboardObjectsService.getRoomOperationReplay,
+    ).toHaveBeenCalledWith(currentUser, roomId, 7)
+    expect(socketMocks.emit).toHaveBeenCalledWith("sync:response", syncResponse)
     expect(server.to).toHaveBeenCalledWith(toRoomSocketName(roomId))
     expect(roomEmitter.emit).toHaveBeenCalledWith("presence:update", {
       roomId,
@@ -400,7 +395,9 @@ describe("RealtimeGateway", () => {
         code: "VALIDATION_ERROR",
       }),
     )
-    expect(whiteboardObjectsService.getRoomOperationReplay).not.toHaveBeenCalled()
+    expect(
+      whiteboardObjectsService.getRoomOperationReplay,
+    ).not.toHaveBeenCalled()
   })
 
   it("maps sync replay failures to socket errors", async () => {
