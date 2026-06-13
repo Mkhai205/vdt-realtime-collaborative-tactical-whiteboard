@@ -12,8 +12,6 @@ export const FRONTEND_REDIRECT_URI_CONFIG_KEY = {
   FRONTEND_LOGIN_SUCCESS_REDIRECT:
     "http://localhost:3000/auth/callback/success",
   FRONTEND_LOGIN_FAILURE_REDIRECT: "http://localhost:3000/auth/callback/error",
-  FRONTEND_RESET_PASSWORD_REDIRECT: "http://localhost:3000/auth/reset-password",
-  FRONTEND_VERIFY_EMAIL_REDIRECT: "http://localhost:3000/auth/verify-email",
 } as const
 
 export function validateAuthConfig(config: RawEnv): RawEnv {
@@ -58,14 +56,6 @@ export function validateAuthConfig(config: RawEnv): RawEnv {
     FRONTEND_LOGIN_FAILURE_REDIRECT: String(
       config.FRONTEND_LOGIN_FAILURE_REDIRECT ??
         FRONTEND_REDIRECT_URI_CONFIG_KEY.FRONTEND_LOGIN_FAILURE_REDIRECT,
-    ).trim(),
-    FRONTEND_RESET_PASSWORD_REDIRECT: String(
-      config.FRONTEND_RESET_PASSWORD_REDIRECT ??
-        FRONTEND_REDIRECT_URI_CONFIG_KEY.FRONTEND_RESET_PASSWORD_REDIRECT,
-    ).trim(),
-    FRONTEND_VERIFY_EMAIL_REDIRECT: String(
-      config.FRONTEND_VERIFY_EMAIL_REDIRECT ??
-        FRONTEND_REDIRECT_URI_CONFIG_KEY.FRONTEND_VERIFY_EMAIL_REDIRECT,
     ).trim(),
   }
 }

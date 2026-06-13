@@ -31,7 +31,7 @@ export class WhiteboardObjectsQueryService {
   ): Promise<GetRoomObjectsResponse> {
     await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
 
-    const room = await this.prismaService.client.room.findFirst({
+    const room = await this.prismaService.room.findFirst({
       where: {
         id: roomId,
         deletedAt: null,
@@ -61,39 +61,38 @@ export class WhiteboardObjectsQueryService {
   ): Promise<GetRoomOperationsResponse> {
     await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
 
-    const operations =
-      await this.prismaService.client.whiteboardOperation.findMany({
-        where: {
-          roomId,
-        },
-        orderBy: {
-          revision: "desc",
-        },
-        take: normalizeOperationLimit(query.limit),
-        select: {
-          id: true,
-          clientOpId: true,
-          roomId: true,
-          objectId: true,
-          revision: true,
-          type: true,
-          payload: true,
-          createdAt: true,
-          actor: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-              avatarColor: true,
-            },
-          },
-          object: {
-            select: {
-              type: true,
-            },
+    const operations = await this.prismaService.whiteboardOperation.findMany({
+      where: {
+        roomId,
+      },
+      orderBy: {
+        revision: "desc",
+      },
+      take: normalizeOperationLimit(query.limit),
+      select: {
+        id: true,
+        clientOpId: true,
+        roomId: true,
+        objectId: true,
+        revision: true,
+        type: true,
+        payload: true,
+        createdAt: true,
+        actor: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            avatarColor: true,
           },
         },
-      })
+        object: {
+          select: {
+            type: true,
+          },
+        },
+      },
+    })
 
     return {
       roomId,
@@ -108,7 +107,7 @@ export class WhiteboardObjectsQueryService {
   ): Promise<SyncResponse> {
     await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
 
-    const room = await this.prismaService.client.room.findFirst({
+    const room = await this.prismaService.room.findFirst({
       where: {
         id: roomId,
         deletedAt: null,
@@ -141,37 +140,36 @@ export class WhiteboardObjectsQueryService {
       return this.getFullStateSyncResponse(roomId, currentRevision)
     }
 
-    const operations =
-      await this.prismaService.client.whiteboardOperation.findMany({
-        where: {
-          roomId,
-          revision: {
-            gt: BigInt(lastSeenRevision),
-            lte: room.currentRevision,
+    const operations = await this.prismaService.whiteboardOperation.findMany({
+      where: {
+        roomId,
+        revision: {
+          gt: BigInt(lastSeenRevision),
+          lte: room.currentRevision,
+        },
+      },
+      orderBy: {
+        revision: "asc",
+      },
+      select: {
+        id: true,
+        clientOpId: true,
+        roomId: true,
+        objectId: true,
+        revision: true,
+        type: true,
+        payload: true,
+        createdAt: true,
+        actor: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            avatarColor: true,
           },
         },
-        orderBy: {
-          revision: "asc",
-        },
-        select: {
-          id: true,
-          clientOpId: true,
-          roomId: true,
-          objectId: true,
-          revision: true,
-          type: true,
-          payload: true,
-          createdAt: true,
-          actor: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-              avatarColor: true,
-            },
-          },
-        },
-      })
+      },
+    })
 
     if (
       !isCompleteOperationReplay(operations, lastSeenRevision, currentRevision)
@@ -191,7 +189,7 @@ export class WhiteboardObjectsQueryService {
   private async getActiveRoomObjects(
     roomId: string,
   ): Promise<WhiteboardObjectRecord[]> {
-    return this.prismaService.client.whiteboardObject.findMany({
+    return this.prismaService.whiteboardObject.findMany({
       where: {
         roomId,
         deletedAt: null,

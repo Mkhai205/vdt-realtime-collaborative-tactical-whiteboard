@@ -8,6 +8,7 @@ import { RoomsModule } from "./modules/rooms"
 import { WhiteboardSnapshotsModule } from "./modules/whiteboard-snapshots"
 import { WhiteboardObjectsModule } from "./modules/whiteboard-objects"
 import { RealtimeModule } from "./modules/realtime"
+import { DatabaseModule } from "./infrastructure/database"
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RealtimeModule } from "./modules/realtime"
       cache: true,
       validate: validateEnv,
     }),
+    DatabaseModule,
     IdentityModule,
     RoomsModule,
     WhiteboardObjectsModule,

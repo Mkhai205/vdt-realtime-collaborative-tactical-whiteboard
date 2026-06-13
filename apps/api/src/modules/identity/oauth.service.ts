@@ -181,7 +181,7 @@ export class OAuthService {
   }
 
   private async upsertGoogleUser(profile: GoogleProfile) {
-    const existingUser = await this.prismaService.client.user.findUnique({
+    const existingUser = await this.prismaService.user.findUnique({
       where: {
         email: profile.email,
       },
@@ -190,7 +190,7 @@ export class OAuthService {
       },
     })
 
-    return this.prismaService.client.user.upsert({
+    return this.prismaService.user.upsert({
       where: {
         email: profile.email,
       },

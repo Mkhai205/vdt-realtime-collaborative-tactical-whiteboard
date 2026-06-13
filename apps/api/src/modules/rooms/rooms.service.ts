@@ -53,7 +53,7 @@ export class RoomsService {
     currentUser: UserSummary,
     request: CreateRoomRequest,
   ): Promise<CreateRoomResponse> {
-    const room = await this.prismaService.client.$transaction(async (tx) =>
+    const room = await this.prismaService.$transaction(async (tx) =>
       tx.room.create({
         data: {
           name: request.name,
@@ -85,7 +85,7 @@ export class RoomsService {
     currentUser: UserSummary,
     query: ListRoomsQuery,
   ): Promise<ListRoomsResponse> {
-    const rooms = await this.prismaService.client.room.findMany({
+    const rooms = await this.prismaService.room.findMany({
       where: {
         deletedAt: null,
         OR: [
@@ -118,7 +118,7 @@ export class RoomsService {
     currentUser: UserSummary,
     roomId: string,
   ): Promise<GetRoomResponse> {
-    const room = await this.prismaService.client.room.findFirst({
+    const room = await this.prismaService.room.findFirst({
       where: {
         id: roomId,
         deletedAt: null,
@@ -157,7 +157,7 @@ export class RoomsService {
     currentUser: UserSummary,
     roomId: string,
   ): Promise<JoinRoomResponse> {
-    const joined = await this.prismaService.client.$transaction(async (tx) => {
+    const joined = await this.prismaService.$transaction(async (tx) => {
       const room = await tx.room.findFirst({
         where: {
           id: roomId,
@@ -238,7 +238,7 @@ export class RoomsService {
   ): Promise<GetRoomMembersResponse> {
     await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
 
-    const members = await this.prismaService.client.roomMember.findMany({
+    const members = await this.prismaService.roomMember.findMany({
       where: {
         roomId,
         removedAt: null,
@@ -266,7 +266,7 @@ export class RoomsService {
   ): Promise<RoomMemberMutationResponse> {
     await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
 
-    const member = await this.prismaService.client.$transaction(async (tx) => {
+    const member = await this.prismaService.$transaction(async (tx) => {
       const targetUser = await tx.user.findUnique({
         where: {
           id: request.userId,
@@ -348,7 +348,7 @@ export class RoomsService {
   ): Promise<RoomMemberMutationResponse> {
     await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
 
-    const member = await this.prismaService.client.$transaction(async (tx) => {
+    const member = await this.prismaService.$transaction(async (tx) => {
       const existingMember = await tx.roomMember.findFirst({
         where: {
           id: memberId,
@@ -396,7 +396,7 @@ export class RoomsService {
   ): Promise<UpdateRoomResponse> {
     await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
 
-    const room = await this.prismaService.client.room.update({
+    const room = await this.prismaService.room.update({
       where: {
         id: roomId,
       },
@@ -412,7 +412,7 @@ export class RoomsService {
   async deleteRoom(currentUser: UserSummary, roomId: string): Promise<void> {
     await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
 
-    await this.prismaService.client.room.update({
+    await this.prismaService.room.update({
       where: {
         id: roomId,
       },

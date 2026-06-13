@@ -38,7 +38,7 @@ export class WhiteboardSnapshotsService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async createSnapshot(roomId: string): Promise<RoomSnapshotResult> {
-    return this.prismaService.client.$transaction(
+    return this.prismaService.$transaction(
       async (tx) => this.createSnapshotInTransaction(tx, roomId),
       {
         isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,

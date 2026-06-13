@@ -263,7 +263,7 @@ export class WhiteboardObjectsMutationService {
     mutation: (tx: WhiteboardTransactionClient) => Promise<T>,
   ): Promise<T> {
     try {
-      return await this.prismaService.client.$transaction((tx) => mutation(tx))
+      return await this.prismaService.$transaction((tx) => mutation(tx))
     } catch (error) {
       if (this.isDuplicateClientOperationConstraintError(error)) {
         throw duplicateOperation()

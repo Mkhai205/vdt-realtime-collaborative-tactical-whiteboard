@@ -36,7 +36,7 @@ export class RoomsPermissionService {
   }
 
   async assertRoomMember(userId: string, roomId: string): Promise<RoomRole> {
-    const room = await this.prismaService.client.room.findFirst({
+    const room = await this.prismaService.room.findFirst({
       where: {
         id: roomId,
         deletedAt: null,

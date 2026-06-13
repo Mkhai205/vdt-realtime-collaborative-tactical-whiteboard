@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { JwtService } from "@nestjs/jwt"
 import {
+  apiErrorCodeSchema,
   authorizationHeaderName,
   guestIdentitySchema,
   guestRestHeaderNames,
@@ -81,11 +82,7 @@ export class IdentityService {
   }
 
   async resolveJwtIdentity(token: string): Promise<UserSummary> {
-    const jwtSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
-
-    if (!jwtSecret) {
-      throw this.unauthenticated("JWT authentication is not configured.")
-    }
+    const jwtSecret = this.configService.getOrThrow<string>("JWT_ACCESS_SECRET")
 
     let decodedPayload: unknown
 
@@ -105,7 +102,7 @@ export class IdentityService {
       throw this.unauthenticated("Invalid access token.")
     }
 
-    const user = await this.prismaService.client.user.findUnique({
+    const user = await this.prismaService.user.findUnique({
       where: {
         id: parsedPayload.data.sub,
       },
@@ -127,7 +124,7 @@ export class IdentityService {
   private async resolveGuestIdentity(
     identity: GuestIdentity,
   ): Promise<UserSummary> {
-    const user = await this.prismaService.client.user.upsert({
+    const user = await this.prismaService.user.upsert({
       where: {
         id: identity.id,
       },
@@ -188,7 +185,7 @@ export class IdentityService {
 
   private unauthenticated(message = "Guest identity is required.") {
     return new UnauthorizedException({
-      code: "UNAUTHENTICATED",
+      code: apiErrorCodeSchema.enum.UNAUTHENTICATED,
       message,
     })
   }
