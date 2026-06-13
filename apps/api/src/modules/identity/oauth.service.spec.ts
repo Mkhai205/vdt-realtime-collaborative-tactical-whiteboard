@@ -7,11 +7,9 @@ import { googleOAuthStateCookieName, OAuthService } from "./oauth.service"
 const googleUserId = "22222222-2222-4222-8222-222222222222"
 
 type MockPrismaService = {
-  client: {
-    user: {
-      findUnique: jest.Mock
-      upsert: jest.Mock
-    }
+  user: {
+    findUnique: jest.Mock
+    upsert: jest.Mock
   }
 }
 
@@ -42,11 +40,9 @@ function createService(overrides: Record<string, unknown> = {}) {
     signAsync: jest.fn().mockResolvedValue("signed.jwt.token"),
   }
   const prismaService: MockPrismaService = {
-    client: {
-      user: {
-        findUnique: jest.fn(),
-        upsert: jest.fn(),
-      },
+    user: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
     },
   }
   const service = new OAuthService(
@@ -147,8 +143,8 @@ describe("OAuthService", () => {
       name: "Alpha Lead",
       picture: "https://example.com/avatar.png",
     })
-    prismaService.client.user.findUnique.mockResolvedValue(null)
-    prismaService.client.user.upsert.mockResolvedValue({
+    prismaService.user.findUnique.mockResolvedValue(null)
+    prismaService.user.upsert.mockResolvedValue({
       id: googleUserId,
       email: "lead@example.com",
       name: "Alpha Lead",
@@ -163,7 +159,7 @@ describe("OAuthService", () => {
         `${googleOAuthStateCookieName}=state`,
       ),
     ).resolves.toContain("#accessToken=signed.jwt.token")
-    expect(prismaService.client.user.upsert).toHaveBeenCalledWith(
+    expect(prismaService.user.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { email: "lead@example.com" },
         create: expect.objectContaining({
@@ -196,10 +192,10 @@ describe("OAuthService", () => {
       name: "Updated Lead",
       picture: "https://example.com/new-avatar.png",
     })
-    prismaService.client.user.findUnique.mockResolvedValue({
+    prismaService.user.findUnique.mockResolvedValue({
       avatarColor: "#16A34A",
     })
-    prismaService.client.user.upsert.mockResolvedValue({
+    prismaService.user.upsert.mockResolvedValue({
       id: googleUserId,
       email: "lead@example.com",
       name: "Updated Lead",
@@ -213,7 +209,7 @@ describe("OAuthService", () => {
       `${googleOAuthStateCookieName}=state`,
     )
 
-    expect(prismaService.client.user.upsert).toHaveBeenCalledWith(
+    expect(prismaService.user.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { email: "lead@example.com" },
         create: expect.objectContaining({

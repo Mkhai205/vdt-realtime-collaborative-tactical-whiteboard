@@ -180,9 +180,7 @@ describe("WhiteboardObjectsService", () => {
         }),
     )
 
-    const prismaService = {
-      client: prismaClient,
-    } as unknown as PrismaService
+    const prismaService = prismaClient as unknown as PrismaService
     const roomsPermissionService =
       permissionService as unknown as RoomsPermissionService
 

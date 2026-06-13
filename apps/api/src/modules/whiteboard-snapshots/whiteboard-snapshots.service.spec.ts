@@ -94,9 +94,9 @@ describe("WhiteboardSnapshotsService", () => {
     })
     tx.whiteboardObject.findMany.mockResolvedValue([makeObject()])
 
-    service = new WhiteboardSnapshotsService({
-      client: prismaClient,
-    } as unknown as PrismaService)
+    service = new WhiteboardSnapshotsService(
+      prismaClient as unknown as PrismaService,
+    )
   })
 
   it("creates a room snapshot for the current room revision", async () => {

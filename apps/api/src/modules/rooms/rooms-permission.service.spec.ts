@@ -10,10 +10,8 @@ describe("RoomsPermissionService", () => {
     jest.clearAllMocks()
 
     service = new RoomsPermissionService({
-      client: {
-        room: {
-          findFirst,
-        },
+      room: {
+        findFirst,
       },
     } as unknown as PrismaService)
   })

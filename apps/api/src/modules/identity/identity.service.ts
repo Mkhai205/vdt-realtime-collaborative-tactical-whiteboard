@@ -124,6 +124,19 @@ export class IdentityService {
   private async resolveGuestIdentity(
     identity: GuestIdentity,
   ): Promise<UserSummary> {
+    const existingUser = await this.prismaService.user.findUnique({
+      where: {
+        id: identity.id,
+      },
+      select: {
+        identityType: true,
+      },
+    })
+
+    if (existingUser && existingUser.identityType !== "GUEST") {
+      throw this.unauthenticated("Invalid guest identity.")
+    }
+
     const user = await this.prismaService.user.upsert({
       where: {
         id: identity.id,

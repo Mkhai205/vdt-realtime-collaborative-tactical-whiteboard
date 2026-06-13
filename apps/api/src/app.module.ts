@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common"
 import { AppController } from "./app.controller"
 import { AppService } from "./app.service"
 import { ConfigModule } from "@nestjs/config"
+import { ScheduleModule } from "@nestjs/schedule"
 import { validateEnv } from "./config"
 import { IdentityModule } from "./modules/identity/identity.module"
 import { RoomsModule } from "./modules/rooms"
@@ -18,6 +19,7 @@ import { DatabaseModule } from "./infrastructure/database"
       cache: true,
       validate: validateEnv,
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     IdentityModule,
     RoomsModule,

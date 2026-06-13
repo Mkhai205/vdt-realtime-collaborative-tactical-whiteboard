@@ -89,9 +89,7 @@ describe("RoomsService F03.03 private room and invite flow", () => {
     permissionService.assertRoomOwner.mockResolvedValue("OWNER")
 
     service = new RoomsService(
-      {
-        client: prismaClient,
-      } as unknown as PrismaService,
+      prismaClient as unknown as PrismaService,
       permissionService as unknown as RoomsPermissionService,
     )
   })
