@@ -23,7 +23,7 @@ import type {
   UndoRequest,
 } from "@rctw/shared-contracts"
 import { io, type Socket } from "socket.io-client"
-import { getIdentitySocketAuth } from "@/features/identity/auth-token"
+import { getIdentitySocketAuth } from "@/components/features/identity"
 import { socketBaseUrl } from "./api-url"
 
 type ServerToClientEvents = {
@@ -31,9 +31,7 @@ type ServerToClientEvents = {
   "presence:update": (event: PresenceUpdateEvent) => void
   "cursor:updated": (event: CursorUpdatedEvent) => void
   "object:editing": (event: ObjectEditingEvent) => void
-  "object:transform-previewed": (
-    event: ObjectTransformPreviewedEvent,
-  ) => void
+  "object:transform-previewed": (event: ObjectTransformPreviewedEvent) => void
   "operation:applied": (event: OperationAppliedEvent) => void
   "operation:rejected": (event: OperationRejectedEvent) => void
   "sync:response": (event: SyncResponse) => void
@@ -53,9 +51,7 @@ type ClientToServerEvents = {
   "object:delete": (request: ObjectDeleteSocketRequest) => void
   "undo:request": (request: UndoRequest) => void
   "redo:request": (request: RedoRequest) => void
-  "object:transform-preview": (
-    request: ObjectTransformPreviewRequest,
-  ) => void
+  "object:transform-preview": (request: ObjectTransformPreviewRequest) => void
 }
 
 export type WhiteboardSocket = Socket<

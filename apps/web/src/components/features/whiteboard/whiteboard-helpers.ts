@@ -6,7 +6,7 @@ import type {
   WhiteboardObject,
 } from "@rctw/shared-contracts"
 import type Konva from "konva"
-import { readStoredGuestIdentity } from "@/features/identity/guest-identity"
+import { readStoredGuestIdentity } from "../identity"
 
 export type CanvasPoint = {
   x: number

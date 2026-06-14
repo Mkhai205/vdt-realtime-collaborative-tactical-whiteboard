@@ -1,6 +1,10 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
+import { ThemeProvider } from "@/providers/theme-provider"
+import { ReactQueryProvider } from "@/providers/react-query-provider"
+import { Toaster } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +17,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Realtime Tactical Whiteboard",
-  description: "Foundation smoke screen for the collaborative whiteboard MVP.",
+  title: "Realtime Collaborator Tactical Whiteboard",
+  description:
+    "Realtime Collaborator Tactical Whiteboard is a web application that allows users to collaborate in real-time on a virtual whiteboard",
 }
 
 export default function RootLayout({
@@ -28,7 +33,14 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body>{children}</body>
+      <body>
+        <ThemeProvider>
+          <ReactQueryProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Toaster position="top-right" theme="system" richColors />
+          </ReactQueryProvider>
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

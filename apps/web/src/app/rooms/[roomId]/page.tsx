@@ -1,4 +1,4 @@
-import { WhiteboardPage } from "@/features/whiteboard/whiteboard-page"
+import { WhiteboardPage } from "@/components/features/whiteboard/whiteboard-page"
 
 type RoomWhiteboardPageProps = {
   params: Promise<{

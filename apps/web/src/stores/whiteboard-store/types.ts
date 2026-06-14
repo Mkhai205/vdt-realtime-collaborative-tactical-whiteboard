@@ -25,8 +25,11 @@ import type {
   UserSummary,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
-import type { PendingWhiteboardHistoryEntry, WhiteboardHistoryEntry } from "@/features/whiteboard/whiteboard-history"
 import type { CanvasPoint, StageSize, Viewport } from "@/lib/canvas-utils"
+import {
+  PendingWhiteboardHistoryEntry,
+  WhiteboardHistoryEntry,
+} from "@/components/features/whiteboard/whiteboard-history"
 
 export type WhiteboardCurrentUser = UserSummary & {
   role: RoomRole
@@ -34,7 +37,12 @@ export type WhiteboardCurrentUser = UserSummary & {
 
 export type WhiteboardRoomState = RoomStateEvent["room"]
 
-export type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected"
+export type ConnectionStatus =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "disconnected"
 
 export type WhiteboardToastVariant = "info" | "error"
 
@@ -188,9 +196,7 @@ export type WhiteboardState = {
   clearHistoryStacks: () => void
   undoLastOperation: () => void
   redoLastOperation: () => void
-  applyRemoteTransformPreview: (
-    event: ObjectTransformPreviewedEvent,
-  ) => void
+  applyRemoteTransformPreview: (event: ObjectTransformPreviewedEvent) => void
   applyRemoteCursor: (event: CursorUpdatedEvent) => void
   applyRemoteEditing: (event: ObjectEditingEvent) => void
   sendCursorUpdate: (point: CanvasPoint) => void
@@ -202,10 +208,7 @@ export type WhiteboardState = {
     objectId: string,
     preview: ObjectTransformPreviewPatch,
   ) => void
-  updateObjectPatch: (
-    objectId: string,
-    patch: ObjectMutablePatch,
-  ) => void
+  updateObjectPatch: (objectId: string, patch: ObjectMutablePatch) => void
   removeObject: (objectId: string) => void
   deleteSelectedObject: () => void
   createLocalObject: (input: LocalObjectInput) => WhiteboardObject | null

@@ -15,10 +15,20 @@ import type {
   RemoteTransformPreview,
   RemoteEditingState,
 } from "./types"
-import { getRoomObjects } from "@/features/whiteboard/whiteboard-api"
+import { getRoomObjects } from "@/components/features/whiteboard/whiteboard-api"
+import { getCenteredViewport } from "@/lib/canvas-utils"
 import {
-  cloneWhiteboardObject,
+  clearAllRemotePreviewTimeouts,
+  clearRemotePreviewTimeout,
+} from "./collaboration-slice"
+import {
+  applyMutablePatchToObject,
+  createDemoObjects,
+  createLocalObjectRecord,
+} from "@/components/features/whiteboard/whiteboard-helpers"
+import {
   clearWhiteboardHistoryStacks,
+  cloneWhiteboardObject,
   createRedoOperation,
   createRedoStackEntryAfterUndo,
   createUndoOperation,
@@ -26,18 +36,11 @@ import {
   createWhiteboardHistoryEntry,
   moveLatestRedoToUndo,
   moveLatestUndoToRedo,
+  PendingWhiteboardHistoryEntry,
   pushUndoStackEntry,
-  type PendingWhiteboardHistoryEntry,
-  type WhiteboardHistoryEntry,
-} from "@/features/whiteboard/whiteboard-history"
-import { getCenteredViewport } from "@/lib/canvas-utils"
-import { canEditRoom } from "@/features/whiteboard/whiteboard-ui-utils"
-import {
-  createDemoObjects,
-  createLocalObjectRecord,
-  applyMutablePatchToObject,
-} from "@/features/whiteboard/whiteboard-helpers"
-import { clearAllRemotePreviewTimeouts, clearRemotePreviewTimeout } from "./collaboration-slice"
+  WhiteboardHistoryEntry,
+} from "@/components/features/whiteboard/whiteboard-history"
+import { canEditRoom } from "@/components/features/whiteboard/whiteboard-ui-utils"
 
 const maxToastCount = 3
 const objectVersionConflictToastMessage =
@@ -68,8 +71,8 @@ function removeRemoteTransformPreviews(
   previews: Record<string, RemoteTransformPreview>,
   objectIds: Array<string | null | undefined>,
 ): Record<string, RemoteTransformPreview> {
-  const targetObjectIds = objectIds.filter(
-    (objectId): objectId is string => Boolean(objectId),
+  const targetObjectIds = objectIds.filter((objectId): objectId is string =>
+    Boolean(objectId),
   )
 
   if (targetObjectIds.length === 0) {
@@ -97,8 +100,8 @@ function removeRemoteEditorsForObjects(
   editors: Record<string, Record<string, RemoteEditingState>>,
   objectIds: Array<string | null | undefined>,
 ): Record<string, Record<string, RemoteEditingState>> {
-  const targetObjectIds = objectIds.filter(
-    (objectId): objectId is string => Boolean(objectId),
+  const targetObjectIds = objectIds.filter((objectId): objectId is string =>
+    Boolean(objectId),
   )
 
   if (targetObjectIds.length === 0) {
@@ -296,10 +299,16 @@ export type OperationsSlice = {
   setMutationError: (message: string | null) => void
   dismissToast: (toastId: string) => void
   setObjects: (objects: WhiteboardObject[]) => void
-  setObjectsWithRevision: (objects: WhiteboardObject[], currentRevision: number) => void
+  setObjectsWithRevision: (
+    objects: WhiteboardObject[],
+    currentRevision: number,
+  ) => void
   markRevisionSynced: (revision: number) => void
   upsertObject: (object: WhiteboardObject) => void
-  applyOperation: (operation: OperationAppliedEvent, options?: WhiteboardApplyOperationOptions) => void
+  applyOperation: (
+    operation: OperationAppliedEvent,
+    options?: WhiteboardApplyOperationOptions,
+  ) => void
   applyOperationRejection: (rejection: OperationRejectedEvent) => void
   pushUndoEntry: (entry: WhiteboardHistoryEntry) => void
   moveLatestUndoEntryToRedo: () => WhiteboardHistoryEntry | null
@@ -652,10 +661,7 @@ export const createOperationsSlice: StateCreator<
         toasts: showConflictToast
           ? appendWhiteboardToast(
               state.toasts,
-              createWhiteboardToast(
-                objectVersionConflictToastMessage,
-                "info",
-              ),
+              createWhiteboardToast(objectVersionConflictToastMessage, "info"),
             )
           : state.toasts,
         selectedObjectId: resolvedSelectedObjectId,
@@ -737,11 +743,13 @@ export const createOperationsSlice: StateCreator<
       }
 
       try {
-        const operation = await queuedState.objectOperationSender.undoOperation({
-          roomId: queuedState.roomId,
-          clientOpId: crypto.randomUUID(),
-          inverseOperation,
-        })
+        const operation = await queuedState.objectOperationSender.undoOperation(
+          {
+            roomId: queuedState.roomId,
+            clientOpId: crypto.randomUUID(),
+            inverseOperation,
+          },
+        )
 
         set((currentState) => {
           const latestEntry = currentState.undoStack.at(-1)
@@ -810,11 +818,13 @@ export const createOperationsSlice: StateCreator<
       }
 
       try {
-        const operation = await queuedState.objectOperationSender.redoOperation({
-          roomId: queuedState.roomId,
-          clientOpId: crypto.randomUUID(),
-          redoOperation,
-        })
+        const operation = await queuedState.objectOperationSender.redoOperation(
+          {
+            roomId: queuedState.roomId,
+            clientOpId: crypto.randomUUID(),
+            redoOperation,
+          },
+        )
 
         set((currentState) => {
           const latestEntry = currentState.redoStack.at(-1)
@@ -901,16 +911,19 @@ export const createOperationsSlice: StateCreator<
           throw new Error("Realtime connection is not ready.")
         }
 
-        await sender.updateObject({
-          roomId: queuedState.roomId,
-          objectId,
-          clientOpId,
-          baseRoomRevision: queuedState.currentRevision,
-          baseObjectVersion: object.version,
-          patch,
-        }, {
-          historyCandidate,
-        })
+        await sender.updateObject(
+          {
+            roomId: queuedState.roomId,
+            objectId,
+            clientOpId,
+            baseRoomRevision: queuedState.currentRevision,
+            baseObjectVersion: object.version,
+            patch,
+          },
+          {
+            historyCandidate,
+          },
+        )
       } catch (error) {
         await handleOperationFailure(error, get, set)
       }
@@ -1000,10 +1013,9 @@ export const createOperationsSlice: StateCreator<
         currentState.remoteTransformPreviews,
         [selectedObjectId],
       ),
-      remoteEditors: removeRemoteEditorsForObjects(
-        currentState.remoteEditors,
-        [selectedObjectId],
-      ),
+      remoteEditors: removeRemoteEditorsForObjects(currentState.remoteEditors, [
+        selectedObjectId,
+      ]),
       selectedObjectId: null,
     }))
     get().sendSelectionUpdate(null)
@@ -1023,15 +1035,18 @@ export const createOperationsSlice: StateCreator<
           throw new Error("Realtime connection is not ready.")
         }
 
-        await sender.deleteObject({
-          roomId: queuedState.roomId,
-          objectId: selectedObjectId,
-          clientOpId,
-          baseRoomRevision: queuedState.currentRevision,
-          baseObjectVersion: object.version,
-        }, {
-          historyCandidate,
-        })
+        await sender.deleteObject(
+          {
+            roomId: queuedState.roomId,
+            objectId: selectedObjectId,
+            clientOpId,
+            baseRoomRevision: queuedState.currentRevision,
+            baseObjectVersion: object.version,
+          },
+          {
+            historyCandidate,
+          },
+        )
       } catch (error) {
         await handleOperationFailure(error, get, set)
       }
@@ -1052,11 +1067,7 @@ export const createOperationsSlice: StateCreator<
     }
 
     const zIndex = getNextZIndex(state.objects)
-    const object = createLocalObjectRecord(
-      state.roomId,
-      input,
-      zIndex,
-    )
+    const object = createLocalObjectRecord(state.roomId, input, zIndex)
     const clientOpId = crypto.randomUUID()
     const requestObject = toCreateRequestObject(input, zIndex)
     const historyCandidate: PendingWhiteboardHistoryEntry = {
@@ -1091,15 +1102,18 @@ export const createOperationsSlice: StateCreator<
           throw new Error("Realtime connection is not ready.")
         }
 
-        await sender.createObject({
-          roomId: queuedState.roomId,
-          clientOpId,
-          baseRoomRevision: queuedState.currentRevision,
-          object: requestObject,
-        }, {
-          tempObjectId: object.id,
-          historyCandidate,
-        })
+        await sender.createObject(
+          {
+            roomId: queuedState.roomId,
+            clientOpId,
+            baseRoomRevision: queuedState.currentRevision,
+            object: requestObject,
+          },
+          {
+            tempObjectId: object.id,
+            historyCandidate,
+          },
+        )
       } catch (error) {
         await handleOperationFailure(error, get, set)
       }

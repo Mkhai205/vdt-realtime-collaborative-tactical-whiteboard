@@ -1,4 +1,4 @@
-import { MemberManagementPage } from "@/features/rooms/member-management-page"
+import { MemberManagementPage } from "@/components/features/rooms/member-management-page"
 
 type RoomMembersPageProps = {
   params: Promise<{

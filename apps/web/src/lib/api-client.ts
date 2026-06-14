@@ -1,6 +1,6 @@
 import axios, { AxiosHeaders } from "axios"
-import { getAuthRestHeaders } from "@/features/identity/auth-token"
-import { getGuestRestHeaders } from "@/features/identity/guest-identity"
+import { getAuthRestHeaders } from "@/components/features/identity"
+import { getGuestRestHeaders } from "@/components/features/identity"
 import { apiBaseUrl } from "./api-url"
 
 export const apiClient = axios.create({

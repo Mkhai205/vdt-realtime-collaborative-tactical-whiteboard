@@ -1,4 +1,4 @@
-import { AuthCallbackError } from "@/features/identity/auth-callback-error"
+import { AuthCallbackError } from "@/components/features/identity/auth-callback-error"
 
 type GoogleAuthCallbackErrorPageProps = {
   searchParams: Promise<{

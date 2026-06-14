@@ -6,8 +6,13 @@ import type {
   OnlineUser,
 } from "@rctw/shared-contracts"
 import type { CanvasPoint } from "@/lib/canvas-utils"
-import type { WhiteboardState, RemoteCursor, RemoteEditingState, RemoteTransformPreview } from "./types"
-import { canEditRoom } from "@/features/whiteboard/whiteboard-ui-utils"
+import type {
+  WhiteboardState,
+  RemoteCursor,
+  RemoteEditingState,
+  RemoteTransformPreview,
+} from "./types"
+import { canEditRoom } from "@/components/features/whiteboard/whiteboard-ui-utils"
 
 const remoteTransformPreviewStaleMs = 1500
 const remoteTransformPreviewTimeouts = new Map<
@@ -115,8 +120,12 @@ function pruneRemoteEditors(
 }
 
 export type CollaborationSlice = {
-  setObjectOperationSender: (sender: WhiteboardState["objectOperationSender"]) => void
-  setTransformPreviewSender: (sender: WhiteboardState["transformPreviewSender"]) => void
+  setObjectOperationSender: (
+    sender: WhiteboardState["objectOperationSender"],
+  ) => void
+  setTransformPreviewSender: (
+    sender: WhiteboardState["transformPreviewSender"],
+  ) => void
   setCursorSender: (sender: WhiteboardState["cursorSender"]) => void
   setEditingSender: (sender: WhiteboardState["editingSender"]) => void
   setSelectionSender: (sender: WhiteboardState["selectionSender"]) => void

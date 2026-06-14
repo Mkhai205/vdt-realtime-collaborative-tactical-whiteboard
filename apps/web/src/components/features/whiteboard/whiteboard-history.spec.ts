@@ -7,7 +7,7 @@ import type {
   UserSummary,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
-import { getRoomObjects } from "@/features/whiteboard/whiteboard-api"
+import { getRoomObjects } from "./whiteboard-api"
 import {
   type WhiteboardOperationSender,
   type WhiteboardOperationSenderOptions,
@@ -22,7 +22,7 @@ import {
   type WhiteboardHistoryEntry,
 } from "./whiteboard-history"
 
-vi.mock("@/features/whiteboard/whiteboard-api", () => ({
+vi.mock("@/components/features/whiteboard/whiteboard-api", () => ({
   getRoomObjects: vi.fn(),
 }))
 
@@ -51,10 +51,7 @@ describe("whiteboard history stacks", () => {
     const firstEntry = makeHistoryEntry({ operationId: uuid(301) })
     const secondEntry = makeHistoryEntry({ operationId: uuid(302) })
     const firstPush = pushUndoStackEntry([], firstEntry)
-    const secondPush = pushUndoStackEntry(
-      firstPush.undoStack,
-      secondEntry,
-    )
+    const secondPush = pushUndoStackEntry(firstPush.undoStack, secondEntry)
 
     const undoSecond = moveLatestUndoToRedo(
       secondPush.undoStack,
@@ -427,9 +424,9 @@ describe("whiteboard history stacks", () => {
 
     loadRoom([object], 1)
     pushRedoEntry()
-    useWhiteboardStore.getState().setLoadedRoomState(
-      makeLoadedRoomStateInput([object], 1),
-    )
+    useWhiteboardStore
+      .getState()
+      .setLoadedRoomState(makeLoadedRoomStateInput([object], 1))
     expectHistoryToBeEmpty()
 
     pushRedoEntry()
@@ -473,7 +470,9 @@ describe("whiteboard history stacks", () => {
     )
     expect(useWhiteboardStore.getState().objects[objectId]?.x).toBe(10)
     expect(useWhiteboardStore.getState().undoStack).toEqual([])
-    expect(useWhiteboardStore.getState().redoStack[0]?.redoBaseObjectVersion).toBe(5)
+    expect(
+      useWhiteboardStore.getState().redoStack[0]?.redoBaseObjectVersion,
+    ).toBe(5)
 
     useWhiteboardStore.getState().redoLastOperation()
 
@@ -492,7 +491,9 @@ describe("whiteboard history stacks", () => {
     )
     expect(useWhiteboardStore.getState().objects[objectId]?.x).toBe(42)
     expect(useWhiteboardStore.getState().undoStack).toHaveLength(1)
-    expect(useWhiteboardStore.getState().undoStack[0]?.afterObject?.version).toBe(6)
+    expect(
+      useWhiteboardStore.getState().undoStack[0]?.afterObject?.version,
+    ).toBe(6)
     expect(useWhiteboardStore.getState().redoStack).toEqual([])
   })
 

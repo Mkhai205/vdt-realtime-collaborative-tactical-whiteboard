@@ -8,14 +8,14 @@ import type {
   UserSummary,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
-import { getRoomObjects } from "@/features/whiteboard/whiteboard-api"
-import type { WhiteboardHistoryEntry } from "@/features/whiteboard/whiteboard-history"
+import { getRoomObjects } from "@/components/features/whiteboard/whiteboard-api"
+import type { WhiteboardHistoryEntry } from "@/components/features/whiteboard/whiteboard-history"
 import {
   type WhiteboardSelectionSender,
   useWhiteboardStore,
 } from "./whiteboard-store"
 
-vi.mock("@/features/whiteboard/whiteboard-api", () => ({
+vi.mock("@/components/features/whiteboard/whiteboard-api", () => ({
   getRoomObjects: vi.fn(),
 }))
 
@@ -53,7 +53,9 @@ describe("whiteboard room state loading", () => {
     useWhiteboardStore.getState().setConnectionStatus("connecting")
     useWhiteboardStore
       .getState()
-      .setLoadedRoomState(makeLoadedRoomStateInput([firstObject, secondObject], 12))
+      .setLoadedRoomState(
+        makeLoadedRoomStateInput([firstObject, secondObject], 12),
+      )
 
     const state = useWhiteboardStore.getState()
 
@@ -119,14 +121,18 @@ describe("whiteboard room state loading", () => {
     useWhiteboardStore.getState().pushUndoEntry(makeHistoryEntry({ objectId }))
     useWhiteboardStore.getState().moveLatestUndoEntryToRedo()
 
-    expect(Object.keys(useWhiteboardStore.getState().remoteCursors)).toHaveLength(1)
-    expect(Object.keys(useWhiteboardStore.getState().remoteEditors)).toHaveLength(1)
+    expect(
+      Object.keys(useWhiteboardStore.getState().remoteCursors),
+    ).toHaveLength(1)
+    expect(
+      Object.keys(useWhiteboardStore.getState().remoteEditors),
+    ).toHaveLength(1)
     expect(
       Object.keys(useWhiteboardStore.getState().remoteTransformPreviews),
     ).toHaveLength(1)
-    expect(Object.keys(useWhiteboardStore.getState().appliedClientOpIds)).toEqual([
-      "applied-client-op",
-    ])
+    expect(
+      Object.keys(useWhiteboardStore.getState().appliedClientOpIds),
+    ).toEqual(["applied-client-op"])
     expect(useWhiteboardStore.getState().undoStack.length).toBeGreaterThan(0)
     expect(useWhiteboardStore.getState().redoStack.length).toBeGreaterThan(0)
 
@@ -216,7 +222,9 @@ describe("whiteboard room state loading", () => {
     loadRoom([object], 3)
     useWhiteboardStore
       .getState()
-      .applyOperationRejection(makeOperationRejection({ currentRoomRevision: 6 }))
+      .applyOperationRejection(
+        makeOperationRejection({ currentRoomRevision: 6 }),
+      )
 
     expect(useWhiteboardStore.getState().currentRevision).toBe(6)
     expect(useWhiteboardStore.getState().lastSeenRevision).toBe(3)
