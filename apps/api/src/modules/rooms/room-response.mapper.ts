@@ -33,7 +33,7 @@ export function toRoomSummary(room: RoomRecord): RoomSummary {
     description: room.description ?? null,
     currentRevision: Number(room.currentRevision),
     isPublic: room.isPublic,
-    defaultJoinRole: toDefaultJoinRole(room.defaultJoinRole),
+    defaultJoinRole: room.defaultJoinRole as DefaultJoinRole,
     createdBy: room.createdBy,
     createdAt: toIsoString(room.createdAt),
     updatedAt: toIsoString(room.updatedAt),
@@ -47,21 +47,9 @@ export function toRoomMemberSummary(
     id: member.id,
     roomId: member.roomId,
     user: member.user,
-    role: toRoomRole(member.role),
+    role: member.role as RoomRole,
     joinedAt: toIsoString(member.joinedAt),
   }
-}
-
-export function toDefaultJoinRole(role: string): DefaultJoinRole {
-  return role === "VIEWER" ? "VIEWER" : "EDITOR"
-}
-
-export function toRoomRole(role: string): RoomRole {
-  if (role === "OWNER" || role === "VIEWER") {
-    return role
-  }
-
-  return "EDITOR"
 }
 
 function toIsoString(value: Date | string): string {

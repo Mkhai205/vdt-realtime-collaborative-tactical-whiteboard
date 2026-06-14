@@ -1,24 +1,28 @@
 {
-    "name": "realtime-collaborative-tactical-whiteboard",
-    "version": "0.1.0",
-    "private": true,
-    "author": "MKhai205",
-    "scripts": {
-        "dev": "turbo run dev",
-        "dev:web": "turbo run dev --filter=@rctw/web",
-        "dev:api": "turbo run dev --filter=@rctw/api",
-        "build": "turbo run build",
-        "lint": "turbo run lint",
-        "typecheck": "turbo run typecheck",
-        "test": "turbo run test",
-        "db:format": "turbo run db:format --filter=@rctw/database",
-        "db:generate": "turbo run db:generate --filter=@rctw/database",
-        "db:migrate:deploy": "turbo run db:migrate:deploy --filter=@rctw/database",
-        "db:migrate:status": "turbo run db:migrate:status --filter=@rctw/database"
-    },
-    "devDependencies": {
-        "turbo": "^2.6.1",
-        "typescript": "^5.9.3"
-    },
-    "packageManager": "pnpm@10.33.2"
+  "name": "realtime-collaborative-tactical-whiteboard",
+  "version": "0.1.0",
+  "private": true,
+  "author": "MKhai205",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@rctw/web",
+    "dev:api": "turbo run dev --filter=@rctw/api",
+    "build": "turbo run build",
+    "build:web": "turbo run build --filter=@rctw/web",
+    "build:api": "turbo run build --filter=@rctw/api",
+    "build:sc": "turbo run build --filter=@rctw/shared-contracts",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:studio": "turbo run db:studio --filter=@rctw/database",
+    "db:format": "turbo run db:format --filter=@rctw/database",
+    "db:generate": "turbo run db:generate --filter=@rctw/database",
+    "db:migrate:deploy": "turbo run db:migrate:deploy --filter=@rctw/database",
+    "db:migrate:status": "turbo run db:migrate:status --filter=@rctw/database"
+  },
+  "devDependencies": {
+    "turbo": "^2.6.1",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.33.2"
 }

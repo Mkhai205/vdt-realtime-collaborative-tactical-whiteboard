@@ -13,6 +13,7 @@ export const apiErrorCodeSchema = z.enum([
   "MEMBER_NOT_FOUND",
   "INTERNAL_ERROR",
 ])
+export const apiErrorCodes = apiErrorCodeSchema.enum
 
 export const apiErrorSchema = z.object({
   code: apiErrorCodeSchema,

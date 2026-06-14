@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common"
-import type { RoomRole } from "@rctw/shared-contracts"
+import { apiErrorCodes, roomRoles, type RoomRole } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 
 @Injectable()
@@ -11,18 +11,19 @@ export class RoomsPermissionService {
   constructor(private readonly prismaService: PrismaService) {}
 
   canEdit(role: RoomRole): boolean {
-    return role === "OWNER" || role === "EDITOR"
+    return role === roomRoles.OWNER || role === roomRoles.EDITOR
   }
 
   canManageRoom(role: RoomRole): boolean {
-    return role === "OWNER"
+    return role === roomRoles.OWNER
   }
 
-  assertCanEdit(role: RoomRole): void {
+  assertCanEdit(
+    role: RoomRole,
+    message = "Only room owners and editors can edit this room.",
+  ): void {
     if (!this.canEdit(role)) {
-      throw this.permissionDenied(
-        "Only room owners and editors can edit this room.",
-      )
+      throw this.permissionDenied(message)
     }
   }
 
@@ -76,16 +77,16 @@ export class RoomsPermissionService {
     return role
   }
 
-  private roomNotFound() {
+  private roomNotFound(message = "Room not found.") {
     return new NotFoundException({
-      code: "ROOM_NOT_FOUND",
-      message: "Room not found.",
+      code: apiErrorCodes.ROOM_NOT_FOUND,
+      message,
     })
   }
 
   private permissionDenied(message: string) {
     return new ForbiddenException({
-      code: "PERMISSION_DENIED",
+      code: apiErrorCodes.PERMISSION_DENIED,
       message,
     })
   }

@@ -4,29 +4,26 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common"
-import type {
-  AddRoomMemberRequest,
-  CreateRoomRequest,
-  CreateRoomResponse,
-  GetRoomMembersResponse,
-  GetRoomResponse,
-  JoinRoomResponse,
-  ListRoomsQuery,
-  ListRoomsResponse,
-  RoomRole,
-  RoomMemberMutationResponse,
-  UpdateRoomMemberRoleRequest,
-  UpdateRoomRequest,
-  UpdateRoomResponse,
-  UserSummary,
+import {
+  type AddRoomMemberRequest,
+  type CreateRoomRequest,
+  type CreateRoomResponse,
+  type GetRoomMembersResponse,
+  type GetRoomResponse,
+  type JoinRoomResponse,
+  type ListRoomsQuery,
+  type ListRoomsResponse,
+  type RoomRole,
+  type RoomMemberMutationResponse,
+  type UpdateRoomMemberRoleRequest,
+  type UpdateRoomRequest,
+  type UpdateRoomResponse,
+  type UserSummary,
+  apiErrorCodes,
+  roomRoles,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
-import {
-  toDefaultJoinRole,
-  toRoomMemberSummary,
-  toRoomRole,
-  toRoomSummary,
-} from "./room-response.mapper"
+import { toRoomMemberSummary, toRoomSummary } from "./room-response.mapper"
 import { RoomsPermissionService } from "./rooms-permission.service"
 
 const userSummarySelect = {
@@ -64,7 +61,7 @@ export class RoomsService {
           members: {
             create: {
               userId: currentUser.id,
-              role: "OWNER",
+              role: roomRoles.OWNER,
             },
           },
         },
@@ -76,7 +73,7 @@ export class RoomsService {
       room: toRoomSummary(room),
       currentUser: {
         ...currentUser,
-        role: "OWNER",
+        role: roomRoles.OWNER,
       },
     }
   }
@@ -188,7 +185,7 @@ export class RoomsService {
       if (existingMember && existingMember.removedAt === null) {
         return {
           room,
-          role: toRoomRole(existingMember.role),
+          role: existingMember.role,
         }
       }
 
@@ -196,7 +193,7 @@ export class RoomsService {
         throw this.permissionDenied("You do not have access to this room.")
       }
 
-      const role = toDefaultJoinRole(room.defaultJoinRole)
+      const role = room.defaultJoinRole
 
       await tx.roomMember.upsert({
         where: {
@@ -365,7 +362,7 @@ export class RoomsService {
         throw this.memberNotFound()
       }
 
-      if (existingMember.role === "OWNER") {
+      if (existingMember.role === roomRoles.OWNER) {
         throw this.validationError("Owner membership cannot be modified.")
       }
 
@@ -400,7 +397,7 @@ export class RoomsService {
       where: {
         id: roomId,
       },
-      data: this.toUpdateData(request),
+      data: request,
       include: roomWithCreatorInclude,
     })
 
@@ -424,78 +421,46 @@ export class RoomsService {
 
   private resolveAccessibleRole(room: {
     isPublic: boolean
-    defaultJoinRole: string
+    defaultJoinRole: RoomRole
     members: Array<{ role: RoomRole }>
   }): RoomRole {
     const memberRole = room.members.at(0)?.role
 
     if (memberRole) {
-      return toRoomRole(memberRole)
+      return memberRole
     }
 
     if (room.isPublic) {
-      return toDefaultJoinRole(room.defaultJoinRole)
+      return room.defaultJoinRole
     }
 
     throw this.permissionDenied("You do not have access to this room.")
   }
 
-  private toUpdateData(request: UpdateRoomRequest): {
-    name?: string
-    description?: string | null
-    isPublic?: boolean
-    defaultJoinRole?: "EDITOR" | "VIEWER"
-  } {
-    const data: {
-      name?: string
-      description?: string | null
-      isPublic?: boolean
-      defaultJoinRole?: "EDITOR" | "VIEWER"
-    } = {}
-
-    if ("name" in request) {
-      data.name = request.name
-    }
-
-    if ("description" in request) {
-      data.description = request.description ?? null
-    }
-
-    if ("isPublic" in request) {
-      data.isPublic = request.isPublic
-    }
-
-    if ("defaultJoinRole" in request) {
-      data.defaultJoinRole = request.defaultJoinRole
-    }
-
-    return data
-  }
-
-  private roomNotFound() {
+  private roomNotFound(message = "Room not found.") {
     return new NotFoundException({
-      code: "ROOM_NOT_FOUND",
-      message: "Room not found.",
+      code: apiErrorCodes.ROOM_NOT_FOUND,
+      message,
     })
   }
 
   private memberNotFound(message = "Room member not found.") {
     return new NotFoundException({
-      code: "MEMBER_NOT_FOUND",
+      code: apiErrorCodes.MEMBER_NOT_FOUND,
       message,
     })
   }
 
   private validationError(message: string) {
     return new BadRequestException({
-      code: "VALIDATION_ERROR",
+      code: apiErrorCodes.VALIDATION_ERROR,
       message,
     })
   }
 
   private permissionDenied(message: string) {
     return new ForbiddenException({
-      code: "PERMISSION_DENIED",
+      code: apiErrorCodes.PERMISSION_DENIED,
       message,
     })
   }

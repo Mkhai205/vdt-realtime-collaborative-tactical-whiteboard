@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import { Prisma, type PrismaClient } from "@rctw/database"
-import type { WhiteboardObject } from "@rctw/shared-contracts"
+import { apiErrorCodes, type WhiteboardObject } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 import { toWhiteboardObject } from "../whiteboard-objects/whiteboard-object-response.mapper"
 
@@ -160,10 +160,10 @@ export class WhiteboardSnapshotsService {
     return value instanceof Date ? value.toISOString() : value
   }
 
-  private roomNotFound() {
+  private roomNotFound(message = "Room not found.") {
     return new NotFoundException({
-      code: "ROOM_NOT_FOUND",
-      message: "Room not found.",
+      code: apiErrorCodes.ROOM_NOT_FOUND,
+      message,
     })
   }
 
