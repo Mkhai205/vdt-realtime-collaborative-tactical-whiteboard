@@ -1,6 +1,4 @@
-import { isAxiosError } from "axios"
 import {
-  apiErrorSchema,
   type AddRoomMemberRequest,
   type GetRoomMembersResponse,
   type GetRoomResponse,
@@ -12,6 +10,8 @@ import {
   type ListRoomsResponse,
 } from "@rctw/shared-contracts"
 import { apiClient } from "@/lib/api-client"
+
+export { getApiErrorMessage } from "@/lib/api-error-utils"
 
 export async function createRoom(
   request: CreateRoomRequest
@@ -74,16 +74,4 @@ export async function updateRoomMemberRole(
   )
 
   return response.data
-}
-
-export function getApiErrorMessage(error: unknown): string {
-  if (isAxiosError(error)) {
-    const parsed = apiErrorSchema.safeParse(error.response?.data)
-
-    if (parsed.success) {
-      return parsed.data.message
-    }
-  }
-
-  return "Request failed."
 }

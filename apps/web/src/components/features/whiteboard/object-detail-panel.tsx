@@ -22,7 +22,7 @@ import { StyleEditor } from "./components/style-editor"
 import { TextEditor } from "./components/text-editor"
 import { LineEditor } from "./components/line-editor"
 import { FieldSeparator } from "./components/detail-fields"
-import { canEditRoom } from "./whiteboard-ui-utils"
+import { canEditRoom } from "@/lib/room-utils"
 
 export function ObjectDetailPanel() {
   const selectedObject = useWhiteboardStore((state) =>

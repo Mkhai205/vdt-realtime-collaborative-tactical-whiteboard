@@ -12,7 +12,7 @@ import type {
   RemoteEditingState,
   RemoteTransformPreview,
 } from "./types"
-import { canEditRoom } from "@/components/features/whiteboard/whiteboard-ui-utils"
+import { canEditRoom } from "@/lib/room-utils"
 
 const remoteTransformPreviewStaleMs = 1500
 const remoteTransformPreviewTimeouts = new Map<

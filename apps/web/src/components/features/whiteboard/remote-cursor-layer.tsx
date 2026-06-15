@@ -1,6 +1,7 @@
 "use client"
 
 import { Group, Line, Rect, Text } from "react-konva"
+import { readableForegroundColor } from "@/lib/color-utils"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
 
 const fallbackCursorColor = "#14532d"
@@ -63,7 +64,7 @@ export function RemoteCursorLayer({ viewportScale }: { viewportScale: number }) 
                 width={labelWidth - labelPaddingX * 2}
                 height={labelHeight}
                 text={label}
-                fill={getReadableTextColor(color)}
+                fill={readableForegroundColor(color, "#ffffff")}
                 fontSize={12}
                 fontStyle="bold"
                 fontFamily="sans-serif"
@@ -89,36 +90,4 @@ function getCursorLabelWidth(label: string): number {
     maxLabelWidth,
     Math.max(minLabelWidth, label.length * 7 + labelPaddingX * 2),
   )
-}
-
-function getReadableTextColor(color: string): string {
-  const hex = normalizeHexColor(color)
-
-  if (!hex) {
-    return "#ffffff"
-  }
-
-  const red = Number.parseInt(hex.slice(0, 2), 16)
-  const green = Number.parseInt(hex.slice(2, 4), 16)
-  const blue = Number.parseInt(hex.slice(4, 6), 16)
-  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
-
-  return luminance > 0.6 ? "#172018" : "#ffffff"
-}
-
-function normalizeHexColor(color: string): string | null {
-  const trimmedColor = color.trim().replace(/^#/, "")
-
-  if (/^[0-9a-f]{6}$/i.test(trimmedColor)) {
-    return trimmedColor
-  }
-
-  if (/^[0-9a-f]{3}$/i.test(trimmedColor)) {
-    return trimmedColor
-      .split("")
-      .map((character) => character + character)
-      .join("")
-  }
-
-  return null
 }

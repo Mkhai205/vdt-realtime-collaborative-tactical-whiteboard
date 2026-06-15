@@ -1,60 +1,56 @@
 import type {
   ObjectMutablePatch,
-  ObjectType,
-  ShapeStyle,
-  Tool,
   WhiteboardObject,
 } from "@rctw/shared-contracts"
 import type Konva from "konva"
-import { readStoredGuestIdentity } from "../identity"
+import type { CanvasPoint, StageSize } from "@/lib/canvas-utils"
+import type { WorldRect } from "@/lib/canvas-utils"
+import {
+  type LinePoints,
+  smallGridStep,
+  majorGridStep,
+  defaultRectangleWidth,
+  defaultRectangleHeight,
+  defaultCircleSize,
+  defaultTextWidth,
+  defaultTextHeight,
+  defaultLinePoints,
+  minimumObjectSize,
+  minimumFontSize,
+  minimumStrokeWidth,
+  minLineLength,
+  minObjectTransformSize,
+  minLineTransformLength,
+  canvasValuePrecision,
+  demoActorId,
+  localFallbackActorId,
+  demoTimestamp,
+} from "@/lib/canvas-constants"
 
-export type CanvasPoint = {
-  x: number
-  y: number
+// Re-export for backward compatibility
+export type { CanvasPoint, StageSize, WorldRect, LinePoints }
+export {
+  smallGridStep,
+  majorGridStep,
+  defaultRectangleWidth,
+  defaultRectangleHeight,
+  defaultCircleSize,
+  defaultTextWidth,
+  defaultTextHeight,
+  defaultLinePoints,
+  minimumObjectSize,
+  minimumFontSize,
+  minimumStrokeWidth,
+  minLineLength,
+  minObjectTransformSize,
+  minLineTransformLength,
+  canvasValuePrecision,
+  demoActorId,
+  localFallbackActorId,
+  demoTimestamp,
 }
 
-export type StageSize = {
-  width: number
-  height: number
-}
 
-export type WorldRect = CanvasPoint & {
-  width: number
-  height: number
-}
-
-export type GridLine = {
-  id: string
-  points: [number, number, number, number]
-}
-
-export type LinePoints = [number, number, number, number]
-
-export const smallGridStep = 32
-export const majorGridStep = 160
-export const rectangleWidth = 160
-export const rectangleHeight = 96
-export const circleSize = 128
-export const textWidth = 220
-export const textHeight = 72
-export const minLineLength = 8
-export const minObjectTransformSize = 16
-export const minLineTransformLength = 8
-export const canvasValuePrecision = 100
-
-export const defaultRectangleWidth = 160
-export const defaultRectangleHeight = 96
-export const defaultCircleSize = 128
-export const defaultTextWidth = 220
-export const defaultTextHeight = 72
-export const defaultLinePoints: LinePoints = [0, 0, 160, 0]
-export const minimumObjectSize = 16
-export const minimumFontSize = 8
-export const minimumStrokeWidth = 0
-
-export const demoActorId = "00000000-0000-4000-8000-000000000401"
-export const localFallbackActorId = "00000000-0000-4000-8000-000000000402"
-export const demoTimestamp = "2026-06-06T00:00:00.000Z"
 
 export function roundCanvasValue(value: number): number {
   if (!Number.isFinite(value)) {
@@ -72,12 +68,12 @@ export function normalizeRotationDegrees(rotation: number): number {
 
 export function getLinePoints(points: number[] | null | undefined): LinePoints {
   if (!points || points.length < 4) {
-    return [0, 0, rectangleWidth, 0]
+    return [0, 0, defaultRectangleWidth, 0]
   }
   return [
     points[0] ?? 0,
     points[1] ?? 0,
-    points[2] ?? rectangleWidth,
+    points[2] ?? defaultRectangleWidth,
     points[3] ?? 0,
   ]
 }
@@ -89,18 +85,18 @@ export function getObjectDimensions(object: WhiteboardObject): {
   switch (object.type) {
     case "CIRCLE":
       return {
-        width: object.width ?? circleSize,
-        height: object.height ?? circleSize,
+        width: object.width ?? defaultCircleSize,
+        height: object.height ?? defaultCircleSize,
       }
     case "TEXT":
       return {
-        width: object.width ?? textWidth,
-        height: object.height ?? textHeight,
+        width: object.width ?? defaultTextWidth,
+        height: object.height ?? defaultTextHeight,
       }
     case "RECTANGLE":
       return {
-        width: object.width ?? rectangleWidth,
-        height: object.height ?? rectangleHeight,
+        width: object.width ?? defaultRectangleWidth,
+        height: object.height ?? defaultRectangleHeight,
       }
     case "LINE": {
       const points = getLinePoints(object.points)
@@ -119,19 +115,19 @@ export function getStoredObjectSize(object: WhiteboardObject): {
   switch (object.type) {
     case "CIRCLE":
       return {
-        width: object.width ?? circleSize,
-        height: object.height ?? circleSize,
+        width: object.width ?? defaultCircleSize,
+        height: object.height ?? defaultCircleSize,
       }
     case "TEXT":
       return {
-        width: object.width ?? textWidth,
-        height: object.height ?? textHeight,
+        width: object.width ?? defaultTextWidth,
+        height: object.height ?? defaultTextHeight,
       }
     case "RECTANGLE":
     case "LINE":
       return {
-        width: object.width ?? rectangleWidth,
-        height: object.height ?? rectangleHeight,
+        width: object.width ?? defaultRectangleWidth,
+        height: object.height ?? defaultRectangleHeight,
       }
   }
 }
@@ -341,259 +337,4 @@ export function applyMutablePatchToObject(
   }
 }
 
-export function getLocalActorId(): string {
-  return readStoredGuestIdentity()?.id ?? localFallbackActorId
-}
 
-export function createLocalObjectRecord(
-  roomId: string,
-  input: {
-    type: ObjectType
-    x: number
-    y: number
-    width?: number
-    height?: number
-    points?: number[]
-    text?: string
-    rotation?: number
-    style: ShapeStyle
-  },
-  zIndex: number,
-): WhiteboardObject {
-  const timestamp = new Date().toISOString()
-  return {
-    id: crypto.randomUUID(),
-    roomId,
-    type: input.type,
-    x: input.x,
-    y: input.y,
-    width: input.width,
-    height: input.height,
-    points: input.points,
-    text: input.text,
-    rotation: input.rotation ?? 0,
-    style: input.style,
-    zIndex,
-    version: 1,
-    createdById: getLocalActorId(),
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    deletedAt: null,
-  }
-}
-
-export function createDemoObjects(roomId: string): WhiteboardObject[] {
-  return [
-    {
-      id: "00000000-0000-4000-8000-000000000501",
-      roomId,
-      type: "RECTANGLE",
-      x: 9780,
-      y: 9820,
-      width: 260,
-      height: 150,
-      rotation: 0,
-      style: {
-        fill: "rgba(134, 239, 172, 0.18)",
-        stroke: "#14532d",
-        strokeWidth: 3,
-        opacity: 1,
-      },
-      zIndex: 10,
-      version: 1,
-      createdById: demoActorId,
-      createdAt: demoTimestamp,
-      updatedAt: demoTimestamp,
-      deletedAt: null,
-    },
-    {
-      id: "00000000-0000-4000-8000-000000000502",
-      roomId,
-      type: "CIRCLE",
-      x: 10130,
-      y: 9840,
-      width: 180,
-      height: 120,
-      rotation: 0,
-      style: {
-        fill: "rgba(243, 220, 164, 0.28)",
-        stroke: "#533707",
-        strokeWidth: 3,
-        opacity: 1,
-      },
-      zIndex: 20,
-      version: 1,
-      createdById: demoActorId,
-      createdAt: demoTimestamp,
-      updatedAt: demoTimestamp,
-      deletedAt: null,
-    },
-    {
-      id: "00000000-0000-4000-8000-000000000503",
-      roomId,
-      type: "LINE",
-      x: 10010,
-      y: 10100,
-      points: [0, 0, 300, -120],
-      rotation: 0,
-      style: {
-        stroke: "#14532d",
-        strokeWidth: 5,
-        opacity: 1,
-        arrowEnd: true,
-      },
-      zIndex: 30,
-      version: 1,
-      createdById: demoActorId,
-      createdAt: demoTimestamp,
-      updatedAt: demoTimestamp,
-      deletedAt: null,
-    },
-    {
-      id: "00000000-0000-4000-8000-000000000504",
-      roomId,
-      type: "TEXT",
-      x: 9760,
-      y: 10120,
-      width: 330,
-      height: 84,
-      text: "Objective Alpha",
-      rotation: 0,
-      style: {
-        color: "#172018",
-        fontSize: 30,
-        fontFamily: "sans-serif",
-        fontWeight: "bold",
-        opacity: 1,
-      },
-      zIndex: 40,
-      version: 1,
-      createdById: demoActorId,
-      createdAt: demoTimestamp,
-      updatedAt: demoTimestamp,
-      deletedAt: null,
-    },
-  ]
-}
-
-export function createObjectForTool(
-  tool: Tool,
-  point: CanvasPoint,
-  createLocalObject: (input: {
-    type: ObjectType
-    x: number
-    y: number
-    width?: number
-    height?: number
-    points?: number[]
-    text?: string
-    rotation?: number
-    style: ShapeStyle
-  }) => WhiteboardObject | null,
-) {
-  switch (tool) {
-    case "RECTANGLE":
-      createLocalObject({
-        type: "RECTANGLE",
-        x: point.x - rectangleWidth / 2,
-        y: point.y - rectangleHeight / 2,
-        width: rectangleWidth,
-        height: rectangleHeight,
-        style: {
-          fill: "rgba(134, 239, 172, 0.18)",
-          stroke: "#14532d",
-          strokeWidth: 3,
-          opacity: 1,
-        },
-      })
-      return
-    case "CIRCLE":
-      createLocalObject({
-        type: "CIRCLE",
-        x: point.x - circleSize / 2,
-        y: point.y - circleSize / 2,
-        width: circleSize,
-        height: circleSize,
-        style: {
-          fill: "rgba(243, 220, 164, 0.28)",
-          stroke: "#533707",
-          strokeWidth: 3,
-          opacity: 1,
-        },
-      })
-      return
-    case "TEXT":
-      createLocalObject({
-        type: "TEXT",
-        x: point.x,
-        y: point.y,
-        width: textWidth,
-        height: textHeight,
-        text: "Text note",
-        style: {
-          color: "#172018",
-          fontSize: 24,
-          fontFamily: "sans-serif",
-          fontWeight: "bold",
-          opacity: 1,
-        },
-      })
-      return
-    case "SELECT":
-    case "HAND":
-    case "LINE":
-      return
-  }
-}
-
-export function padWorldRect(rect: WorldRect, padding: number): WorldRect {
-  return {
-    x: rect.x - padding,
-    y: rect.y - padding,
-    width: rect.width + padding * 2,
-    height: rect.height + padding * 2,
-  }
-}
-
-export function alignToStep(value: number, step: number): number {
-  return Math.floor(value / step) * step
-}
-
-export function isMajorLine(value: number): boolean {
-  return Math.abs(value % majorGridStep) < 0.001
-}
-
-export function buildGridLines(visibleWorldRect: WorldRect): {
-  minor: GridLine[]
-  major: GridLine[]
-} {
-  const paddedRect = padWorldRect(visibleWorldRect, majorGridStep)
-  const minor: GridLine[] = []
-  const major: GridLine[] = []
-
-  for (
-    let x = alignToStep(paddedRect.x, smallGridStep);
-    x <= paddedRect.x + paddedRect.width;
-    x += smallGridStep
-  ) {
-    const target = isMajorLine(x) ? major : minor
-    target.push({
-      id: `v-${x}`,
-      points: [x, paddedRect.y, x, paddedRect.y + paddedRect.height],
-    })
-  }
-
-  for (
-    let y = alignToStep(paddedRect.y, smallGridStep);
-    y <= paddedRect.y + paddedRect.height;
-    y += smallGridStep
-  ) {
-    const target = isMajorLine(y) ? major : minor
-    target.push({
-      id: `h-${y}`,
-      points: [paddedRect.x, y, paddedRect.x + paddedRect.width, y],
-    })
-  }
-
-  return { minor, major }
-}

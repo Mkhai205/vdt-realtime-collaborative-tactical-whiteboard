@@ -41,7 +41,7 @@ import {
   getRoom,
   getRoomMembers,
   updateRoomMemberRole,
-} from "./room-api"
+} from "@/lib/room-api"
 
 type LoadState = "loading" | "ready" | "error"
 type CurrentUserWithRole = GetRoomResponse["currentUser"]

@@ -4,6 +4,15 @@ import { useMemo } from "react"
 import type { OnlineUser, WhiteboardObject } from "@rctw/shared-contracts"
 import { Ellipse, Group, Rect, Text } from "react-konva"
 import {
+  defaultRectangleWidth,
+  defaultRectangleHeight,
+  defaultCircleSize,
+  defaultTextWidth,
+  defaultTextHeight,
+  defaultLinePoints,
+} from "@/lib/canvas-constants"
+import { readableForegroundColor } from "@/lib/color-utils"
+import {
   type RemoteEditingState,
   useWhiteboardStore,
 } from "@/stores/whiteboard-store"
@@ -13,12 +22,6 @@ const labelHeight = 24
 const labelPaddingX = 7
 const maxLabelWidth = 176
 const minLabelWidth = 56
-const defaultShapeWidth = 160
-const defaultShapeHeight = 96
-const defaultCircleSize = 128
-const defaultTextWidth = 220
-const defaultTextHeight = 72
-const defaultLinePoints = [0, 0, 160, 0] as const
 
 type RemoteSelectionIndicator = {
   object: WhiteboardObject
@@ -104,7 +107,7 @@ export function RemoteSelectionLayer({
                 width={labelWidth - labelPaddingX * 2}
                 height={labelHeight}
                 text={label}
-                fill={getReadableTextColor(color)}
+                fill={readableForegroundColor(color, "#ffffff")}
                 fontSize={12}
                 fontStyle="bold"
                 fontFamily="sans-serif"
@@ -159,7 +162,7 @@ export function RemoteSelectionLayer({
                 width={labelWidth - labelPaddingX * 2}
                 height={labelHeight}
                 text={label}
-                fill={getReadableTextColor(color)}
+                fill={readableForegroundColor(color, "#ffffff")}
                 fontSize={12}
                 fontStyle="bold"
                 fontFamily="sans-serif"
@@ -352,8 +355,8 @@ function getObjectSize(object: WhiteboardObject): {
     case "RECTANGLE":
     case "LINE":
       return {
-        width: object.width ?? defaultShapeWidth,
-        height: object.height ?? defaultShapeHeight,
+        width: object.width ?? defaultRectangleWidth,
+        height: object.height ?? defaultRectangleHeight,
       }
   }
 }
@@ -363,7 +366,7 @@ function getLineBounds(points: WhiteboardObject["points"]): LineBounds {
     points && points.length >= 4 ? points.slice(0, 4) : defaultLinePoints
   const x1 = normalizedPoints[0] ?? 0
   const y1 = normalizedPoints[1] ?? 0
-  const x2 = normalizedPoints[2] ?? defaultShapeWidth
+  const x2 = normalizedPoints[2] ?? defaultRectangleWidth
   const y2 = normalizedPoints[3] ?? 0
   const minX = Math.min(x1, x2)
   const minY = Math.min(y1, y2)
@@ -416,36 +419,4 @@ function getSelectionLabelWidth(label: string): number {
     maxLabelWidth,
     Math.max(minLabelWidth, label.length * 7 + labelPaddingX * 2),
   )
-}
-
-function getReadableTextColor(color: string): string {
-  const hex = normalizeHexColor(color)
-
-  if (!hex) {
-    return "#ffffff"
-  }
-
-  const red = Number.parseInt(hex.slice(0, 2), 16)
-  const green = Number.parseInt(hex.slice(2, 4), 16)
-  const blue = Number.parseInt(hex.slice(4, 6), 16)
-  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
-
-  return luminance > 0.6 ? "#172018" : "#ffffff"
-}
-
-function normalizeHexColor(color: string): string | null {
-  const trimmedColor = color.trim().replace(/^#/, "")
-
-  if (/^[0-9a-f]{6}$/i.test(trimmedColor)) {
-    return trimmedColor
-  }
-
-  if (/^[0-9a-f]{3}$/i.test(trimmedColor)) {
-    return trimmedColor
-      .split("")
-      .map((character) => character + character)
-      .join("")
-  }
-
-  return null
 }

@@ -13,7 +13,12 @@ import {
   type CanvasPoint,
 } from "@/lib/canvas-utils"
 import { cn } from "@/lib/utils"
+import { useShallow } from "zustand/react/shallow"
 import { useWhiteboardStore } from "@/stores/whiteboard-store"
+import {
+  selectStageState,
+  selectStageActions,
+} from "@/stores/whiteboard-store/selectors"
 import { RemoteCursorLayer } from "./remote-cursor-layer"
 import { RemoteSelectionLayer } from "./remote-selection-layer"
 import { WhiteboardObjectLayer } from "./whiteboard-object-layer"
@@ -23,12 +28,12 @@ import {
   minLineTransformLength,
   minObjectTransformSize,
   roundCanvasValue,
-  buildGridLines,
   buildDragPatch,
   buildTransformPatch,
   applyCommittedPatchToNode,
-  createObjectForTool,
 } from "./whiteboard-helpers"
+import { buildGridLines } from "./grid-renderer"
+import { createObjectForTool } from "@/lib/object-factory"
 import { useCanvasThemeColors } from "./whiteboard-ui-utils"
 import { useStagePanning } from "./hooks/use-stage-panning"
 import { useThrottledSenders } from "./hooks/use-throttled-senders"
@@ -61,31 +66,28 @@ export function WhiteboardStage() {
   const [lineDraft, setLineDraft] = useState<LineDraft | null>(null)
   const [isPanning, setIsPanning] = useState(false)
 
-  const currentTool = useWhiteboardStore((state) => state.currentTool)
-  const toolRevision = useWhiteboardStore((state) => state.toolRevision)
-  const selectedObjectId = useWhiteboardStore((state) => state.selectedObjectId)
-  const selectedObject = useWhiteboardStore((state) =>
-    state.selectedObjectId ? state.objects[state.selectedObjectId] : null,
-  )
-  const currentUserRole = useWhiteboardStore((state) => state.currentUser?.role)
-  const viewport = useWhiteboardStore((state) => state.viewport)
-  const stageSize = useWhiteboardStore((state) => state.stageSize)
-  const createLocalObject = useWhiteboardStore(
-    (state) => state.createLocalObject,
-  )
-  const selectObject = useWhiteboardStore((state) => state.selectObject)
-  const setStageSize = useWhiteboardStore((state) => state.setStageSize)
-  const panViewportBy = useWhiteboardStore((state) => state.panViewportBy)
-  const zoomViewportBy = useWhiteboardStore((state) => state.zoomViewportBy)
-  const updateObjectPatch = useWhiteboardStore(
-    (state) => state.updateObjectPatch,
-  )
-  const sendTransformPreview = useWhiteboardStore(
-    (state) => state.sendTransformPreview,
-  )
-  const sendCursorUpdate = useWhiteboardStore((state) => state.sendCursorUpdate)
-  const sendEditingStart = useWhiteboardStore((state) => state.sendEditingStart)
-  const sendEditingEnd = useWhiteboardStore((state) => state.sendEditingEnd)
+  const {
+    currentTool,
+    toolRevision,
+    selectedObjectId,
+    selectedObject,
+    currentUserRole,
+    viewport,
+    stageSize,
+  } = useWhiteboardStore(useShallow(selectStageState))
+
+  const {
+    createLocalObject,
+    selectObject,
+    setStageSize,
+    panViewportBy,
+    zoomViewportBy,
+    updateObjectPatch,
+    sendTransformPreview,
+    sendCursorUpdate,
+    sendEditingStart,
+    sendEditingEnd,
+  } = useWhiteboardStore(useShallow(selectStageActions))
 
   const colors = useCanvasThemeColors()
   const canEdit = currentUserRole === "OWNER" || currentUserRole === "EDITOR"

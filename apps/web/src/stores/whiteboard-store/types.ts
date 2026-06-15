@@ -29,7 +29,7 @@ import type { CanvasPoint, StageSize, Viewport } from "@/lib/canvas-utils"
 import {
   PendingWhiteboardHistoryEntry,
   WhiteboardHistoryEntry,
-} from "@/components/features/whiteboard/whiteboard-history"
+} from "@/lib/whiteboard-history"
 
 export type WhiteboardCurrentUser = UserSummary & {
   role: RoomRole

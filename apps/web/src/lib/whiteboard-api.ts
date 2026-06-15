@@ -1,6 +1,4 @@
-import { isAxiosError } from "axios"
 import {
-  apiErrorSchema,
   type GetRoomOperationsResponse,
   type GetRoomObjectsResponse,
   type ObjectCreateRequest,
@@ -9,6 +7,7 @@ import {
   type OperationAppliedEvent,
 } from "@rctw/shared-contracts"
 import { apiClient } from "@/lib/api-client"
+import { getApiErrorMessage } from "@/lib/api-error-utils"
 
 export async function getRoomObjects(
   roomId: string
@@ -77,13 +76,5 @@ export async function deleteWhiteboardObject(
 }
 
 export function getWhiteboardApiErrorMessage(error: unknown): string {
-  if (isAxiosError(error)) {
-    const parsed = apiErrorSchema.safeParse(error.response?.data)
-
-    if (parsed.success) {
-      return parsed.data.message
-    }
-  }
-
-  return "Whiteboard request failed."
+  return getApiErrorMessage(error, "Whiteboard request failed.")
 }

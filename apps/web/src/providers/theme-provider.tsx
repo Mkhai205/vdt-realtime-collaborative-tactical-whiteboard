@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes"
+import { isEditableEventTarget } from "@/lib/dom-utils"
 
 function ThemeProvider({
   children,
@@ -21,18 +22,6 @@ function ThemeProvider({
   )
 }
 
-function isTypingTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false
-  }
-
-  return (
-    target.isContentEditable ||
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT"
-  )
-}
 
 function ThemeHotkey() {
   const { resolvedTheme, setTheme } = useTheme()
@@ -51,7 +40,7 @@ function ThemeHotkey() {
         return
       }
 
-      if (isTypingTarget(event.target)) {
+      if (isEditableEventTarget(event.target)) {
         return
       }
 

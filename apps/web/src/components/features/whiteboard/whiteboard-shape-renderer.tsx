@@ -5,10 +5,14 @@ import type { WhiteboardObject } from "@rctw/shared-contracts"
 import type Konva from "konva"
 import type { KonvaEventObject } from "konva/lib/Node"
 import { Arrow, Ellipse, Rect, Text } from "react-konva"
+import {
+  defaultRectangleWidth,
+  defaultRectangleHeight,
+  defaultLinePoints,
+  defaultTextWidth,
+} from "@/lib/canvas-constants"
+import { withAlpha } from "@/lib/color-utils"
 
-const defaultShapeWidth = 160
-const defaultShapeHeight = 96
-const defaultLinePoints = [0, 0, 160, 0]
 const defaultStrokeWidth = 2
 const defaultFontSize = 24
 
@@ -89,10 +93,10 @@ export function WhiteboardShapeRenderer({
           ref={setNodeRef}
           x={object.x}
           y={object.y}
-          width={object.width ?? defaultShapeWidth}
-          height={object.height ?? defaultShapeHeight}
+          width={object.width ?? defaultRectangleWidth}
+          height={object.height ?? defaultRectangleHeight}
           rotation={object.rotation}
-          fill={object.style.fill ?? transparentFill(defaultColors.primary)}
+          fill={object.style.fill ?? withAlpha(defaultColors.primary, 0.14)}
           stroke={object.style.stroke ?? defaultColors.primary}
           strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
           opacity={object.style.opacity ?? 1}
@@ -104,8 +108,8 @@ export function WhiteboardShapeRenderer({
         />
       )
     case "CIRCLE": {
-      const width = object.width ?? defaultShapeWidth
-      const height = object.height ?? defaultShapeWidth
+      const width = object.width ?? defaultRectangleWidth
+      const height = object.height ?? defaultRectangleWidth
 
       return (
         <Ellipse
@@ -115,7 +119,7 @@ export function WhiteboardShapeRenderer({
           radiusX={width / 2}
           radiusY={height / 2}
           rotation={object.rotation}
-          fill={object.style.fill ?? transparentFill(defaultColors.accent)}
+          fill={object.style.fill ?? withAlpha(defaultColors.accent, 0.14)}
           stroke={object.style.stroke ?? defaultColors.accent}
           strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
           opacity={object.style.opacity ?? 1}
@@ -154,8 +158,8 @@ export function WhiteboardShapeRenderer({
           ref={setNodeRef}
           x={object.x}
           y={object.y}
-          width={object.width ?? 220}
-          height={object.height ?? defaultShapeHeight}
+          width={object.width ?? defaultTextWidth}
+          height={object.height ?? defaultRectangleHeight}
           rotation={object.rotation}
           text={object.text ?? ""}
           fill={
@@ -183,31 +187,4 @@ function normalizeLinePoints(points: WhiteboardObject["points"]): number[] {
   return points.slice(0, 4)
 }
 
-function transparentFill(color: string): string {
-  if (!color.startsWith("#")) {
-    return color
-  }
 
-  const hex = color.slice(1)
-  const normalizedHex =
-    hex.length === 3
-      ? hex
-          .split("")
-          .map((character) => character + character)
-          .join("")
-      : hex
-
-  if (normalizedHex.length !== 6) {
-    return color
-  }
-
-  const red = Number.parseInt(normalizedHex.slice(0, 2), 16)
-  const green = Number.parseInt(normalizedHex.slice(2, 4), 16)
-  const blue = Number.parseInt(normalizedHex.slice(4, 6), 16)
-
-  if ([red, green, blue].some((channel) => Number.isNaN(channel))) {
-    return color
-  }
-
-  return `rgba(${red}, ${green}, ${blue}, 0.14)`
-}

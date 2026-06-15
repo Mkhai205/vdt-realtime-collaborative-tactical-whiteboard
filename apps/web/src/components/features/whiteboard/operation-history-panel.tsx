@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 import {
   getRoomOperations,
   getWhiteboardApiErrorMessage,
-} from "./whiteboard-api"
+} from "@/lib/whiteboard-api"
 import {
   formatObjectType,
   formatOperationObjectId,
