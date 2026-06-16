@@ -1,39 +1,39 @@
 import { z } from "zod"
 import { userSummarySchema } from "./common.js"
-import { defaultJoinRoleSchema } from "./room.js"
-import { roomRoleSchema } from "./identity.js"
+import { defaultJoinRoleSchema } from "./board.js"
+import { boardRoleSchema } from "./identity.js"
 import {
   operationAppliedEventSchema,
   toolSchema,
   whiteboardObjectSchema,
 } from "./whiteboard.js"
 
-export const roomSocketPrefix = "room:"
+export const boardSocketPrefix = "board:"
 
-export function toRoomSocketName(roomId: string): string {
-  return `${roomSocketPrefix}${roomId}`
+export function toBoardSocketName(boardId: string): string {
+  return `${boardSocketPrefix}${boardId}`
 }
 
-export const roomJoinRequestSchema = z.object({
-  roomId: z.uuid(),
+export const boardJoinRequestSchema = z.object({
+  boardId: z.uuid(),
 })
 
-export const roomLeaveRequestSchema = roomJoinRequestSchema
+export const boardLeaveRequestSchema = boardJoinRequestSchema
 
 export const syncRequestSchema = z.object({
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   lastSeenRevision: z.number().int().nonnegative(),
 })
 
 export const onlineUserSchema = userSummarySchema.extend({
-  role: roomRoleSchema,
+  role: boardRoleSchema,
   status: z.literal("ONLINE"),
   selectedObjectId: z.uuid().nullable().optional(),
   connectedAt: z.string(),
 })
 
-export const roomStateEventSchema = z.object({
-  room: z.object({
+export const boardStateEventSchema = z.object({
+  board: z.object({
     id: z.uuid(),
     name: z.string().min(1).max(160),
     description: z.string().nullable().optional(),
@@ -42,24 +42,24 @@ export const roomStateEventSchema = z.object({
     defaultJoinRole: defaultJoinRoleSchema,
   }),
   currentUser: userSummarySchema.extend({
-    role: roomRoleSchema,
+    role: boardRoleSchema,
   }),
   objects: z.array(whiteboardObjectSchema),
   onlineUsers: z.array(onlineUserSchema),
 })
 
 export const presenceUpdateEventSchema = z.object({
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   onlineUsers: z.array(onlineUserSchema),
 })
 
 export const selectionUpdateRequestSchema = z.object({
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   selectedObjectId: z.uuid().nullable(),
 })
 
 export const editingStartRequestSchema = z.object({
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   objectId: z.uuid(),
 })
 
@@ -72,7 +72,7 @@ export const objectEditingEventSchema = editingStartRequestSchema.extend({
 })
 
 export const cursorUpdateRequestSchema = z.object({
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   x: z.number(),
   y: z.number(),
   selectedObjectId: z.uuid().nullable().optional(),
@@ -98,7 +98,7 @@ export const objectTransformPreviewPatchSchema = z
   })
 
 export const objectTransformPreviewRequestSchema = z.object({
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   objectId: z.uuid(),
   preview: objectTransformPreviewPatchSchema,
 })
@@ -111,7 +111,7 @@ export const objectTransformPreviewedEventSchema =
 
 export const syncOperationsResponseSchema = z.object({
   mode: z.literal("OPERATIONS"),
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   fromRevision: z.number().int().nonnegative(),
   toRevision: z.number().int().nonnegative(),
   operations: z.array(operationAppliedEventSchema),
@@ -119,7 +119,7 @@ export const syncOperationsResponseSchema = z.object({
 
 export const syncFullStateResponseSchema = z.object({
   mode: z.literal("FULL_STATE"),
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   revision: z.number().int().nonnegative(),
   objects: z.array(whiteboardObjectSchema),
 })
@@ -135,11 +135,11 @@ export const socketErrorEventSchema = z.object({
   details: z.unknown().optional(),
 })
 
-export type RoomJoinRequest = z.infer<typeof roomJoinRequestSchema>
-export type RoomLeaveRequest = z.infer<typeof roomLeaveRequestSchema>
+export type BoardJoinRequest = z.infer<typeof boardJoinRequestSchema>
+export type BoardLeaveRequest = z.infer<typeof boardLeaveRequestSchema>
 export type SyncRequest = z.infer<typeof syncRequestSchema>
 export type OnlineUser = z.infer<typeof onlineUserSchema>
-export type RoomStateEvent = z.infer<typeof roomStateEventSchema>
+export type BoardStateEvent = z.infer<typeof boardStateEventSchema>
 export type PresenceUpdateEvent = z.infer<typeof presenceUpdateEventSchema>
 export type SelectionUpdateRequest = z.infer<
   typeof selectionUpdateRequestSchema

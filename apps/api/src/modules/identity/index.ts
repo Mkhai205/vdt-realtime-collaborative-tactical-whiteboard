@@ -1,5 +1,4 @@
 export * from "./current-user.decorator"
-export * from "./identity-cleanup.service"
 export * from "./identity.guard"
 export * from "./identity.module"
 export * from "./identity.service"

@@ -2,8 +2,8 @@ import { z } from "zod"
 
 export const identityTypeSchema = z.enum(["GUEST", "GOOGLE"])
 export const identityTypes = identityTypeSchema.enum
-export const roomRoleSchema = z.enum(["OWNER", "EDITOR", "VIEWER"])
-export const roomRoles = roomRoleSchema.enum
+export const boardRoleSchema = z.enum(["OWNER", "EDITOR", "VIEWER"])
+export const boardRoles = boardRoleSchema.enum
 
 export const guestIdentityStorageKey = "rctw.guestIdentity.v1"
 export const authTokenStorageKey = "rctw.authToken.v1"
@@ -85,23 +85,25 @@ export function buildJwtSocketAuth(token: string): SocketAuthPayload {
 }
 
 export type IdentityType = z.infer<typeof identityTypeSchema>
-export type RoomRole = z.infer<typeof roomRoleSchema>
+export type BoardRole = z.infer<typeof boardRoleSchema>
 export type GuestIdentity = z.infer<typeof guestIdentitySchema>
 export type GuestRestHeaders = z.infer<typeof guestRestHeadersSchema>
 export type AuthRestHeaders = z.infer<typeof authRestHeadersSchema>
 export type JwtIdentityPayload = z.infer<typeof jwtIdentityPayloadSchema>
 export type SocketAuthPayload = z.infer<typeof socketAuthPayloadSchema>
 
-export const editableRoomRoles = ["OWNER", "EDITOR"] as const
-export const manageableRoomRoles = ["OWNER"] as const
+export const editableBoardRoles = ["OWNER", "EDITOR"] as const
+export const manageableBoardRoles = ["OWNER"] as const
 
-export type EditableRoomRole = (typeof editableRoomRoles)[number]
-export type ManageableRoomRole = (typeof manageableRoomRoles)[number]
+export type EditableBoardRole = (typeof editableBoardRoles)[number]
+export type ManageableBoardRole = (typeof manageableBoardRoles)[number]
 
-export function canEditRoomRole(role: RoomRole): role is EditableRoomRole {
-  return editableRoomRoles.includes(role as EditableRoomRole)
+export function canEditBoardRole(role: BoardRole): role is EditableBoardRole {
+  return editableBoardRoles.includes(role as EditableBoardRole)
 }
 
-export function canManageRoomRole(role: RoomRole): role is ManageableRoomRole {
-  return manageableRoomRoles.includes(role as ManageableRoomRole)
+export function canManageBoardRole(
+  role: BoardRole,
+): role is ManageableBoardRole {
+  return manageableBoardRoles.includes(role as ManageableBoardRole)
 }
