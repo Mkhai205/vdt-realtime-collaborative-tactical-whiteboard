@@ -9,34 +9,34 @@ import {
   WebSocketServer,
 } from "@nestjs/websockets"
 import {
+  boardJoinRequestSchema,
+  boardLeaveRequestSchema,
   cursorUpdateRequestSchema,
   editingEndRequestSchema,
   editingStartRequestSchema,
-  objectTransformPreviewRequestSchema,
   objectCreateSocketRequestSchema,
   objectDeleteSocketRequestSchema,
+  objectTransformPreviewRequestSchema,
   objectUpdateSocketRequestSchema,
   redoRequestSchema,
-  roomJoinRequestSchema,
-  roomLeaveRequestSchema,
   selectionUpdateRequestSchema,
   syncRequestSchema,
-  toRoomSocketName,
+  toBoardSocketName,
   undoRequestSchema,
+  type BoardRole,
+  type BoardStateEvent,
   type CursorUpdatedEvent,
   type ObjectEditingEvent,
   type OperationAppliedEvent,
   type OperationRejectedEvent,
-  type RoomStateEvent,
-  type RoomRole,
   type SocketErrorEvent,
   type SyncResponse,
   type UserSummary,
 } from "@rctw/shared-contracts"
 import type { Server, Socket } from "socket.io"
 import { z } from "zod"
-import { IdentityService } from "../identity"
-import { RoomsService } from "../rooms"
+import { AuthService } from "../auth/services/auth.service"
+import { BoardService } from "../board/services/board.service"
 import { WhiteboardObjectsService } from "../whiteboard-objects"
 import { PresenceService } from "./presence.service"
 import { processUndoRedoOperation } from "./realtime-operation-dispatcher"
@@ -77,8 +77,8 @@ export class RealtimeGateway
   private server!: Server
 
   constructor(
-    private readonly identityService: IdentityService,
-    private readonly roomsService: RoomsService,
+    private readonly authService: AuthService,
+    private readonly boardService: BoardService,
     private readonly whiteboardObjectsService: WhiteboardObjectsService,
     private readonly presenceService: PresenceService,
   ) {}
@@ -86,7 +86,7 @@ export class RealtimeGateway
   async handleConnection(client: RealtimeSocket): Promise<void> {
     try {
       client.data.currentUser =
-        await this.identityService.resolveSocketIdentity(client.handshake.auth)
+        await this.authService.resolveSocketIdentity(client.handshake.auth)
     } catch (error) {
       client.emit("error", this.toSocketError(error))
       client.disconnect(true)
@@ -97,87 +97,88 @@ export class RealtimeGateway
     const endedEditingStates = this.presenceService.clearEditingForSocket(
       client.id,
     )
-    const affectedRoomIds = this.presenceService.leaveAllRooms(client.id)
+    const affectedBoardIds = this.presenceService.leaveAllBoards(client.id)
 
     this.emitEndedEditingStates(endedEditingStates, client.id)
 
-    for (const roomId of affectedRoomIds) {
-      this.emitPresenceUpdate(roomId)
+    for (const boardId of affectedBoardIds) {
+      this.emitPresenceUpdate(boardId)
     }
   }
 
-  @SubscribeMessage("room:join")
-  async handleRoomJoin(
+  @SubscribeMessage("board:join")
+  async handleBoardJoin(
     @ConnectedSocket() client: RealtimeSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
-    const parsed = roomJoinRequestSchema.safeParse(payload)
+    const parsed = boardJoinRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
       client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
-    const { roomId } = parsed.data
+    const { boardId } = parsed.data
 
     try {
       const currentUser = this.requireCurrentUser(client)
-      const joinResponse = await this.roomsService.joinRoom(currentUser, roomId)
+      const joinResponse = await this.boardService.joinBoard(currentUser, boardId)
       const objectsResponse =
-        await this.whiteboardObjectsService.getRoomObjects(currentUser, roomId)
+        await this.whiteboardObjectsService.getBoardObjects(currentUser, boardId)
 
-      await client.join(toRoomSocketName(roomId))
+      await client.join(toBoardSocketName(boardId))
 
-      const onlineUsers = this.presenceService.joinRoom({
+      const onlineUsers = this.presenceService.joinBoard({
         socketId: client.id,
-        roomId,
+        boardId,
         user: currentUser,
         role: joinResponse.currentUser.role,
       })
-      const roomState: RoomStateEvent = {
-        room: {
-          id: joinResponse.room.id,
-          name: joinResponse.room.name,
-          description: joinResponse.room.description ?? null,
+
+      const boardState: BoardStateEvent = {
+        board: {
+          id: joinResponse.board.id,
+          name: joinResponse.board.name,
+          description: joinResponse.board.description ?? null,
           currentRevision: objectsResponse.currentRevision,
-          isPublic: joinResponse.room.isPublic,
-          defaultJoinRole: joinResponse.room.defaultJoinRole,
+          isPublic: joinResponse.board.isPublic,
+          defaultJoinRole: joinResponse.board.defaultJoinRole,
         },
         currentUser: joinResponse.currentUser,
         objects: objectsResponse.objects,
         onlineUsers,
       }
 
-      client.emit("room:state", roomState)
-      this.emitPresenceUpdate(roomId)
+      client.emit("board:state", boardState)
+      this.emitPresenceUpdate(boardId)
     } catch (error) {
       client.emit("error", this.toSocketError(error))
     }
   }
 
-  @SubscribeMessage("room:leave")
-  async handleRoomLeave(
+  @SubscribeMessage("board:leave")
+  async handleBoardLeave(
     @ConnectedSocket() client: RealtimeSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
-    const parsed = roomLeaveRequestSchema.safeParse(payload)
+    const parsed = boardLeaveRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
       client.emit("error", toValidationSocketError(parsed.error))
       return
     }
 
-    const { roomId } = parsed.data
+    const { boardId } = parsed.data
 
-    const endedEditingStates = this.presenceService.clearEditingForSocketRoom(
+    const endedEditingStates = this.presenceService.clearEditingForSocketBoard(
       client.id,
-      roomId,
+      boardId,
     )
 
-    await client.leave(toRoomSocketName(roomId))
-    this.presenceService.leaveRoom(client.id, roomId)
+    await client.leave(toBoardSocketName(boardId))
+    this.presenceService.leaveBoard(client.id, boardId)
     this.emitEndedEditingStates(endedEditingStates, client.id)
-    this.emitPresenceUpdate(roomId)
+    this.emitPresenceUpdate(boardId)
   }
 
   @SubscribeMessage("sync:request")
@@ -192,29 +193,29 @@ export class RealtimeGateway
       return
     }
 
-    const { roomId, lastSeenRevision } = parsed.data
+    const { boardId, lastSeenRevision } = parsed.data
 
     try {
       const currentUser = this.requireCurrentUser(client)
-      const joinResponse = await this.roomsService.joinRoom(currentUser, roomId)
+      const joinResponse = await this.boardService.joinBoard(currentUser, boardId)
 
-      await client.join(toRoomSocketName(roomId))
-      this.presenceService.joinRoom({
+      await client.join(toBoardSocketName(boardId))
+      this.presenceService.joinBoard({
         socketId: client.id,
-        roomId,
+        boardId,
         user: currentUser,
         role: joinResponse.currentUser.role,
       })
 
       const response: SyncResponse =
-        await this.whiteboardObjectsService.getRoomOperationReplay(
+        await this.whiteboardObjectsService.getBoardOperationReplay(
           currentUser,
-          roomId,
+          boardId,
           lastSeenRevision,
         )
 
       client.emit("sync:response", response)
-      this.emitPresenceUpdate(roomId)
+      this.emitPresenceUpdate(boardId)
     } catch (error) {
       client.emit("error", this.toSocketError(error))
     }
@@ -234,13 +235,13 @@ export class RealtimeGateway
 
     try {
       const currentUser = this.requireCurrentUser(client)
-      const { roomId, objectId } = parsed.data
+      const { boardId, objectId } = parsed.data
 
       if (
-        !this.getEditableRoomRole(client, roomId, {
-          notInRoom: "Join the room before announcing editing state.",
+        !this.getEditableBoardRole(client, boardId, {
+          notInBoard: "Join the board before announcing editing state.",
           permissionDenied:
-            "Only room owners and editors can announce editing state.",
+            "Only board owners and editors can announce editing state.",
         })
       ) {
         return
@@ -248,11 +249,11 @@ export class RealtimeGateway
 
       this.presenceService.startEditing({
         socketId: client.id,
-        roomId,
+        boardId,
         objectId,
       })
       this.emitEditingEvent({
-        roomId,
+        boardId,
         objectId,
         user: currentUser,
         status: "STARTED",
@@ -277,13 +278,13 @@ export class RealtimeGateway
 
     try {
       const currentUser = this.requireCurrentUser(client)
-      const { roomId, objectId } = parsed.data
+      const { boardId, objectId } = parsed.data
 
       if (
-        !this.getEditableRoomRole(client, roomId, {
-          notInRoom: "Join the room before announcing editing state.",
+        !this.getEditableBoardRole(client, boardId, {
+          notInBoard: "Join the board before announcing editing state.",
           permissionDenied:
-            "Only room owners and editors can announce editing state.",
+            "Only board owners and editors can announce editing state.",
         })
       ) {
         return
@@ -291,11 +292,11 @@ export class RealtimeGateway
 
       this.presenceService.endEditing({
         socketId: client.id,
-        roomId,
+        boardId,
         objectId,
       })
       this.emitEditingEvent({
-        roomId,
+        boardId,
         objectId,
         user: currentUser,
         status: "ENDED",
@@ -318,10 +319,10 @@ export class RealtimeGateway
       return
     }
 
-    const { roomId, ...request } = parsed.data
+    const { boardId, ...request } = parsed.data
 
     await this.processObjectOperation(client, parsed.data, (currentUser) =>
-      this.whiteboardObjectsService.createObject(currentUser, roomId, request),
+      this.whiteboardObjectsService.createObject(currentUser, boardId, request),
     )
   }
 
@@ -337,12 +338,12 @@ export class RealtimeGateway
       return
     }
 
-    const { roomId, objectId, ...request } = parsed.data
+    const { boardId, objectId, ...request } = parsed.data
 
     await this.processObjectOperation(client, parsed.data, (currentUser) =>
       this.whiteboardObjectsService.updateObject(
         currentUser,
-        roomId,
+        boardId,
         objectId,
         request,
       ),
@@ -361,12 +362,12 @@ export class RealtimeGateway
       return
     }
 
-    const { roomId, objectId, ...request } = parsed.data
+    const { boardId, objectId, ...request } = parsed.data
 
     await this.processObjectOperation(client, parsed.data, (currentUser) =>
       this.whiteboardObjectsService.deleteObject(
         currentUser,
-        roomId,
+        boardId,
         objectId,
         request,
       ),
@@ -385,13 +386,13 @@ export class RealtimeGateway
       return
     }
 
-    const { roomId, clientOpId, inverseOperation } = parsed.data
+    const { boardId, clientOpId, inverseOperation } = parsed.data
 
     await this.processObjectOperation(client, parsed.data, (currentUser) =>
       processUndoRedoOperation(
         this.whiteboardObjectsService,
         currentUser,
-        roomId,
+        boardId,
         clientOpId,
         inverseOperation,
       ),
@@ -410,13 +411,13 @@ export class RealtimeGateway
       return
     }
 
-    const { roomId, clientOpId, redoOperation } = parsed.data
+    const { boardId, clientOpId, redoOperation } = parsed.data
 
     await this.processObjectOperation(client, parsed.data, (currentUser) =>
       processUndoRedoOperation(
         this.whiteboardObjectsService,
         currentUser,
-        roomId,
+        boardId,
         clientOpId,
         redoOperation,
       ),
@@ -437,23 +438,23 @@ export class RealtimeGateway
 
     try {
       const currentUser = this.requireCurrentUser(client)
-      const { roomId, objectId, preview } = parsed.data
+      const { boardId, objectId, preview } = parsed.data
 
       if (
-        !this.getEditableRoomRole(client, roomId, {
-          notInRoom: "Join the room before sending transform previews.",
+        !this.getEditableBoardRole(client, boardId, {
+          notInBoard: "Join the board before sending transform previews.",
           permissionDenied:
-            "Only room owners and editors can preview transforms.",
+            "Only board owners and editors can preview transforms.",
         })
       ) {
         return
       }
 
       this.server
-        .to(toRoomSocketName(roomId))
+        .to(toBoardSocketName(boardId))
         .except(client.id)
         .emit("object:transform-previewed", {
-          roomId,
+          boardId,
           objectId,
           user: currentUser,
           preview,
@@ -478,12 +479,12 @@ export class RealtimeGateway
 
     try {
       const currentUser = this.requireCurrentUser(client)
-      const { roomId } = parsed.data
+      const { boardId } = parsed.data
 
-      if (!this.presenceService.hasSocketInRoom(client.id, roomId)) {
+      if (!this.presenceService.hasSocketInBoard(client.id, boardId)) {
         client.emit("error", {
-          code: "USER_NOT_IN_ROOM",
-          message: "Join the room before sending cursor updates.",
+          code: "USER_NOT_IN_BOARD",
+          message: "Join the board before sending cursor updates.",
         })
         return
       }
@@ -495,7 +496,7 @@ export class RealtimeGateway
       }
 
       this.server
-        .to(toRoomSocketName(roomId))
+        .to(toBoardSocketName(boardId))
         .except(client.id)
         .emit("cursor:updated", event)
     } catch (error) {
@@ -518,23 +519,23 @@ export class RealtimeGateway
     try {
       this.requireCurrentUser(client)
 
-      const { roomId, selectedObjectId } = parsed.data
+      const { boardId, selectedObjectId } = parsed.data
       const onlineUsers = this.presenceService.updateSelectedObject({
         socketId: client.id,
-        roomId,
+        boardId,
         selectedObjectId,
       })
 
       if (!onlineUsers) {
         client.emit("error", {
-          code: "USER_NOT_IN_ROOM",
-          message: "Join the room before sending selection updates.",
+          code: "USER_NOT_IN_BOARD",
+          message: "Join the board before sending selection updates.",
         })
         return
       }
 
-      this.server.to(toRoomSocketName(roomId)).emit("presence:update", {
-        roomId,
+      this.server.to(toBoardSocketName(boardId)).emit("presence:update", {
+        boardId,
         onlineUsers,
       })
     } catch (error) {
@@ -542,10 +543,12 @@ export class RealtimeGateway
     }
   }
 
-  private emitPresenceUpdate(roomId: string): void {
-    this.server.to(toRoomSocketName(roomId)).emit("presence:update", {
-      roomId,
-      onlineUsers: this.presenceService.getOnlineUsers(roomId),
+  // ── Private emit helpers ───────────────────────────────────────────────
+
+  private emitPresenceUpdate(boardId: string): void {
+    this.server.to(toBoardSocketName(boardId)).emit("presence:update", {
+      boardId,
+      onlineUsers: this.presenceService.getOnlineUsers(boardId),
     })
   }
 
@@ -557,7 +560,7 @@ export class RealtimeGateway
       ...eventInput,
       timestamp: new Date().toISOString(),
     }
-    const emitter = this.server.to(toRoomSocketName(input.roomId))
+    const emitter = this.server.to(toBoardSocketName(input.boardId))
 
     if (exceptSocketId) {
       emitter.except(exceptSocketId).emit("object:editing", event)
@@ -568,7 +571,7 @@ export class RealtimeGateway
   }
 
   private emitEndedEditingStates(
-    states: Array<{ roomId: string; objectId: string; user: UserSummary }>,
+    states: Array<{ boardId: string; objectId: string; user: UserSummary }>,
     exceptSocketId?: string,
   ): void {
     for (const state of states) {
@@ -580,24 +583,26 @@ export class RealtimeGateway
     }
   }
 
-  private canEditObjects(role: RoomRole): boolean {
+  // ── Private guard helpers ──────────────────────────────────────────────
+
+  private canEditObjects(role: BoardRole): boolean {
     return role === "OWNER" || role === "EDITOR"
   }
 
-  private getEditableRoomRole(
+  private getEditableBoardRole(
     client: RealtimeSocket,
-    roomId: string,
+    boardId: string,
     messages: {
-      notInRoom: string
+      notInBoard: string
       permissionDenied: string
     },
-  ): RoomRole | null {
-    const role = this.presenceService.getSocketRoomRole(client.id, roomId)
+  ): BoardRole | null {
+    const role = this.presenceService.getSocketBoardRole(client.id, boardId)
 
     if (!role) {
       client.emit("error", {
-        code: "USER_NOT_IN_ROOM",
-        message: messages.notInRoom,
+        code: "USER_NOT_IN_BOARD",
+        message: messages.notInBoard,
       })
       return null
     }
@@ -623,12 +628,12 @@ export class RealtimeGateway
     try {
       const currentUser = this.requireCurrentUser(client)
 
-      if (!this.presenceService.hasSocketInRoom(client.id, context.roomId)) {
+      if (!this.presenceService.hasSocketInBoard(client.id, context.boardId)) {
         client.emit(
           "operation:rejected",
           operationRejected(context, {
-            reason: "USER_NOT_IN_ROOM",
-            message: "Join the room before sending object operations.",
+            reason: "USER_NOT_IN_BOARD",
+            message: "Join the board before sending object operations.",
           }),
         )
         return
@@ -637,7 +642,7 @@ export class RealtimeGateway
       const operation = await persistOperation(currentUser)
 
       this.server
-        .to(toRoomSocketName(context.roomId))
+        .to(toBoardSocketName(context.boardId))
         .emit("operation:applied", operation)
     } catch (error) {
       client.emit(

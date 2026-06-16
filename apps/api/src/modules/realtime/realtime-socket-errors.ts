@@ -12,14 +12,14 @@ import { z } from "zod"
 
 export type OperationRejectionContext = {
   clientOpId: string
-  roomId: string
+  boardId: string
 }
 
 type LogUnexpectedError = (message: string, error: unknown) => void
 
 const operationRejectionContextSchema = z.object({
   clientOpId: clientOpIdSchema,
-  roomId: z.uuid(),
+  boardId: z.uuid(),
 })
 
 export function toValidationSocketError(error: z.ZodError): SocketErrorEvent {
@@ -72,7 +72,7 @@ export function toOperationRejectedEvent(
         reason: toOperationRejectedReason(response.code, error.getStatus()),
         message: response.message,
         latestObject: latestObjectFromDetails(response.details),
-        currentRoomRevision: currentRoomRevisionFromDetails(response.details),
+        currentBoardRevision: currentBoardRevisionFromDetails(response.details),
       })
     }
 
@@ -96,16 +96,16 @@ export function operationRejected(
     reason: OperationRejectedReason
     message: string
     latestObject?: WhiteboardObject | null
-    currentRoomRevision?: number
+    currentBoardRevision?: number
   },
 ): OperationRejectedEvent {
   return {
     clientOpId: context.clientOpId,
-    roomId: context.roomId,
+    boardId: context.boardId,
     reason: input.reason,
     message: input.message,
     latestObject: input.latestObject,
-    currentRoomRevision: input.currentRoomRevision,
+    currentBoardRevision: input.currentBoardRevision,
   }
 }
 
@@ -164,17 +164,17 @@ function latestObjectFromDetails(
   return parsed.success ? parsed.data : undefined
 }
 
-function currentRoomRevisionFromDetails(details: unknown): number | undefined {
+function currentBoardRevisionFromDetails(details: unknown): number | undefined {
   if (
     typeof details !== "object" ||
     details === null ||
-    !("currentRoomRevision" in details)
+    !("currentBoardRevision" in details)
   ) {
     return undefined
   }
 
-  const revision = (details as { currentRoomRevision?: unknown })
-    .currentRoomRevision
+  const revision = (details as { currentBoardRevision?: unknown })
+    .currentBoardRevision
 
   if (typeof revision !== "number") {
     return undefined
@@ -210,7 +210,7 @@ function codeForStatus(status: number): string {
     case 403:
       return "PERMISSION_DENIED"
     case 404:
-      return "ROOM_NOT_FOUND"
+      return "BOARD_NOT_FOUND"
     case 400:
       return "VALIDATION_ERROR"
     default:

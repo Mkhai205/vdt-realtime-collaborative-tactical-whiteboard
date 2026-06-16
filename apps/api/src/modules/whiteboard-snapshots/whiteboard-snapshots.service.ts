@@ -10,24 +10,24 @@ import { toWhiteboardObject } from "../whiteboard-objects/whiteboard-object-resp
 
 type WhiteboardSnapshotTransactionClient = Pick<
   PrismaClient,
-  "room" | "roomSnapshot" | "whiteboardObject"
+  "board" | "boardSnapshot" | "whiteboardObject"
 >
 
-export type RoomSnapshotData = {
+export type BoardSnapshotData = {
   objects: WhiteboardObject[]
 }
 
-export type RoomSnapshotResult = {
+export type BoardSnapshotResult = {
   id: string
-  roomId: string
+  boardId: string
   revision: number
-  data: RoomSnapshotData
+  data: BoardSnapshotData
   createdAt: string
 }
 
-type RoomSnapshotRecord = {
+type BoardSnapshotRecord = {
   id: string
-  roomId: string
+  boardId: string
   revision: bigint | number
   data: unknown
   createdAt: Date | string
@@ -37,9 +37,9 @@ type RoomSnapshotRecord = {
 export class WhiteboardSnapshotsService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async createSnapshot(roomId: string): Promise<RoomSnapshotResult> {
+  async createSnapshot(boardId: string): Promise<BoardSnapshotResult> {
     return this.prismaService.$transaction(
-      async (tx) => this.createSnapshotInTransaction(tx, roomId),
+      async (tx) => this.createSnapshotInTransaction(tx, boardId),
       {
         isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
       },
@@ -48,11 +48,11 @@ export class WhiteboardSnapshotsService {
 
   private async createSnapshotInTransaction(
     tx: WhiteboardSnapshotTransactionClient,
-    roomId: string,
-  ): Promise<RoomSnapshotResult> {
-    const room = await tx.room.findFirst({
+    boardId: string,
+  ): Promise<BoardSnapshotResult> {
+    const board = await tx.board.findFirst({
       where: {
-        id: roomId,
+        id: boardId,
         deletedAt: null,
       },
       select: {
@@ -60,39 +60,33 @@ export class WhiteboardSnapshotsService {
       },
     })
 
-    if (!room) {
-      throw this.roomNotFound()
+    if (!board) {
+      throw this.boardNotFound()
     }
 
-    const revision = room.currentRevision
-    const existingSnapshot = await this.findSnapshot(tx, roomId, revision)
+    const revision = board.currentRevision
+    const existingSnapshot = await this.findSnapshot(tx, boardId, revision)
 
     if (existingSnapshot) {
-      return this.toRoomSnapshotResult(existingSnapshot)
+      return this.toBoardSnapshotResult(existingSnapshot)
     }
 
     const objects = await tx.whiteboardObject.findMany({
       where: {
-        roomId,
+        boardId,
         deletedAt: null,
       },
-      orderBy: [
-        {
-          zIndex: "asc",
-        },
-        {
-          createdAt: "asc",
-        },
-      ],
+      orderBy: [{ zIndex: "asc" }, { createdAt: "asc" }],
     })
-    const data: RoomSnapshotData = {
+
+    const data: BoardSnapshotData = {
       objects: objects.map(toWhiteboardObject),
     }
 
-    await tx.roomSnapshot.createMany({
+    await tx.boardSnapshot.createMany({
       data: [
         {
-          roomId,
+          boardId,
           revision,
           data: this.toJsonValue(data),
         },
@@ -100,50 +94,50 @@ export class WhiteboardSnapshotsService {
       skipDuplicates: true,
     })
 
-    const snapshot = await this.findSnapshot(tx, roomId, revision)
+    const snapshot = await this.findSnapshot(tx, boardId, revision)
 
     if (!snapshot) {
       throw this.snapshotCreationFailed()
     }
 
-    return this.toRoomSnapshotResult(snapshot)
+    return this.toBoardSnapshotResult(snapshot)
   }
 
   private findSnapshot(
     tx: WhiteboardSnapshotTransactionClient,
-    roomId: string,
+    boardId: string,
     revision: bigint | number,
   ) {
-    return tx.roomSnapshot.findUnique({
+    return tx.boardSnapshot.findUnique({
       where: {
-        roomId_revision: {
-          roomId,
+        boardId_revision: {
+          boardId,
           revision,
         },
       },
     })
   }
 
-  private toRoomSnapshotResult(
-    snapshot: RoomSnapshotRecord,
-  ): RoomSnapshotResult {
+  private toBoardSnapshotResult(
+    snapshot: BoardSnapshotRecord,
+  ): BoardSnapshotResult {
     return {
       id: snapshot.id,
-      roomId: snapshot.roomId,
+      boardId: snapshot.boardId,
       revision: Number(snapshot.revision),
       data: this.toSnapshotData(snapshot.data),
       createdAt: this.toIsoString(snapshot.createdAt),
     }
   }
 
-  private toSnapshotData(value: unknown): RoomSnapshotData {
+  private toSnapshotData(value: unknown): BoardSnapshotData {
     if (
       value &&
       typeof value === "object" &&
       Array.isArray((value as { objects?: unknown }).objects)
     ) {
       return {
-        objects: (value as RoomSnapshotData).objects,
+        objects: (value as BoardSnapshotData).objects,
       }
     }
 
@@ -160,9 +154,9 @@ export class WhiteboardSnapshotsService {
     return value instanceof Date ? value.toISOString() : value
   }
 
-  private roomNotFound(message = "Room not found.") {
+  private boardNotFound(message = "Board not found.") {
     return new NotFoundException({
-      code: apiErrorCodes.ROOM_NOT_FOUND,
+      code: apiErrorCodes.BOARD_NOT_FOUND,
       message,
     })
   }
@@ -170,7 +164,7 @@ export class WhiteboardSnapshotsService {
   private snapshotCreationFailed() {
     return new InternalServerErrorException({
       code: "INTERNAL_ERROR",
-      message: "Room snapshot could not be created.",
+      message: "Board snapshot could not be created.",
     })
   }
 }

@@ -8,7 +8,7 @@ import type { WhiteboardObjectsService } from "../whiteboard-objects"
 export function processUndoRedoOperation(
   whiteboardObjectsService: WhiteboardObjectsService,
   currentUser: UserSummary,
-  roomId: string,
+  boardId: string,
   clientOpId: string,
   operation: UndoRedoOperation,
 ): Promise<OperationAppliedEvent> {
@@ -16,7 +16,7 @@ export function processUndoRedoOperation(
     case "OBJECT_CREATE": {
       const { object, baseRoomRevision } = operation
 
-      return whiteboardObjectsService.createObject(currentUser, roomId, {
+      return whiteboardObjectsService.createObject(currentUser, boardId, {
         clientOpId,
         baseRoomRevision,
         object,
@@ -27,7 +27,7 @@ export function processUndoRedoOperation(
 
       return whiteboardObjectsService.updateObject(
         currentUser,
-        roomId,
+        boardId,
         objectId,
         {
           clientOpId,
@@ -42,7 +42,7 @@ export function processUndoRedoOperation(
 
       return whiteboardObjectsService.deleteObject(
         currentUser,
-        roomId,
+        boardId,
         objectId,
         {
           clientOpId,
@@ -56,7 +56,7 @@ export function processUndoRedoOperation(
 
       return whiteboardObjectsService.restoreObject(
         currentUser,
-        roomId,
+        boardId,
         objectId,
         {
           clientOpId,

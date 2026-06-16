@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import type { OnlineUser, RoomRole, UserSummary } from "@rctw/shared-contracts"
+import type { BoardRole, OnlineUser, UserSummary } from "@rctw/shared-contracts"
 
 type PresenceSession = OnlineUser & {
   socketId: string
@@ -8,29 +8,29 @@ type PresenceSession = OnlineUser & {
 }
 
 export type ActiveEditingState = {
-  roomId: string
+  boardId: string
   objectId: string
   user: UserSummary
 }
 
 @Injectable()
 export class PresenceService {
-  private readonly roomSessions = new Map<
+  private readonly boardSessions = new Map<
     string,
     Map<string, PresenceSession>
   >()
-  private readonly socketRooms = new Map<string, Set<string>>()
+  private readonly socketBoards = new Map<string, Set<string>>()
 
-  joinRoom(input: {
+  joinBoard(input: {
     socketId: string
-    roomId: string
+    boardId: string
     user: UserSummary
-    role: RoomRole
+    role: BoardRole
   }): OnlineUser[] {
     const connectedAt = new Date().toISOString()
-    const room = this.getOrCreateRoom(input.roomId)
+    const board = this.getOrCreateBoard(input.boardId)
 
-    room.set(input.socketId, {
+    board.set(input.socketId, {
       ...input.user,
       socketId: input.socketId,
       role: input.role,
@@ -41,39 +41,39 @@ export class PresenceService {
       connectedAt,
     })
 
-    const rooms = this.socketRooms.get(input.socketId) ?? new Set<string>()
-    rooms.add(input.roomId)
-    this.socketRooms.set(input.socketId, rooms)
+    const boards = this.socketBoards.get(input.socketId) ?? new Set<string>()
+    boards.add(input.boardId)
+    this.socketBoards.set(input.socketId, boards)
 
-    return this.getOnlineUsers(input.roomId)
+    return this.getOnlineUsers(input.boardId)
   }
 
-  leaveRoom(socketId: string, roomId: string): OnlineUser[] {
-    this.clearEditingForSocketRoom(socketId, roomId)
-    this.roomSessions.get(roomId)?.delete(socketId)
-    this.socketRooms.get(socketId)?.delete(roomId)
-    this.deleteEmptyRoom(roomId)
+  leaveBoard(socketId: string, boardId: string): OnlineUser[] {
+    this.clearEditingForSocketBoard(socketId, boardId)
+    this.boardSessions.get(boardId)?.delete(socketId)
+    this.socketBoards.get(socketId)?.delete(boardId)
+    this.deleteEmptyBoard(boardId)
     this.deleteEmptySocket(socketId)
 
-    return this.getOnlineUsers(roomId)
+    return this.getOnlineUsers(boardId)
   }
 
-  leaveAllRooms(socketId: string): string[] {
-    const roomIds = [...(this.socketRooms.get(socketId) ?? [])]
+  leaveAllBoards(socketId: string): string[] {
+    const boardIds = [...(this.socketBoards.get(socketId) ?? [])]
 
-    for (const roomId of roomIds) {
-      this.clearEditingForSocketRoom(socketId, roomId)
-      this.roomSessions.get(roomId)?.delete(socketId)
-      this.deleteEmptyRoom(roomId)
+    for (const boardId of boardIds) {
+      this.clearEditingForSocketBoard(socketId, boardId)
+      this.boardSessions.get(boardId)?.delete(socketId)
+      this.deleteEmptyBoard(boardId)
     }
 
-    this.socketRooms.delete(socketId)
+    this.socketBoards.delete(socketId)
 
-    return roomIds
+    return boardIds
   }
 
-  getOnlineUsers(roomId: string): OnlineUser[] {
-    const sessions = this.roomSessions.get(roomId)
+  getOnlineUsers(boardId: string): OnlineUser[] {
+    const sessions = this.boardSessions.get(boardId)
 
     if (!sessions) {
       return []
@@ -114,20 +114,20 @@ export class PresenceService {
       .sort((left, right) => left.connectedAt.localeCompare(right.connectedAt))
   }
 
-  hasSocketInRoom(socketId: string, roomId: string): boolean {
-    return this.socketRooms.get(socketId)?.has(roomId) ?? false
+  hasSocketInBoard(socketId: string, boardId: string): boolean {
+    return this.socketBoards.get(socketId)?.has(boardId) ?? false
   }
 
-  getSocketRoomRole(socketId: string, roomId: string): RoomRole | null {
-    return this.roomSessions.get(roomId)?.get(socketId)?.role ?? null
+  getSocketBoardRole(socketId: string, boardId: string): BoardRole | null {
+    return this.boardSessions.get(boardId)?.get(socketId)?.role ?? null
   }
 
   updateSelectedObject(input: {
     socketId: string
-    roomId: string
+    boardId: string
     selectedObjectId: string | null
   }): OnlineUser[] | null {
-    const session = this.roomSessions.get(input.roomId)?.get(input.socketId)
+    const session = this.boardSessions.get(input.boardId)?.get(input.socketId)
 
     if (!session) {
       return null
@@ -136,15 +136,15 @@ export class PresenceService {
     session.selectedObjectId = input.selectedObjectId
     session.selectedObjectUpdatedAt = Date.now()
 
-    return this.getOnlineUsers(input.roomId)
+    return this.getOnlineUsers(input.boardId)
   }
 
   startEditing(input: {
     socketId: string
-    roomId: string
+    boardId: string
     objectId: string
   }): boolean {
-    const session = this.roomSessions.get(input.roomId)?.get(input.socketId)
+    const session = this.boardSessions.get(input.boardId)?.get(input.socketId)
 
     if (!session) {
       return false
@@ -156,10 +156,10 @@ export class PresenceService {
 
   endEditing(input: {
     socketId: string
-    roomId: string
+    boardId: string
     objectId: string
   }): boolean {
-    const session = this.roomSessions.get(input.roomId)?.get(input.socketId)
+    const session = this.boardSessions.get(input.boardId)?.get(input.socketId)
 
     if (!session) {
       return false
@@ -169,18 +169,18 @@ export class PresenceService {
     return true
   }
 
-  clearEditingForSocketRoom(
+  clearEditingForSocketBoard(
     socketId: string,
-    roomId: string,
+    boardId: string,
   ): ActiveEditingState[] {
-    const session = this.roomSessions.get(roomId)?.get(socketId)
+    const session = this.boardSessions.get(boardId)?.get(socketId)
 
     if (!session || session.activeEditingObjectIds.size === 0) {
       return []
     }
 
     const states = [...session.activeEditingObjectIds].map((objectId) => ({
-      roomId,
+      boardId,
       objectId,
       user: this.toUserSummary(session),
     }))
@@ -190,32 +190,32 @@ export class PresenceService {
   }
 
   clearEditingForSocket(socketId: string): ActiveEditingState[] {
-    return [...(this.socketRooms.get(socketId) ?? [])].flatMap((roomId) =>
-      this.clearEditingForSocketRoom(socketId, roomId),
+    return [...(this.socketBoards.get(socketId) ?? [])].flatMap((boardId) =>
+      this.clearEditingForSocketBoard(socketId, boardId),
     )
   }
 
-  private getOrCreateRoom(roomId: string): Map<string, PresenceSession> {
-    const existingRoom = this.roomSessions.get(roomId)
+  private getOrCreateBoard(boardId: string): Map<string, PresenceSession> {
+    const existing = this.boardSessions.get(boardId)
 
-    if (existingRoom) {
-      return existingRoom
+    if (existing) {
+      return existing
     }
 
-    const room = new Map<string, PresenceSession>()
-    this.roomSessions.set(roomId, room)
-    return room
+    const board = new Map<string, PresenceSession>()
+    this.boardSessions.set(boardId, board)
+    return board
   }
 
-  private deleteEmptyRoom(roomId: string): void {
-    if (this.roomSessions.get(roomId)?.size === 0) {
-      this.roomSessions.delete(roomId)
+  private deleteEmptyBoard(boardId: string): void {
+    if (this.boardSessions.get(boardId)?.size === 0) {
+      this.boardSessions.delete(boardId)
     }
   }
 
   private deleteEmptySocket(socketId: string): void {
-    if (this.socketRooms.get(socketId)?.size === 0) {
-      this.socketRooms.delete(socketId)
+    if (this.socketBoards.get(socketId)?.size === 0) {
+      this.socketBoards.delete(socketId)
     }
   }
 
