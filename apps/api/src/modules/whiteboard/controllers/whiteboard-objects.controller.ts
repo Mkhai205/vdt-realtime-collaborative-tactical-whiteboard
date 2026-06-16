@@ -14,10 +14,10 @@ import {
   type UserSummary,
   type WhiteboardObjectParams,
 } from "@rctw/shared-contracts"
-import { CurrentUser } from "../../common/decorators/current-user.decorator"
-import { ZodBody, ZodParam } from "../../common/pipes"
-import { AuthGuard } from "../auth/guards/auth.guard"
-import { WhiteboardObjectsService } from "./whiteboard-objects.service"
+import { CurrentUser } from "../../../common/decorators/current-user.decorator"
+import { ZodBody, ZodParam } from "../../../common/pipes"
+import { AuthGuard } from "../../auth/guards/auth.guard"
+import { WhiteboardObjectsService } from "../services/whiteboard-objects.service"
 
 @Controller("boards/:boardId/objects")
 @UseGuards(AuthGuard)

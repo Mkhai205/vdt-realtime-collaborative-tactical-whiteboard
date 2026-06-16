@@ -8,8 +8,8 @@ import {
   type OperationAppliedEvent,
   type UserSummary,
 } from "@rctw/shared-contracts"
-import { PrismaService } from "../../infrastructure/database"
-import { BoardPermissionService } from "../permission/services/board-permission.service"
+import { PrismaService } from "../../../infrastructure/database"
+import { BoardPermissionService } from "../../permission/services/board-permission.service"
 import {
   boardNotFound,
   duplicateOperation,
@@ -17,19 +17,19 @@ import {
   objectNotFound,
   objectVersionConflict,
   permissionDenied,
-} from "./whiteboard-object-errors"
+} from "../whiteboard-object-errors"
 import {
   getPreviousValues,
   toCreateObjectData,
   toJsonValue,
   toUpdateObjectData,
-} from "./whiteboard-object-mutation.mapper"
+} from "../mappers/whiteboard-object-mutation.mapper"
 import {
   toOperationAppliedEvent,
   toWhiteboardObject,
   type WhiteboardObjectRecord,
-} from "./whiteboard-object-response.mapper"
-import type { WhiteboardTransactionClient } from "./whiteboard-objects.types"
+} from "../mappers/whiteboard-object-response.mapper"
+import type { WhiteboardTransactionClient } from "../whiteboard-objects.types"
 
 type MutationContext = {
   currentUser: UserSummary

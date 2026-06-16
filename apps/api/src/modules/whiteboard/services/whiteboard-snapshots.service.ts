@@ -5,8 +5,8 @@ import {
 } from "@nestjs/common"
 import { Prisma, type PrismaClient } from "@rctw/database"
 import { apiErrorCodes, type WhiteboardObject } from "@rctw/shared-contracts"
-import { PrismaService } from "../../infrastructure/database"
-import { toWhiteboardObject } from "../whiteboard-objects/whiteboard-object-response.mapper"
+import { PrismaService } from "../../../infrastructure/database"
+import { toWhiteboardObject } from "../mappers/whiteboard-object-response.mapper"
 
 type WhiteboardSnapshotTransactionClient = Pick<
   PrismaClient,

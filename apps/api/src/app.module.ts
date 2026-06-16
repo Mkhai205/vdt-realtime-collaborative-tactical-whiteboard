@@ -8,9 +8,10 @@ import { AuthModule } from "./modules/auth"
 import { UserModule } from "./modules/user"
 import { PermissionModule } from "./modules/permission"
 import { BoardModule } from "./modules/board"
-import { WhiteboardSnapshotsModule } from "./modules/whiteboard-snapshots"
-import { WhiteboardObjectsModule } from "./modules/whiteboard-objects"
-import { RealtimeModule } from "./modules/realtime"
+import { PresenceModule } from "./modules/presence"
+import { HistoryModule } from "./modules/history"
+import { WhiteboardModule } from "./modules/whiteboard"
+import { CollaborationModule } from "./modules/collaboration"
 import { DatabaseModule } from "./infrastructure/database"
 
 @Module({
@@ -27,9 +28,10 @@ import { DatabaseModule } from "./infrastructure/database"
     UserModule,
     PermissionModule,
     BoardModule,
-    WhiteboardObjectsModule,
-    WhiteboardSnapshotsModule,
-    RealtimeModule,
+    PresenceModule,
+    HistoryModule,
+    WhiteboardModule,
+    CollaborationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

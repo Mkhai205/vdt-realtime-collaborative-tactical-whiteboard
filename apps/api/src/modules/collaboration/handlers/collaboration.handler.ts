@@ -10,15 +10,15 @@ import {
   type CursorUpdatedEvent,
   type ObjectEditingEvent,
 } from "@rctw/shared-contracts"
-import { PresenceService } from "../presence.service"
-import type { RealtimeContext } from "../realtime-context"
-import { toSocketError, toValidationSocketError } from "../realtime-socket-errors"
+import { PresenceService } from "../../presence"
+import type { CollaborationContext } from "../collaboration-context"
+import { toSocketError, toValidationSocketError } from "../collaboration-socket-errors"
 
 @Injectable()
 export class CollaborationHandler {
   constructor(private readonly presenceService: PresenceService) {}
 
-  handleEditingStart(ctx: RealtimeContext, payload: unknown): void {
+  handleEditingStart(ctx: CollaborationContext, payload: unknown): void {
     const parsed = editingStartRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
@@ -53,7 +53,7 @@ export class CollaborationHandler {
     }
   }
 
-  handleEditingEnd(ctx: RealtimeContext, payload: unknown): void {
+  handleEditingEnd(ctx: CollaborationContext, payload: unknown): void {
     const parsed = editingEndRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
@@ -88,7 +88,7 @@ export class CollaborationHandler {
     }
   }
 
-  handleCursorUpdate(ctx: RealtimeContext, payload: unknown): void {
+  handleCursorUpdate(ctx: CollaborationContext, payload: unknown): void {
     const parsed = cursorUpdateRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
@@ -123,7 +123,7 @@ export class CollaborationHandler {
     }
   }
 
-  handleSelectionUpdate(ctx: RealtimeContext, payload: unknown): void {
+  handleSelectionUpdate(ctx: CollaborationContext, payload: unknown): void {
     const parsed = selectionUpdateRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
@@ -158,7 +158,7 @@ export class CollaborationHandler {
     }
   }
 
-  handleTransformPreview(ctx: RealtimeContext, payload: unknown): void {
+  handleTransformPreview(ctx: CollaborationContext, payload: unknown): void {
     const parsed = objectTransformPreviewRequestSchema.safeParse(payload)
 
     if (!parsed.success) {
@@ -218,7 +218,7 @@ export class CollaborationHandler {
   // ── Private guards ─────────────────────────────────────────────────────
 
   private requireEditableRole(
-    { client }: RealtimeContext,
+    { client }: CollaborationContext,
     boardId: string,
     messages: { notInBoard: string; permissionDenied: string },
   ): BoardRole | null {

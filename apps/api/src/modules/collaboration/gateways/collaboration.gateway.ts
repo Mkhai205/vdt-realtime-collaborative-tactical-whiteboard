@@ -10,25 +10,25 @@ import {
 } from "@nestjs/websockets"
 import type { UserSummary } from "@rctw/shared-contracts"
 import type { Server, Socket } from "socket.io"
-import { AuthService } from "../auth/services/auth.service"
+import { AuthService } from "../../auth/services/auth.service"
 import {
   BoardSessionHandler,
   CollaborationHandler,
   WhiteboardMutationHandler,
-} from "./handlers"
-import { PresenceService } from "./presence.service"
+} from "../handlers"
+import { PresenceService } from "../../presence"
 
 const socketCorsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean)
 
-type RealtimeSocketData = {
+type CollaborationSocketData = {
   currentUser?: UserSummary
 }
 
-export type RealtimeSocket = Socket & {
-  data: RealtimeSocketData
+export type CollaborationSocket = Socket & {
+  data: CollaborationSocketData
 }
 
 @WebSocketGateway({
@@ -37,10 +37,10 @@ export type RealtimeSocket = Socket & {
     credentials: true,
   },
 })
-export class RealtimeGateway
+export class CollaborationGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
-  private readonly logger = new Logger(RealtimeGateway.name)
+  private readonly logger = new Logger(CollaborationGateway.name)
 
   @WebSocketServer()
   private server!: Server
@@ -55,7 +55,7 @@ export class RealtimeGateway
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
-  async handleConnection(client: RealtimeSocket): Promise<void> {
+  async handleConnection(client: CollaborationSocket): Promise<void> {
     try {
       client.data.currentUser =
         await this.authService.resolveSocketIdentity(client.handshake.auth)
@@ -69,7 +69,7 @@ export class RealtimeGateway
     }
   }
 
-  handleDisconnect(client: RealtimeSocket): void {
+  handleDisconnect(client: CollaborationSocket): void {
     const endedEditingStates = this.presenceService.clearEditingForSocket(client.id)
     const affectedBoardIds = this.presenceService.leaveAllBoards(client.id)
 
@@ -88,7 +88,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("board:join")
   handleBoardJoin(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     this.requireCurrentUser(client)
@@ -97,7 +97,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("board:leave")
   handleBoardLeave(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     return this.boardSessionHandler.handleLeave({ server: this.server, client }, payload)
@@ -105,7 +105,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("sync:request")
   handleSyncRequest(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     this.requireCurrentUser(client)
@@ -116,7 +116,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("object:create")
   handleObjectCreate(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     return this.whiteboardMutationHandler.handleObjectCreate(
@@ -127,7 +127,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("object:update")
   handleObjectUpdate(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     return this.whiteboardMutationHandler.handleObjectUpdate(
@@ -138,7 +138,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("object:delete")
   handleObjectDelete(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     return this.whiteboardMutationHandler.handleObjectDelete(
@@ -149,7 +149,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("undo:request")
   handleUndoRequest(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     return this.whiteboardMutationHandler.handleUndoRequest(
@@ -160,7 +160,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("redo:request")
   handleRedoRequest(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
     return this.whiteboardMutationHandler.handleRedoRequest(
@@ -173,7 +173,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("editing:start")
   handleEditingStart(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
     this.collaborationHandler.handleEditingStart({ server: this.server, client }, payload)
@@ -181,7 +181,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("editing:end")
   handleEditingEnd(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
     this.collaborationHandler.handleEditingEnd({ server: this.server, client }, payload)
@@ -189,7 +189,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("cursor:update")
   handleCursorUpdate(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
     this.collaborationHandler.handleCursorUpdate({ server: this.server, client }, payload)
@@ -197,7 +197,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("selection:update")
   handleSelectionUpdate(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
     this.collaborationHandler.handleSelectionUpdate(
@@ -208,7 +208,7 @@ export class RealtimeGateway
 
   @SubscribeMessage("object:transform-preview")
   handleObjectTransformPreview(
-    @ConnectedSocket() client: RealtimeSocket,
+    @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
     this.collaborationHandler.handleTransformPreview(
@@ -219,7 +219,7 @@ export class RealtimeGateway
 
   // ── Private guards ─────────────────────────────────────────────────────
 
-  private requireCurrentUser(client: RealtimeSocket): UserSummary {
+  private requireCurrentUser(client: CollaborationSocket): UserSummary {
     const currentUser = client.data.currentUser
 
     if (!currentUser) {

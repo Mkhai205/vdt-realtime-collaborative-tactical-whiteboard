@@ -8,13 +8,13 @@ import {
   type SyncResponse,
 } from "@rctw/shared-contracts"
 import { BoardService } from "../../board/services/board.service"
-import { WhiteboardObjectsService } from "../../whiteboard-objects"
-import { PresenceService } from "../presence.service"
-import type { RealtimeContext } from "../realtime-context"
+import { WhiteboardObjectsService } from "../../whiteboard"
+import { PresenceService } from "../../presence"
+import type { CollaborationContext } from "../collaboration-context"
 import {
   toSocketError,
   toValidationSocketError,
-} from "../realtime-socket-errors"
+} from "../collaboration-socket-errors"
 
 @Injectable()
 export class BoardSessionHandler {
@@ -25,7 +25,7 @@ export class BoardSessionHandler {
   ) {}
 
   async handleJoin(
-    { server, client }: RealtimeContext,
+    { server, client }: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = boardJoinRequestSchema.safeParse(payload)
@@ -74,7 +74,7 @@ export class BoardSessionHandler {
   }
 
   async handleLeave(
-    { server, client }: RealtimeContext,
+    { server, client }: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = boardLeaveRequestSchema.safeParse(payload)
@@ -98,7 +98,7 @@ export class BoardSessionHandler {
   }
 
   async handleSync(
-    { server, client }: RealtimeContext,
+    { server, client }: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = syncRequestSchema.safeParse(payload)

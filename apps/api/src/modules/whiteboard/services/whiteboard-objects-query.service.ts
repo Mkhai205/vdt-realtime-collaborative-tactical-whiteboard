@@ -6,15 +6,15 @@ import {
   type SyncResponse,
   type UserSummary,
 } from "@rctw/shared-contracts"
-import { PrismaService } from "../../infrastructure/database"
-import { BoardPermissionService } from "../permission/services/board-permission.service"
-import { boardNotFound } from "./whiteboard-object-errors"
+import { PrismaService } from "../../../infrastructure/database"
+import { BoardPermissionService } from "../../permission/services/board-permission.service"
+import { boardNotFound } from "../whiteboard-object-errors"
 import {
   toOperationSummary,
   toWhiteboardObject,
   type WhiteboardObjectRecord,
-} from "./whiteboard-object-response.mapper"
-import { toOperationReplayEvent } from "./whiteboard-operation-replay.mapper"
+} from "../mappers/whiteboard-object-response.mapper"
+import { toOperationReplayEvent } from "../mappers/whiteboard-operation-replay.mapper"
 
 const maxOperationReplayCount = 100
 

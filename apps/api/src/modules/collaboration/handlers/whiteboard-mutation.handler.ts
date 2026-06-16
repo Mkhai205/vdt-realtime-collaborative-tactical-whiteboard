@@ -10,27 +10,28 @@ import {
   type UserSummary,
 } from "@rctw/shared-contracts"
 import { z } from "zod"
-import { WhiteboardObjectsService } from "../../whiteboard-objects"
-import { PresenceService } from "../presence.service"
-import { processUndoRedoOperation } from "../realtime-operation-dispatcher"
-import type { RealtimeContext } from "../realtime-context"
+import { WhiteboardObjectsService } from "../../whiteboard"
+import { PresenceService } from "../../presence"
+import { HistoryService } from "../../history"
+import type { CollaborationContext } from "../collaboration-context"
 import {
   operationRejected,
   parseOperationRejectionContext,
   toOperationRejectedEvent,
   toValidationSocketError,
   type OperationRejectionContext,
-} from "../realtime-socket-errors"
+} from "../collaboration-socket-errors"
 
 @Injectable()
 export class WhiteboardMutationHandler {
   constructor(
     private readonly whiteboardObjectsService: WhiteboardObjectsService,
     private readonly presenceService: PresenceService,
+    private readonly historyService: HistoryService,
   ) {}
 
   async handleObjectCreate(
-    ctx: RealtimeContext,
+    ctx: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = objectCreateSocketRequestSchema.safeParse(payload)
@@ -51,7 +52,7 @@ export class WhiteboardMutationHandler {
   }
 
   async handleObjectUpdate(
-    ctx: RealtimeContext,
+    ctx: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = objectUpdateSocketRequestSchema.safeParse(payload)
@@ -77,7 +78,7 @@ export class WhiteboardMutationHandler {
   }
 
   async handleObjectDelete(
-    ctx: RealtimeContext,
+    ctx: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = objectDeleteSocketRequestSchema.safeParse(payload)
@@ -103,7 +104,7 @@ export class WhiteboardMutationHandler {
   }
 
   async handleUndoRequest(
-    ctx: RealtimeContext,
+    ctx: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = undoRequestSchema.safeParse(payload)
@@ -119,8 +120,7 @@ export class WhiteboardMutationHandler {
       ctx,
       parsed.data,
       (currentUser) =>
-        processUndoRedoOperation(
-          this.whiteboardObjectsService,
+        this.historyService.processUndoRedoOperation(
           currentUser,
           boardId,
           clientOpId,
@@ -130,7 +130,7 @@ export class WhiteboardMutationHandler {
   }
 
   async handleRedoRequest(
-    ctx: RealtimeContext,
+    ctx: CollaborationContext,
     payload: unknown,
   ): Promise<void> {
     const parsed = redoRequestSchema.safeParse(payload)
@@ -146,8 +146,7 @@ export class WhiteboardMutationHandler {
       ctx,
       parsed.data,
       (currentUser) =>
-        processUndoRedoOperation(
-          this.whiteboardObjectsService,
+        this.historyService.processUndoRedoOperation(
           currentUser,
           boardId,
           clientOpId,
@@ -159,7 +158,7 @@ export class WhiteboardMutationHandler {
   // ── Private helpers ────────────────────────────────────────────────────
 
   private async processObjectOperation(
-    { server, client }: RealtimeContext,
+    { server, client }: CollaborationContext,
     context: OperationRejectionContext,
     persistOperation: (
       currentUser: UserSummary,
@@ -193,7 +192,7 @@ export class WhiteboardMutationHandler {
   }
 
   private emitInvalidOperationPayload(
-    client: RealtimeContext["client"],
+    client: CollaborationContext["client"],
     payload: unknown,
     error: z.ZodError,
   ): void {
