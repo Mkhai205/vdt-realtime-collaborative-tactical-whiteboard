@@ -18,8 +18,8 @@ export const operationTypeSchema = z.enum([
 ])
 export const operationRejectedReasonSchema = z.enum([
   "PERMISSION_DENIED",
-  "ROOM_NOT_FOUND",
-  "USER_NOT_IN_ROOM",
+  "BOARD_NOT_FOUND",
+  "USER_NOT_IN_BOARD",
   "OBJECT_NOT_FOUND",
   "OBJECT_ALREADY_DELETED",
   "OBJECT_VERSION_CONFLICT",
@@ -45,7 +45,7 @@ export const shapeStyleSchema = z
 
 export const whiteboardObjectSchema = z.object({
   id: z.uuid(),
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   type: objectTypeSchema,
   x: z.number(),
   y: z.number(),
@@ -158,27 +158,27 @@ export const objectRestoreRequestSchema = z.object({
 
 export const objectCreateSocketRequestSchema = objectCreateRequestSchema.extend(
   {
-    roomId: z.uuid(),
+    boardId: z.uuid(),
   },
 )
 
 export const objectUpdateSocketRequestSchema = objectUpdateRequestSchema.extend(
   {
-    roomId: z.uuid(),
+    boardId: z.uuid(),
     objectId: z.uuid(),
   },
 )
 
 export const objectDeleteSocketRequestSchema = objectDeleteRequestSchema.extend(
   {
-    roomId: z.uuid(),
+    boardId: z.uuid(),
     objectId: z.uuid(),
   },
 )
 
 export const objectRestoreSocketRequestSchema =
   objectRestoreRequestSchema.extend({
-    roomId: z.uuid(),
+    boardId: z.uuid(),
     objectId: z.uuid(),
   })
 
@@ -219,23 +219,25 @@ export const undoRedoOperationSchema = z.discriminatedUnion("type", [
 
 export const undoRequestSchema = z.object({
   clientOpId: clientOpIdSchema,
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   inverseOperation: undoRedoOperationSchema,
 })
 
 export const redoRequestSchema = z.object({
   clientOpId: clientOpIdSchema,
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   redoOperation: undoRedoOperationSchema,
 })
 
-export const getRoomObjectsResponseSchema = z.object({
-  roomId: z.uuid(),
+export const getBoardObjectsResponseSchema = z.object({
+  boardId: z.uuid(),
   currentRevision: z.number().int().nonnegative(),
   objects: z.array(whiteboardObjectSchema),
 })
+/** @deprecated use getBoardObjectsResponseSchema */
+export const getRoomObjectsResponseSchema = getBoardObjectsResponseSchema
 
-export const getRoomOperationsQuerySchema = z.object({
+export const getBoardOperationsQuerySchema = z.object({
   limit: z.coerce
     .number()
     .int()
@@ -243,11 +245,13 @@ export const getRoomOperationsQuerySchema = z.object({
     .default(50)
     .transform((limit) => Math.min(limit, 100)),
 })
+/** @deprecated use getBoardOperationsQuerySchema */
+export const getRoomOperationsQuerySchema = getBoardOperationsQuerySchema
 
 export const operationSummarySchema = z.object({
   id: z.uuid(),
   clientOpId: clientOpIdSchema,
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   actor: userSummarySchema,
   objectId: z.uuid().nullable().optional(),
   objectType: objectTypeSchema.nullable(),
@@ -257,15 +261,17 @@ export const operationSummarySchema = z.object({
   createdAt: z.string(),
 })
 
-export const getRoomOperationsResponseSchema = z.object({
-  roomId: z.uuid(),
+export const getBoardOperationsResponseSchema = z.object({
+  boardId: z.uuid(),
   operations: z.array(operationSummarySchema),
 })
+/** @deprecated use getBoardOperationsResponseSchema */
+export const getRoomOperationsResponseSchema = getBoardOperationsResponseSchema
 
 export const operationAppliedEventSchema = z.object({
   operationId: z.uuid(),
   clientOpId: clientOpIdSchema,
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   revision: z.number().int().nonnegative(),
   type: operationTypeSchema,
   objectId: z.uuid().nullable().optional(),
@@ -277,15 +283,15 @@ export const operationAppliedEventSchema = z.object({
 
 export const operationRejectedEventSchema = z.object({
   clientOpId: clientOpIdSchema,
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   reason: operationRejectedReasonSchema,
   message: z.string().min(1),
   latestObject: whiteboardObjectSchema.nullable().optional(),
-  currentRoomRevision: z.number().int().nonnegative().optional(),
+  currentBoardRevision: z.number().int().nonnegative().optional(),
 })
 
 export const whiteboardObjectParamsSchema = z.object({
-  roomId: z.uuid(),
+  boardId: z.uuid(),
   objectId: z.uuid(),
 })
 
@@ -324,16 +330,21 @@ export type ObjectRestoreOperation = z.infer<
 export type UndoRedoOperation = z.infer<typeof undoRedoOperationSchema>
 export type UndoRequest = z.infer<typeof undoRequestSchema>
 export type RedoRequest = z.infer<typeof redoRequestSchema>
-export type GetRoomObjectsResponse = z.infer<
-  typeof getRoomObjectsResponseSchema
->
-export type GetRoomOperationsQuery = z.infer<
-  typeof getRoomOperationsQuerySchema
->
+
+// Board-prefixed types (canonical)
+export type GetBoardObjectsResponse = z.infer<typeof getBoardObjectsResponseSchema>
+export type GetBoardOperationsQuery = z.infer<typeof getBoardOperationsQuerySchema>
+export type GetBoardOperationsResponse = z.infer<typeof getBoardOperationsResponseSchema>
+
+// Room-prefixed aliases for backward compat
+/** @deprecated use GetBoardObjectsResponse */
+export type GetRoomObjectsResponse = GetBoardObjectsResponse
+/** @deprecated use GetBoardOperationsQuery */
+export type GetRoomOperationsQuery = GetBoardOperationsQuery
+/** @deprecated use GetBoardOperationsResponse */
+export type GetRoomOperationsResponse = GetBoardOperationsResponse
+
 export type OperationSummary = z.infer<typeof operationSummarySchema>
-export type GetRoomOperationsResponse = z.infer<
-  typeof getRoomOperationsResponseSchema
->
 export type OperationAppliedEvent = z.infer<typeof operationAppliedEventSchema>
 export type OperationRejectedEvent = z.infer<
   typeof operationRejectedEventSchema
