@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common"
 import {
-  type GetRoomObjectsResponse,
-  type GetRoomOperationsQuery,
-  type GetRoomOperationsResponse,
+  type GetBoardObjectsResponse,
+  type GetBoardOperationsQuery,
+  type GetBoardOperationsResponse,
   type ObjectCreateRequest,
   type ObjectDeleteRequest,
   type ObjectRestoreRequest,
@@ -21,50 +21,50 @@ export class WhiteboardObjectsService {
     private readonly mutationService: WhiteboardObjectsMutationService,
   ) {}
 
-  async getRoomObjects(
+  async getBoardObjects(
     currentUser: UserSummary,
-    roomId: string,
-  ): Promise<GetRoomObjectsResponse> {
-    return this.queryService.getRoomObjects(currentUser, roomId)
+    boardId: string,
+  ): Promise<GetBoardObjectsResponse> {
+    return this.queryService.getBoardObjects(currentUser, boardId)
   }
 
-  async getRoomOperations(
+  async getBoardOperations(
     currentUser: UserSummary,
-    roomId: string,
-    query: Partial<GetRoomOperationsQuery> = {},
-  ): Promise<GetRoomOperationsResponse> {
-    return this.queryService.getRoomOperations(currentUser, roomId, query)
+    boardId: string,
+    query: Partial<GetBoardOperationsQuery> = {},
+  ): Promise<GetBoardOperationsResponse> {
+    return this.queryService.getBoardOperations(currentUser, boardId, query)
   }
 
-  async getRoomOperationReplay(
+  async getBoardOperationReplay(
     currentUser: UserSummary,
-    roomId: string,
+    boardId: string,
     lastSeenRevision: number,
   ): Promise<SyncResponse> {
-    return this.queryService.getRoomOperationReplay(
+    return this.queryService.getBoardOperationReplay(
       currentUser,
-      roomId,
+      boardId,
       lastSeenRevision,
     )
   }
 
   async createObject(
     currentUser: UserSummary,
-    roomId: string,
+    boardId: string,
     request: ObjectCreateRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.mutationService.createObject(currentUser, roomId, request)
+    return this.mutationService.createObject(currentUser, boardId, request)
   }
 
   async updateObject(
     currentUser: UserSummary,
-    roomId: string,
+    boardId: string,
     objectId: string,
     request: ObjectUpdateRequest,
   ): Promise<OperationAppliedEvent> {
     return this.mutationService.updateObject(
       currentUser,
-      roomId,
+      boardId,
       objectId,
       request,
     )
@@ -72,13 +72,13 @@ export class WhiteboardObjectsService {
 
   async deleteObject(
     currentUser: UserSummary,
-    roomId: string,
+    boardId: string,
     objectId: string,
     request: ObjectDeleteRequest,
   ): Promise<OperationAppliedEvent> {
     return this.mutationService.deleteObject(
       currentUser,
-      roomId,
+      boardId,
       objectId,
       request,
     )
@@ -86,13 +86,13 @@ export class WhiteboardObjectsService {
 
   async restoreObject(
     currentUser: UserSummary,
-    roomId: string,
+    boardId: string,
     objectId: string,
     request: ObjectRestoreRequest,
   ): Promise<OperationAppliedEvent> {
     return this.mutationService.restoreObject(
       currentUser,
-      roomId,
+      boardId,
       objectId,
       request,
     )

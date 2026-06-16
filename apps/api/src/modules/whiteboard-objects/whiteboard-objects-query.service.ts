@@ -1,14 +1,14 @@
 import { Injectable } from "@nestjs/common"
 import {
-  type GetRoomObjectsResponse,
-  type GetRoomOperationsQuery,
-  type GetRoomOperationsResponse,
+  type GetBoardObjectsResponse,
+  type GetBoardOperationsQuery,
+  type GetBoardOperationsResponse,
   type SyncResponse,
   type UserSummary,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
-import { RoomsPermissionService } from "../rooms"
-import { roomNotFound } from "./whiteboard-object-errors"
+import { BoardPermissionService } from "../permission/services/board-permission.service"
+import { boardNotFound } from "./whiteboard-object-errors"
 import {
   toOperationSummary,
   toWhiteboardObject,
@@ -22,57 +22,48 @@ const maxOperationReplayCount = 100
 export class WhiteboardObjectsQueryService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly roomsPermissionService: RoomsPermissionService,
+    private readonly boardPermissionService: BoardPermissionService,
   ) {}
 
-  async getRoomObjects(
+  async getBoardObjects(
     currentUser: UserSummary,
-    roomId: string,
-  ): Promise<GetRoomObjectsResponse> {
-    await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
+    boardId: string,
+  ): Promise<GetBoardObjectsResponse> {
+    await this.boardPermissionService.assertBoardMember(currentUser.id, boardId)
 
-    const room = await this.prismaService.room.findFirst({
-      where: {
-        id: roomId,
-        deletedAt: null,
-      },
-      select: {
-        currentRevision: true,
-      },
+    const board = await this.prismaService.board.findFirst({
+      where: { id: boardId, deletedAt: null },
+      select: { currentRevision: true },
     })
 
-    if (!room) {
-      throw roomNotFound()
+    if (!board) {
+      throw boardNotFound()
     }
 
-    const objects = await this.getActiveRoomObjects(roomId)
+    const objects = await this.getActiveBoardObjects(boardId)
 
     return {
-      roomId,
-      currentRevision: Number(room.currentRevision),
+      boardId,
+      currentRevision: Number(board.currentRevision),
       objects: objects.map(toWhiteboardObject),
     }
   }
 
-  async getRoomOperations(
+  async getBoardOperations(
     currentUser: UserSummary,
-    roomId: string,
-    query: Partial<GetRoomOperationsQuery> = {},
-  ): Promise<GetRoomOperationsResponse> {
-    await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
+    boardId: string,
+    query: Partial<GetBoardOperationsQuery> = {},
+  ): Promise<GetBoardOperationsResponse> {
+    await this.boardPermissionService.assertBoardMember(currentUser.id, boardId)
 
     const operations = await this.prismaService.whiteboardOperation.findMany({
-      where: {
-        roomId,
-      },
-      orderBy: {
-        revision: "desc",
-      },
+      where: { boardId },
+      orderBy: { revision: "desc" },
       take: normalizeOperationLimit(query.limit),
       select: {
         id: true,
         clientOpId: true,
-        roomId: true,
+        boardId: true,
         objectId: true,
         revision: true,
         type: true,
@@ -87,46 +78,39 @@ export class WhiteboardObjectsQueryService {
           },
         },
         object: {
-          select: {
-            type: true,
-          },
+          select: { type: true },
         },
       },
     })
 
     return {
-      roomId,
+      boardId,
       operations: operations.map(toOperationSummary),
     }
   }
 
-  async getRoomOperationReplay(
+  async getBoardOperationReplay(
     currentUser: UserSummary,
-    roomId: string,
+    boardId: string,
     lastSeenRevision: number,
   ): Promise<SyncResponse> {
-    await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
+    await this.boardPermissionService.assertBoardMember(currentUser.id, boardId)
 
-    const room = await this.prismaService.room.findFirst({
-      where: {
-        id: roomId,
-        deletedAt: null,
-      },
-      select: {
-        currentRevision: true,
-      },
+    const board = await this.prismaService.board.findFirst({
+      where: { id: boardId, deletedAt: null },
+      select: { currentRevision: true },
     })
 
-    if (!room) {
-      throw roomNotFound()
+    if (!board) {
+      throw boardNotFound()
     }
 
-    const currentRevision = Number(room.currentRevision)
+    const currentRevision = Number(board.currentRevision)
 
     if (lastSeenRevision === currentRevision) {
       return {
         mode: "OPERATIONS",
-        roomId,
+        boardId,
         fromRevision: lastSeenRevision,
         toRevision: currentRevision,
         operations: [],
@@ -137,24 +121,22 @@ export class WhiteboardObjectsQueryService {
       lastSeenRevision > currentRevision ||
       currentRevision - lastSeenRevision > maxOperationReplayCount
     ) {
-      return this.getFullStateSyncResponse(roomId, currentRevision)
+      return this.getFullStateSyncResponse(boardId, currentRevision)
     }
 
     const operations = await this.prismaService.whiteboardOperation.findMany({
       where: {
-        roomId,
+        boardId,
         revision: {
           gt: BigInt(lastSeenRevision),
-          lte: room.currentRevision,
+          lte: board.currentRevision,
         },
       },
-      orderBy: {
-        revision: "asc",
-      },
+      orderBy: { revision: "asc" },
       select: {
         id: true,
         clientOpId: true,
-        roomId: true,
+        boardId: true,
         objectId: true,
         revision: true,
         type: true,
@@ -174,46 +156,36 @@ export class WhiteboardObjectsQueryService {
     if (
       !isCompleteOperationReplay(operations, lastSeenRevision, currentRevision)
     ) {
-      return this.getFullStateSyncResponse(roomId, currentRevision)
+      return this.getFullStateSyncResponse(boardId, currentRevision)
     }
 
     return {
       mode: "OPERATIONS",
-      roomId,
+      boardId,
       fromRevision: lastSeenRevision,
       toRevision: currentRevision,
       operations: operations.map(toOperationReplayEvent),
     }
   }
 
-  private async getActiveRoomObjects(
-    roomId: string,
+  private async getActiveBoardObjects(
+    boardId: string,
   ): Promise<WhiteboardObjectRecord[]> {
     return this.prismaService.whiteboardObject.findMany({
-      where: {
-        roomId,
-        deletedAt: null,
-      },
-      orderBy: [
-        {
-          zIndex: "asc",
-        },
-        {
-          createdAt: "asc",
-        },
-      ],
+      where: { boardId, deletedAt: null },
+      orderBy: [{ zIndex: "asc" }, { createdAt: "asc" }],
     })
   }
 
   private async getFullStateSyncResponse(
-    roomId: string,
+    boardId: string,
     revision: number,
   ): Promise<SyncResponse> {
-    const objects = await this.getActiveRoomObjects(roomId)
+    const objects = await this.getActiveBoardObjects(boardId)
 
     return {
       mode: "FULL_STATE",
-      roomId,
+      boardId,
       revision,
       objects: objects.map(toWhiteboardObject),
     }

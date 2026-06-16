@@ -5,26 +5,26 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import {
-  type AddRoomMemberRequest,
-  type CreateRoomRequest,
-  type CreateRoomResponse,
-  type GetRoomMembersResponse,
-  type GetRoomResponse,
-  type JoinRoomResponse,
-  type ListRoomsQuery,
-  type ListRoomsResponse,
-  type RoomRole,
-  type RoomMemberMutationResponse,
-  type UpdateRoomMemberRoleRequest,
-  type UpdateRoomRequest,
-  type UpdateRoomResponse,
+  type AddBoardMemberRequest,
+  type CreateBoardRequest,
+  type CreateBoardResponse,
+  type GetBoardMembersResponse,
+  type GetBoardResponse,
+  type JoinBoardResponse,
+  type ListBoardsQuery,
+  type ListBoardsResponse,
+  type BoardRole,
+  type BoardMemberMutationResponse,
+  type UpdateBoardMemberRoleRequest,
+  type UpdateBoardRequest,
+  type UpdateBoardResponse,
   type UserSummary,
   apiErrorCodes,
-  roomRoles,
+  boardRoles,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 import { toRoomMemberSummary, toRoomSummary } from "./room-response.mapper"
-import { RoomsPermissionService } from "./rooms-permission.service"
+import { BoardPermissionService } from "../permission/services/board-permission.service"
 
 const userSummarySelect = {
   id: true,
@@ -43,7 +43,7 @@ const roomWithCreatorInclude = {
 export class RoomsService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly roomsPermissionService: RoomsPermissionService,
+    private readonly boardPermissionService: BoardPermissionService,
   ) {}
 
   async createRoom(
@@ -61,7 +61,7 @@ export class RoomsService {
           members: {
             create: {
               userId: currentUser.id,
-              role: roomRoles.OWNER,
+              role: boardRoles.OWNER,
             },
           },
         },
@@ -73,7 +73,7 @@ export class RoomsService {
       room: toRoomSummary(room),
       currentUser: {
         ...currentUser,
-        role: roomRoles.OWNER,
+        role: boardRoles.OWNER,
       },
     }
   }
@@ -233,7 +233,7 @@ export class RoomsService {
     currentUser: UserSummary,
     roomId: string,
   ): Promise<GetRoomMembersResponse> {
-    await this.roomsPermissionService.assertRoomMember(currentUser.id, roomId)
+    await this.boardPermissionService.assertBoardMember(currentUser.id, roomId)
 
     const members = await this.prismaService.roomMember.findMany({
       where: {
@@ -261,7 +261,7 @@ export class RoomsService {
     roomId: string,
     request: AddRoomMemberRequest,
   ): Promise<RoomMemberMutationResponse> {
-    await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
+    await this.boardPermissionService.assertBoardOwner(currentUser.id, roomId)
 
     const member = await this.prismaService.$transaction(async (tx) => {
       const targetUser = await tx.user.findUnique({
@@ -343,7 +343,7 @@ export class RoomsService {
     memberId: string,
     request: UpdateRoomMemberRoleRequest,
   ): Promise<RoomMemberMutationResponse> {
-    await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
+    await this.boardPermissionService.assertBoardOwner(currentUser.id, roomId)
 
     const member = await this.prismaService.$transaction(async (tx) => {
       const existingMember = await tx.roomMember.findFirst({
@@ -362,7 +362,7 @@ export class RoomsService {
         throw this.memberNotFound()
       }
 
-      if (existingMember.role === roomRoles.OWNER) {
+      if (existingMember.role === boardRoles.OWNER) {
         throw this.validationError("Owner membership cannot be modified.")
       }
 
@@ -391,7 +391,7 @@ export class RoomsService {
     roomId: string,
     request: UpdateRoomRequest,
   ): Promise<UpdateRoomResponse> {
-    await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
+    await this.boardPermissionService.assertBoardOwner(currentUser.id, roomId)
 
     const room = await this.prismaService.room.update({
       where: {
@@ -407,7 +407,7 @@ export class RoomsService {
   }
 
   async deleteRoom(currentUser: UserSummary, roomId: string): Promise<void> {
-    await this.roomsPermissionService.assertRoomOwner(currentUser.id, roomId)
+    await this.boardPermissionService.assertBoardOwner(currentUser.id, roomId)
 
     await this.prismaService.room.update({
       where: {
@@ -421,9 +421,9 @@ export class RoomsService {
 
   private resolveAccessibleRole(room: {
     isPublic: boolean
-    defaultJoinRole: RoomRole
-    members: Array<{ role: RoomRole }>
-  }): RoomRole {
+    defaultJoinRole: BoardRole
+    members: Array<{ role: BoardRole }>
+  }): BoardRole {
     const memberRole = room.members.at(0)?.role
 
     if (memberRole) {
@@ -437,9 +437,9 @@ export class RoomsService {
     throw this.permissionDenied("You do not have access to this room.")
   }
 
-  private roomNotFound(message = "Room not found.") {
+  private roomNotFound(message = "Board not found.") {
     return new NotFoundException({
-      code: apiErrorCodes.ROOM_NOT_FOUND,
+      code: apiErrorCodes.BOARD_NOT_FOUND,
       message,
     })
   }

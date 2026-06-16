@@ -5,10 +5,10 @@ import {
 } from "@nestjs/common"
 import type { WhiteboardObject } from "@rctw/shared-contracts"
 
-export function roomNotFound() {
+export function boardNotFound() {
   return new NotFoundException({
-    code: "ROOM_NOT_FOUND",
-    message: "Room not found.",
+    code: "BOARD_NOT_FOUND",
+    message: "Board not found.",
   })
 }
 
@@ -28,14 +28,14 @@ export function objectAlreadyDeleted() {
 
 export function objectVersionConflict(
   latestObject: WhiteboardObject,
-  currentRoomRevision?: number,
+  currentBoardRevision?: number,
 ) {
   return new ConflictException({
     code: "OBJECT_VERSION_CONFLICT",
     message: "Whiteboard object has changed since your last edit.",
     details: {
       latestObject,
-      currentRoomRevision,
+      currentBoardRevision,
     },
   })
 }

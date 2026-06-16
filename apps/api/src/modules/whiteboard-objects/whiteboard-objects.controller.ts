@@ -1,50 +1,51 @@
 import { Controller, Delete, Get, Patch, Post, UseGuards } from "@nestjs/common"
 import {
+  boardIdParamsSchema,
   objectCreateRequestSchema,
   objectDeleteRequestSchema,
   objectUpdateRequestSchema,
-  roomIdParamsSchema,
   whiteboardObjectParamsSchema,
-  type GetRoomObjectsResponse,
+  type BoardIdParams,
+  type GetBoardObjectsResponse,
   type ObjectCreateRequest,
   type ObjectDeleteRequest,
   type ObjectUpdateRequest,
   type OperationAppliedEvent,
-  type RoomIdParams,
   type UserSummary,
   type WhiteboardObjectParams,
 } from "@rctw/shared-contracts"
+import { CurrentUser } from "../../common/decorators/current-user.decorator"
 import { ZodBody, ZodParam } from "../../common/pipes"
-import { CurrentUser, IdentityGuard } from "../identity"
+import { AuthGuard } from "../auth/guards/auth.guard"
 import { WhiteboardObjectsService } from "./whiteboard-objects.service"
 
-@Controller("rooms/:roomId/objects")
-@UseGuards(IdentityGuard)
+@Controller("boards/:boardId/objects")
+@UseGuards(AuthGuard)
 export class WhiteboardObjectsController {
   constructor(
     private readonly whiteboardObjectsService: WhiteboardObjectsService,
   ) {}
 
   @Get()
-  async getRoomObjects(
+  async getBoardObjects(
     @CurrentUser() currentUser: UserSummary,
-    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
-  ): Promise<GetRoomObjectsResponse> {
-    return this.whiteboardObjectsService.getRoomObjects(
+    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
+  ): Promise<GetBoardObjectsResponse> {
+    return this.whiteboardObjectsService.getBoardObjects(
       currentUser,
-      params.roomId,
+      params.boardId,
     )
   }
 
   @Post()
   async createObject(
     @CurrentUser() currentUser: UserSummary,
-    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
+    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
     @ZodBody(objectCreateRequestSchema) request: ObjectCreateRequest,
   ): Promise<OperationAppliedEvent> {
     return this.whiteboardObjectsService.createObject(
       currentUser,
-      params.roomId,
+      params.boardId,
       request,
     )
   }
@@ -58,7 +59,7 @@ export class WhiteboardObjectsController {
   ): Promise<OperationAppliedEvent> {
     return this.whiteboardObjectsService.updateObject(
       currentUser,
-      params.roomId,
+      params.boardId,
       params.objectId,
       request,
     )
@@ -73,7 +74,7 @@ export class WhiteboardObjectsController {
   ): Promise<OperationAppliedEvent> {
     return this.whiteboardObjectsService.deleteObject(
       currentUser,
-      params.roomId,
+      params.boardId,
       params.objectId,
       request,
     )

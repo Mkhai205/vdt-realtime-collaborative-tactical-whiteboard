@@ -15,7 +15,7 @@ type TimestampValue = Date | string
 
 export type WhiteboardObjectRecord = {
   id: string
-  roomId: string
+  boardId: string
   type: string
   x: number
   y: number
@@ -37,7 +37,7 @@ export type WhiteboardObjectRecord = {
 export type WhiteboardOperationRecord = {
   id: string
   clientOpId: string
-  roomId: string
+  boardId: string
   objectId?: string | null
   revision: bigint | number
   type: string
@@ -57,7 +57,7 @@ export function toWhiteboardObject(
 ): WhiteboardObject {
   return {
     id: object.id,
-    roomId: object.roomId,
+    boardId: object.boardId,
     type: toObjectType(object.type),
     x: object.x,
     y: object.y,
@@ -86,7 +86,7 @@ export function toOperationSummary(
   return {
     id: operation.id,
     clientOpId: operation.clientOpId,
-    roomId: operation.roomId,
+    boardId: operation.boardId,
     actor: operation.actor,
     objectId: operation.objectId ?? null,
     objectType,
@@ -117,7 +117,7 @@ export function toOperationAppliedEvent({
   return {
     operationId: operation.id,
     clientOpId: operation.clientOpId,
-    roomId: operation.roomId,
+    boardId: operation.boardId,
     revision: Number(operation.revision),
     type: toOperationType(operation.type),
     objectId: operation.objectId ?? null,

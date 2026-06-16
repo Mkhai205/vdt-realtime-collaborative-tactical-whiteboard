@@ -1,32 +1,33 @@
 import { Controller, Get, UseGuards } from "@nestjs/common"
 import {
-  getRoomOperationsQuerySchema,
-  roomIdParamsSchema,
-  type GetRoomOperationsQuery,
-  type GetRoomOperationsResponse,
-  type RoomIdParams,
+  boardIdParamsSchema,
+  getBoardOperationsQuerySchema,
+  type BoardIdParams,
+  type GetBoardOperationsQuery,
+  type GetBoardOperationsResponse,
   type UserSummary,
 } from "@rctw/shared-contracts"
+import { CurrentUser } from "../../common/decorators/current-user.decorator"
 import { ZodParam, ZodQuery } from "../../common/pipes"
-import { CurrentUser, IdentityGuard } from "../identity"
+import { AuthGuard } from "../auth/guards/auth.guard"
 import { WhiteboardObjectsService } from "./whiteboard-objects.service"
 
-@Controller("rooms/:roomId/operations")
-@UseGuards(IdentityGuard)
+@Controller("boards/:boardId/operations")
+@UseGuards(AuthGuard)
 export class WhiteboardOperationsController {
   constructor(
     private readonly whiteboardObjectsService: WhiteboardObjectsService,
   ) {}
 
   @Get()
-  async getRoomOperations(
+  async getBoardOperations(
     @CurrentUser() currentUser: UserSummary,
-    @ZodParam(roomIdParamsSchema) params: RoomIdParams,
-    @ZodQuery(getRoomOperationsQuerySchema) query: GetRoomOperationsQuery,
-  ): Promise<GetRoomOperationsResponse> {
-    return this.whiteboardObjectsService.getRoomOperations(
+    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
+    @ZodQuery(getBoardOperationsQuerySchema) query: GetBoardOperationsQuery,
+  ): Promise<GetBoardOperationsResponse> {
+    return this.whiteboardObjectsService.getBoardOperations(
       currentUser,
-      params.roomId,
+      params.boardId,
       query,
     )
   }

@@ -9,7 +9,7 @@ import { toOperationAppliedEvent } from "./whiteboard-object-response.mapper"
 export type OperationReplayRecord = {
   id: string
   clientOpId: string
-  roomId: string
+  boardId: string
   objectId?: string | null
   revision: bigint | number
   type: string

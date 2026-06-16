@@ -1,13 +1,13 @@
 import { Module } from "@nestjs/common"
-import { IdentityModule } from "../identity"
+import { AuthModule } from "../auth/auth.module"
+import { PermissionModule } from "../permission/permission.module"
 import { RoomsController } from "./rooms.controller"
-import { RoomsPermissionService } from "./rooms-permission.service"
 import { RoomsService } from "./rooms.service"
 
 @Module({
-  imports: [IdentityModule],
+  imports: [AuthModule, PermissionModule],
   controllers: [RoomsController],
-  providers: [RoomsService, RoomsPermissionService],
-  exports: [RoomsService, RoomsPermissionService],
+  providers: [RoomsService],
+  exports: [RoomsService],
 })
 export class RoomsModule {}

@@ -4,8 +4,10 @@ import { AppService } from "./app.service"
 import { ConfigModule } from "@nestjs/config"
 import { ScheduleModule } from "@nestjs/schedule"
 import { validateEnv } from "./config"
-import { IdentityModule } from "./modules/identity/identity.module"
-import { RoomsModule } from "./modules/rooms"
+import { AuthModule } from "./modules/auth"
+import { UserModule } from "./modules/user"
+import { PermissionModule } from "./modules/permission"
+import { BoardModule } from "./modules/board"
 import { WhiteboardSnapshotsModule } from "./modules/whiteboard-snapshots"
 import { WhiteboardObjectsModule } from "./modules/whiteboard-objects"
 import { RealtimeModule } from "./modules/realtime"
@@ -21,8 +23,10 @@ import { DatabaseModule } from "./infrastructure/database"
     }),
     ScheduleModule.forRoot(),
     DatabaseModule,
-    IdentityModule,
-    RoomsModule,
+    AuthModule,
+    UserModule,
+    PermissionModule,
+    BoardModule,
     WhiteboardObjectsModule,
     WhiteboardSnapshotsModule,
     RealtimeModule,

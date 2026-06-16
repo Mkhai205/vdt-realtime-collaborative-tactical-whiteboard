@@ -10,12 +10,12 @@ import {
 } from "./whiteboard-object-response.mapper"
 
 export function toCreateObjectData(
-  roomId: string,
+  boardId: string,
   createdById: string,
   input: ObjectCreateInput,
 ): Prisma.WhiteboardObjectUncheckedCreateInput {
   return {
-    roomId,
+    boardId,
     type: input.type,
     x: input.x,
     y: input.y,
