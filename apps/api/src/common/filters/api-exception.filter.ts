@@ -58,7 +58,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       case 400:
         return "VALIDATION_ERROR"
       case 404:
-        return "ROOM_NOT_FOUND"
+        return "BOARD_NOT_FOUND"
       default:
         return "INTERNAL_ERROR"
     }
