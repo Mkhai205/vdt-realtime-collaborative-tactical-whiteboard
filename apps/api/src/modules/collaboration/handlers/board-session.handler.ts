@@ -39,9 +39,15 @@ export class BoardSessionHandler {
 
     try {
       const currentUser = client.data.currentUser!
-      const joinResponse = await this.boardService.joinBoard(currentUser, boardId)
+      const joinResponse = await this.boardService.joinBoard(
+        currentUser,
+        boardId,
+      )
       const objectsResponse =
-        await this.whiteboardObjectsService.getBoardObjects(currentUser, boardId)
+        await this.whiteboardObjectsService.getBoardObjects(
+          currentUser,
+          boardId,
+        )
 
       await client.join(toBoardSocketName(boardId))
 
@@ -112,7 +118,10 @@ export class BoardSessionHandler {
 
     try {
       const currentUser = client.data.currentUser!
-      const joinResponse = await this.boardService.joinBoard(currentUser, boardId)
+      const joinResponse = await this.boardService.joinBoard(
+        currentUser,
+        boardId,
+      )
 
       await client.join(toBoardSocketName(boardId))
       this.presenceService.joinBoard({
@@ -150,7 +159,11 @@ export class BoardSessionHandler {
 
   emitEndedEditingStates(
     server: import("socket.io").Server,
-    states: Array<{ boardId: string; objectId: string; user: import("@rctw/shared-contracts").UserSummary }>,
+    states: Array<{
+      boardId: string
+      objectId: string
+      user: import("@rctw/shared-contracts").UserSummary
+    }>,
     exceptSocketId?: string,
   ): void {
     for (const state of states) {

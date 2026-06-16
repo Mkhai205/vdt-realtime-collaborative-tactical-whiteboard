@@ -27,4 +27,3 @@ import { CollaborationGateway } from "./gateways/collaboration.gateway"
   ],
 })
 export class CollaborationModule {}
-

@@ -22,14 +22,19 @@ export class HistoryService {
       case "OBJECT_CREATE": {
         const { object, baseRoomRevision } = operation
 
-        return this.whiteboardObjectsService.createObject(currentUser, boardId, {
-          clientOpId,
-          baseRoomRevision,
-          object,
-        })
+        return this.whiteboardObjectsService.createObject(
+          currentUser,
+          boardId,
+          {
+            clientOpId,
+            baseRoomRevision,
+            object,
+          },
+        )
       }
       case "OBJECT_UPDATE": {
-        const { objectId, baseRoomRevision, baseObjectVersion, patch } = operation
+        const { objectId, baseRoomRevision, baseObjectVersion, patch } =
+          operation
 
         return this.whiteboardObjectsService.updateObject(
           currentUser,

@@ -24,7 +24,10 @@ import {
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../../infrastructure/database"
 import { BoardPermissionService } from "../../permission/services/board-permission.service"
-import { toBoardMemberSummary, toBoardSummary } from "../mappers/board-response.mapper"
+import {
+  toBoardMemberSummary,
+  toBoardSummary,
+} from "../mappers/board-response.mapper"
 
 const userSummarySelect = {
   id: true,

@@ -43,11 +43,8 @@ export class WhiteboardMutationHandler {
 
     const { boardId, ...request } = parsed.data
 
-    await this.processObjectOperation(
-      ctx,
-      parsed.data,
-      (currentUser) =>
-        this.whiteboardObjectsService.createObject(currentUser, boardId, request),
+    await this.processObjectOperation(ctx, parsed.data, (currentUser) =>
+      this.whiteboardObjectsService.createObject(currentUser, boardId, request),
     )
   }
 
@@ -64,16 +61,13 @@ export class WhiteboardMutationHandler {
 
     const { boardId, objectId, ...request } = parsed.data
 
-    await this.processObjectOperation(
-      ctx,
-      parsed.data,
-      (currentUser) =>
-        this.whiteboardObjectsService.updateObject(
-          currentUser,
-          boardId,
-          objectId,
-          request,
-        ),
+    await this.processObjectOperation(ctx, parsed.data, (currentUser) =>
+      this.whiteboardObjectsService.updateObject(
+        currentUser,
+        boardId,
+        objectId,
+        request,
+      ),
     )
   }
 
@@ -90,16 +84,13 @@ export class WhiteboardMutationHandler {
 
     const { boardId, objectId, ...request } = parsed.data
 
-    await this.processObjectOperation(
-      ctx,
-      parsed.data,
-      (currentUser) =>
-        this.whiteboardObjectsService.deleteObject(
-          currentUser,
-          boardId,
-          objectId,
-          request,
-        ),
+    await this.processObjectOperation(ctx, parsed.data, (currentUser) =>
+      this.whiteboardObjectsService.deleteObject(
+        currentUser,
+        boardId,
+        objectId,
+        request,
+      ),
     )
   }
 
@@ -116,16 +107,13 @@ export class WhiteboardMutationHandler {
 
     const { boardId, clientOpId, inverseOperation } = parsed.data
 
-    await this.processObjectOperation(
-      ctx,
-      parsed.data,
-      (currentUser) =>
-        this.historyService.processUndoRedoOperation(
-          currentUser,
-          boardId,
-          clientOpId,
-          inverseOperation,
-        ),
+    await this.processObjectOperation(ctx, parsed.data, (currentUser) =>
+      this.historyService.processUndoRedoOperation(
+        currentUser,
+        boardId,
+        clientOpId,
+        inverseOperation,
+      ),
     )
   }
 
@@ -142,16 +130,13 @@ export class WhiteboardMutationHandler {
 
     const { boardId, clientOpId, redoOperation } = parsed.data
 
-    await this.processObjectOperation(
-      ctx,
-      parsed.data,
-      (currentUser) =>
-        this.historyService.processUndoRedoOperation(
-          currentUser,
-          boardId,
-          clientOpId,
-          redoOperation,
-        ),
+    await this.processObjectOperation(ctx, parsed.data, (currentUser) =>
+      this.historyService.processUndoRedoOperation(
+        currentUser,
+        boardId,
+        clientOpId,
+        redoOperation,
+      ),
     )
   }
 

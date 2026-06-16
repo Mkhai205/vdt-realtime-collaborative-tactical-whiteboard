@@ -34,9 +34,7 @@ export class UserRepository {
 
   // ── Auth: Guest resolution ────────────────────────────────────────────
 
-  async findIdentityType(
-    id: string,
-  ): Promise<{ identityType: string } | null> {
+  async findIdentityType(id: string): Promise<{ identityType: string } | null> {
     return this.prisma.user.findUnique({
       where: { id },
       select: { identityType: true },

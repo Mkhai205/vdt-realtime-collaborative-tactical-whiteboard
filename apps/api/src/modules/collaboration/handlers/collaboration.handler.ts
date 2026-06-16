@@ -12,7 +12,10 @@ import {
 } from "@rctw/shared-contracts"
 import { PresenceService } from "../../presence"
 import type { CollaborationContext } from "../collaboration-context"
-import { toSocketError, toValidationSocketError } from "../collaboration-socket-errors"
+import {
+  toSocketError,
+  toValidationSocketError,
+} from "../collaboration-socket-errors"
 
 @Injectable()
 export class CollaborationHandler {
@@ -40,7 +43,11 @@ export class CollaborationHandler {
         return
       }
 
-      this.presenceService.startEditing({ socketId: ctx.client.id, boardId, objectId })
+      this.presenceService.startEditing({
+        socketId: ctx.client.id,
+        boardId,
+        objectId,
+      })
       this.emitEditingEvent(ctx.server, {
         boardId,
         objectId,
@@ -75,7 +82,11 @@ export class CollaborationHandler {
         return
       }
 
-      this.presenceService.endEditing({ socketId: ctx.client.id, boardId, objectId })
+      this.presenceService.endEditing({
+        socketId: ctx.client.id,
+        boardId,
+        objectId,
+      })
       this.emitEditingEvent(ctx.server, {
         boardId,
         objectId,

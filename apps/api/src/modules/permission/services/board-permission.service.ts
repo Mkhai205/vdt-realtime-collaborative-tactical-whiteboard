@@ -8,9 +8,7 @@ import { BoardMemberRepository } from "../repositories/board-member.repository"
 
 @Injectable()
 export class BoardPermissionService {
-  constructor(
-    private readonly boardMemberRepository: BoardMemberRepository,
-  ) {}
+  constructor(private readonly boardMemberRepository: BoardMemberRepository) {}
 
   // ── Stateless role checks (no DB call) ───────────────────────────────
 
@@ -48,10 +46,7 @@ export class BoardPermissionService {
    * Throws PermissionDeniedException if user is not a member.
    * @returns the user's BoardRole
    */
-  async assertBoardMember(
-    userId: string,
-    boardId: string,
-  ): Promise<BoardRole> {
+  async assertBoardMember(userId: string, boardId: string): Promise<BoardRole> {
     const { boardExists, role } =
       await this.boardMemberRepository.findMembership(userId, boardId)
 
@@ -72,10 +67,7 @@ export class BoardPermissionService {
    * Throws PermissionDeniedException if not owner.
    * @returns the user's BoardRole (always OWNER)
    */
-  async assertBoardOwner(
-    userId: string,
-    boardId: string,
-  ): Promise<BoardRole> {
+  async assertBoardOwner(userId: string, boardId: string): Promise<BoardRole> {
     const role = await this.assertBoardMember(userId, boardId)
     this.assertCanManage(role)
     return role
@@ -87,10 +79,7 @@ export class BoardPermissionService {
    * Throws PermissionDeniedException if not an editor-level member.
    * @returns the user's BoardRole
    */
-  async assertBoardEditor(
-    userId: string,
-    boardId: string,
-  ): Promise<BoardRole> {
+  async assertBoardEditor(userId: string, boardId: string): Promise<BoardRole> {
     const role = await this.assertBoardMember(userId, boardId)
     this.assertCanEdit(role)
     return role

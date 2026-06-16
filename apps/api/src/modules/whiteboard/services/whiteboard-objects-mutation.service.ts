@@ -71,7 +71,12 @@ export class WhiteboardObjectsMutationService {
         inversePayload: { objectId: object.id },
       })
 
-      return toOperationAppliedEvent({ operation, actor: currentUser, payload, resultingObject })
+      return toOperationAppliedEvent({
+        operation,
+        actor: currentUser,
+        payload,
+        resultingObject,
+      })
     })
   }
 
@@ -85,14 +90,26 @@ export class WhiteboardObjectsMutationService {
       await this.assertCanMutateBoard(tx, currentUser.id, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
-      const currentObject = await this.loadObjectForMutation(tx, boardId, objectId)
+      const currentObject = await this.loadObjectForMutation(
+        tx,
+        boardId,
+        objectId,
+      )
       const previousValues = getPreviousValues(currentObject, request.patch)
       const updatedObject = await this.updateObjectConditionally(
-        tx, boardId, objectId, request.baseObjectVersion,
+        tx,
+        boardId,
+        objectId,
+        request.baseObjectVersion,
         toUpdateObjectData(currentObject, request.patch, currentUser.id),
       )
       const resultingObject = toWhiteboardObject(updatedObject)
-      const payload = { objectId, patch: request.patch, previousValues, resultingObject }
+      const payload = {
+        objectId,
+        patch: request.patch,
+        previousValues,
+        resultingObject,
+      }
       const operation = await this.createOperation(tx, {
         currentUser,
         boardId,
@@ -104,7 +121,12 @@ export class WhiteboardObjectsMutationService {
         inversePayload: { objectId, patch: previousValues },
       })
 
-      return toOperationAppliedEvent({ operation, actor: currentUser, payload, resultingObject })
+      return toOperationAppliedEvent({
+        operation,
+        actor: currentUser,
+        payload,
+        resultingObject,
+      })
     })
   }
 
@@ -118,11 +140,22 @@ export class WhiteboardObjectsMutationService {
       await this.assertCanMutateBoard(tx, currentUser.id, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
-      const currentObject = await this.loadObjectForMutation(tx, boardId, objectId)
+      const currentObject = await this.loadObjectForMutation(
+        tx,
+        boardId,
+        objectId,
+      )
       const previousObject = toWhiteboardObject(currentObject)
       const deletedObject = await this.updateObjectConditionally(
-        tx, boardId, objectId, request.baseObjectVersion,
-        { deletedAt: new Date(), updatedById: currentUser.id, version: { increment: 1 } },
+        tx,
+        boardId,
+        objectId,
+        request.baseObjectVersion,
+        {
+          deletedAt: new Date(),
+          updatedById: currentUser.id,
+          version: { increment: 1 },
+        },
       )
       const resultingObject = toWhiteboardObject(deletedObject)
       const payload = { objectId, previousObject }
@@ -137,7 +170,12 @@ export class WhiteboardObjectsMutationService {
         inversePayload: { objectId, restoredObject: previousObject },
       })
 
-      return toOperationAppliedEvent({ operation, actor: currentUser, payload, resultingObject })
+      return toOperationAppliedEvent({
+        operation,
+        actor: currentUser,
+        payload,
+        resultingObject,
+      })
     })
   }
 
@@ -151,7 +189,11 @@ export class WhiteboardObjectsMutationService {
       await this.assertCanMutateBoard(tx, currentUser.id, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
-      const currentObject = await this.loadObjectIncludingDeleted(tx, boardId, objectId)
+      const currentObject = await this.loadObjectIncludingDeleted(
+        tx,
+        boardId,
+        objectId,
+      )
 
       if (!currentObject.deletedAt) {
         throw objectVersionConflict(
@@ -162,8 +204,15 @@ export class WhiteboardObjectsMutationService {
 
       const previousObject = toWhiteboardObject(currentObject)
       const restoredObject = await this.restoreObjectConditionally(
-        tx, boardId, objectId, request.baseObjectVersion,
-        { deletedAt: null, updatedById: currentUser.id, version: { increment: 1 } },
+        tx,
+        boardId,
+        objectId,
+        request.baseObjectVersion,
+        {
+          deletedAt: null,
+          updatedById: currentUser.id,
+          version: { increment: 1 },
+        },
       )
       const resultingObject = toWhiteboardObject(restoredObject)
       const payload = { objectId, previousObject, resultingObject }
@@ -178,7 +227,12 @@ export class WhiteboardObjectsMutationService {
         inversePayload: { objectId },
       })
 
-      return toOperationAppliedEvent({ operation, actor: currentUser, payload, resultingObject })
+      return toOperationAppliedEvent({
+        operation,
+        actor: currentUser,
+        payload,
+        resultingObject,
+      })
     })
   }
 
@@ -222,7 +276,9 @@ export class WhiteboardObjectsMutationService {
     }
 
     if (!this.boardPermissionService.canEdit(role)) {
-      throw permissionDenied("Only board owners and editors can edit this board.")
+      throw permissionDenied(
+        "Only board owners and editors can edit this board.",
+      )
     }
   }
 
@@ -280,7 +336,12 @@ export class WhiteboardObjectsMutationService {
     data: Prisma.WhiteboardObjectUncheckedUpdateManyInput,
   ): Promise<WhiteboardObjectRecord> {
     const result = await tx.whiteboardObject.updateMany({
-      where: { id: objectId, boardId, deletedAt: null, version: baseObjectVersion },
+      where: {
+        id: objectId,
+        boardId,
+        deletedAt: null,
+        version: baseObjectVersion,
+      },
       data,
     })
 
@@ -378,7 +439,11 @@ export class WhiteboardObjectsMutationService {
     tx: WhiteboardTransactionClient,
     input: MutationContext & {
       objectId: string
-      type: "OBJECT_CREATE" | "OBJECT_UPDATE" | "OBJECT_DELETE" | "OBJECT_RESTORE"
+      type:
+        | "OBJECT_CREATE"
+        | "OBJECT_UPDATE"
+        | "OBJECT_DELETE"
+        | "OBJECT_RESTORE"
       payload: unknown
       inversePayload?: unknown
     },

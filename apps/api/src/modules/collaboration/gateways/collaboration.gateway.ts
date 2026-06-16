@@ -57,8 +57,9 @@ export class CollaborationGateway
 
   async handleConnection(client: CollaborationSocket): Promise<void> {
     try {
-      client.data.currentUser =
-        await this.authService.resolveSocketIdentity(client.handshake.auth)
+      client.data.currentUser = await this.authService.resolveSocketIdentity(
+        client.handshake.auth,
+      )
     } catch (error) {
       this.logger.warn("Socket auth failed", error)
       client.emit("error", {
@@ -70,7 +71,9 @@ export class CollaborationGateway
   }
 
   handleDisconnect(client: CollaborationSocket): void {
-    const endedEditingStates = this.presenceService.clearEditingForSocket(client.id)
+    const endedEditingStates = this.presenceService.clearEditingForSocket(
+      client.id,
+    )
     const affectedBoardIds = this.presenceService.leaveAllBoards(client.id)
 
     this.boardSessionHandler.emitEndedEditingStates(
@@ -92,7 +95,10 @@ export class CollaborationGateway
     @MessageBody() payload: unknown,
   ): Promise<void> {
     this.requireCurrentUser(client)
-    return this.boardSessionHandler.handleJoin({ server: this.server, client }, payload)
+    return this.boardSessionHandler.handleJoin(
+      { server: this.server, client },
+      payload,
+    )
   }
 
   @SubscribeMessage("board:leave")
@@ -100,7 +106,10 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
-    return this.boardSessionHandler.handleLeave({ server: this.server, client }, payload)
+    return this.boardSessionHandler.handleLeave(
+      { server: this.server, client },
+      payload,
+    )
   }
 
   @SubscribeMessage("sync:request")
@@ -109,7 +118,10 @@ export class CollaborationGateway
     @MessageBody() payload: unknown,
   ): Promise<void> {
     this.requireCurrentUser(client)
-    return this.boardSessionHandler.handleSync({ server: this.server, client }, payload)
+    return this.boardSessionHandler.handleSync(
+      { server: this.server, client },
+      payload,
+    )
   }
 
   // ── Whiteboard mutation events ─────────────────────────────────────────
@@ -176,7 +188,10 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
-    this.collaborationHandler.handleEditingStart({ server: this.server, client }, payload)
+    this.collaborationHandler.handleEditingStart(
+      { server: this.server, client },
+      payload,
+    )
   }
 
   @SubscribeMessage("editing:end")
@@ -184,7 +199,10 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
-    this.collaborationHandler.handleEditingEnd({ server: this.server, client }, payload)
+    this.collaborationHandler.handleEditingEnd(
+      { server: this.server, client },
+      payload,
+    )
   }
 
   @SubscribeMessage("cursor:update")
@@ -192,7 +210,10 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): void {
-    this.collaborationHandler.handleCursorUpdate({ server: this.server, client }, payload)
+    this.collaborationHandler.handleCursorUpdate(
+      { server: this.server, client },
+      payload,
+    )
   }
 
   @SubscribeMessage("selection:update")
