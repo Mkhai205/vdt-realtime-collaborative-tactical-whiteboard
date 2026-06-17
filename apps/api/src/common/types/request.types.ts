@@ -1,6 +1,6 @@
-import type { UserSummary } from "@rctw/shared-contracts"
 import type { Request } from "express"
+import { JwtPayload } from "../../modules/auth/auth.type"
 
 export type RequestWithCurrentUser = Request & {
-  currentUser?: UserSummary
+  currentUser?: JwtPayload
 }

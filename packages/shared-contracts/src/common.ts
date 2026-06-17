@@ -22,13 +22,5 @@ export const apiErrorSchema = z.object({
   details: z.unknown().optional(),
 })
 
-export const userSummarySchema = z.object({
-  id: z.uuid(),
-  name: z.string().min(1).max(120),
-  avatarUrl: z.url().nullable().optional(),
-  avatarColor: z.string().min(1).max(20).nullable().optional(),
-})
-
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>
 export type ApiError = z.infer<typeof apiErrorSchema>
-export type UserSummary = z.infer<typeof userSummarySchema>

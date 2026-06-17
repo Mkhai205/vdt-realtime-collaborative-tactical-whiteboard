@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useMemo, useState, useSyncExternalStore } from "react"
-import { authTokenStorageKey } from "@rctw/shared-contracts"
+import { authTokenStorageKey, type UserSummary } from "@rctw/shared-contracts"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -52,15 +52,21 @@ export function GuestIdentityForm() {
       setError("Enter a display name before joining.")
       return
     }
-    const nextIdentity = createGuestIdentity(nextName, identity)
     try {
-      const response = await apiClient.post<{ accessToken: string }>(
-        "/auth/guest",
-        nextIdentity,
-      )
+      const response = await apiClient.post<{
+        accessToken: string
+        user: UserSummary
+      }>("/auth/guest", {
+        id: identity?.id,
+        name: nextName,
+      })
       writeStoredGuestToken(response.data.accessToken)
-      writeStoredGuestIdentity(nextIdentity)
-      setDraftDisplayName(nextIdentity.name)
+      writeStoredGuestIdentity({
+        id: response.data.user.id,
+        name: response.data.user.name,
+        avatarColor: response.data.user.avatarColor ?? "#3B82F6",
+      })
+      setDraftDisplayName(response.data.user.name)
       setError("")
     } catch (err: any) {
       setError(

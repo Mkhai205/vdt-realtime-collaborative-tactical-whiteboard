@@ -10,13 +10,13 @@ import {
 } from "@nestjs/websockets"
 import type { UserSummary } from "@rctw/shared-contracts"
 import type { Server, Socket } from "socket.io"
-import { AuthService } from "../../auth/auth.service"
 import {
   BoardSessionHandler,
   CollaborationHandler,
   WhiteboardMutationHandler,
 } from "../handlers"
 import { PresenceService } from "../../presence/presence.service"
+import { JWTService } from "../../auth/jwt.service"
 
 const socketCorsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
   .split(",")
@@ -46,7 +46,7 @@ export class CollaborationGateway
   private server!: Server
 
   constructor(
-    private readonly authService: AuthService,
+    private readonly jwtService: JWTService,
     private readonly presenceService: PresenceService,
     private readonly boardSessionHandler: BoardSessionHandler,
     private readonly whiteboardMutationHandler: WhiteboardMutationHandler,
@@ -57,9 +57,10 @@ export class CollaborationGateway
 
   async handleConnection(client: CollaborationSocket): Promise<void> {
     try {
-      client.data.currentUser = await this.authService.resolveSocketIdentity(
-        client.handshake.auth,
-      )
+      const accessToken = client.handshake.auth.token as string
+
+      client.data.currentUser =
+        await this.jwtService.verifyAccessToken(accessToken)
     } catch (error) {
       this.logger.warn("Socket auth failed", error)
       client.emit("error", {

@@ -7,6 +7,7 @@ const userSummarySelect = {
   name: true,
   avatarUrl: true,
   avatarColor: true,
+  identityType: true,
 } as const
 
 @Injectable()

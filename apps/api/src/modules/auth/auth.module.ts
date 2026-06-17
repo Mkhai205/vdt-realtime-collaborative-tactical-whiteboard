@@ -5,6 +5,7 @@ import { AuthController } from "./auth.controller"
 import { AuthGuard } from "./guards/auth.guard"
 import { AuthService } from "./auth.service"
 import { GoogleOAuthService } from "./google-oauth.service"
+import { JWTService } from "./jwt.service"
 
 @Module({
   imports: [JwtModule],
@@ -17,6 +18,6 @@ import { GoogleOAuthService } from "./google-oauth.service"
       useClass: AuthGuard,
     },
   ],
-  exports: [AuthService],
+  exports: [AuthService, JWTService],
 })
 export class AuthModule {}

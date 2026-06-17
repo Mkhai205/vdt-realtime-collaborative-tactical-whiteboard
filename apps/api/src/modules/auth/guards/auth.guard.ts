@@ -2,13 +2,13 @@ import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common"
 import { Reflector } from "@nestjs/core"
 import { IS_PUBLIC_KEY } from "../../../common/decorators/public.decorator"
 import type { RequestWithCurrentUser } from "../../../common/types/request.types"
-import { AuthService } from "../auth.service"
+import { JWTService } from "../jwt.service"
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
-    private readonly authService: AuthService,
     private readonly reflector: Reflector,
+    private readonly jwtService: JWTService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -17,18 +17,17 @@ export class AuthGuard implements CanActivate {
       context.getClass(),
     ])
 
+    if (isPublic) {
+      return true
+    }
+
     const request = context.switchToHttp().getRequest<RequestWithCurrentUser>()
 
-    try {
-      request.currentUser = await this.authService.resolveRestIdentity(
-        request.headers,
-      )
-    } catch (error) {
-      if (isPublic) {
-        return true
-      }
-      throw error
-    }
+    const accessToken = this.jwtService.getBearerToken(
+      request.headers.authorization ?? "",
+    )
+    const payload = await this.jwtService.verifyAccessToken(accessToken)
+    request.currentUser = payload
 
     return true
   }

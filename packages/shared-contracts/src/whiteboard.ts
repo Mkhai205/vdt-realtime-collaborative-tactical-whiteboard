@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { userSummarySchema } from "./common.js"
+import { userSummarySchema } from "./user"
 
 export const objectTypeSchema = z.enum(["RECTANGLE", "CIRCLE", "LINE", "TEXT"])
 export const toolSchema = z.enum([
@@ -332,9 +332,15 @@ export type UndoRequest = z.infer<typeof undoRequestSchema>
 export type RedoRequest = z.infer<typeof redoRequestSchema>
 
 // Board-prefixed types (canonical)
-export type GetBoardObjectsResponse = z.infer<typeof getBoardObjectsResponseSchema>
-export type GetBoardOperationsQuery = z.infer<typeof getBoardOperationsQuerySchema>
-export type GetBoardOperationsResponse = z.infer<typeof getBoardOperationsResponseSchema>
+export type GetBoardObjectsResponse = z.infer<
+  typeof getBoardObjectsResponseSchema
+>
+export type GetBoardOperationsQuery = z.infer<
+  typeof getBoardOperationsQuerySchema
+>
+export type GetBoardOperationsResponse = z.infer<
+  typeof getBoardOperationsResponseSchema
+>
 
 // Room-prefixed aliases for backward compat
 /** @deprecated use GetBoardObjectsResponse */

@@ -228,6 +228,7 @@ export class PresenceService {
       name: session.name,
       avatarUrl: session.avatarUrl,
       avatarColor: session.avatarColor,
+      identityType: session.identityType,
       role: session.role,
       status: session.status,
       selectedObjectId: latestSelectionSession.selectedObjectId,
@@ -241,6 +242,7 @@ export class PresenceService {
       name: session.name,
       avatarUrl: session.avatarUrl,
       avatarColor: session.avatarColor,
+      identityType: session.identityType,
     }
   }
 }

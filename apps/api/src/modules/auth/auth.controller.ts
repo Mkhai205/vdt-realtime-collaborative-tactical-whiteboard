@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Post, Query, Req, Res } from "@nestjs/common"
+import { Controller, Get, Post, Query, Req, Res } from "@nestjs/common"
 import type { Request, Response } from "express"
-import { type GuestIdentity } from "@rctw/shared-contracts"
+import { type UserSummary } from "@rctw/shared-contracts"
 import { AuthService } from "./auth.service"
 import {
   googleOAuthStateCookieMaxAgeMs,
@@ -24,10 +24,8 @@ export class AuthController {
   ) {}
 
   @Post("guest")
-  async registerGuest(
-    @Body() body: GuestIdentity,
-  ): Promise<{ accessToken: string }> {
-    return this.authService.registerGuest(body)
+  async registerGuest(): Promise<{ accessToken: string; user: UserSummary }> {
+    return this.authService.registerGuest()
   }
 
   @Get("google")

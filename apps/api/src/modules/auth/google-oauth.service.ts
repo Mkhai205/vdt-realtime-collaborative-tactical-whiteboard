@@ -1,12 +1,12 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
-import { JwtService } from "@nestjs/jwt"
-import { identityTypes, jwtIdentityPayloadSchema } from "@rctw/shared-contracts"
+import { avatarPalette, identityTypes } from "@rctw/shared-contracts"
 import { OAuth2Client } from "google-auth-library"
 import { randomBytes } from "node:crypto"
 import { z } from "zod"
-import { FRONTEND_REDIRECT_URI_CONFIG_KEY, JWT_CONFIG_KEY } from "../../config"
+import { FRONTEND_REDIRECT_URI_CONFIG_KEY } from "../../config"
 import { PrismaService } from "../../infrastructure/database"
+import { JWTService } from "./jwt.service"
 
 export const googleOAuthStateCookieName = "rctw_google_oauth_state"
 export const googleOAuthStateCookieMaxAgeMs = 5 * 60 * 1000
@@ -18,23 +18,10 @@ const googleCallbackQuerySchema = z.object({
   state: z.string().trim().min(1),
 })
 
-const avatarPalette = [
-  "#3B82F6",
-  "#16A34A",
-  "#DC2626",
-  "#D97706",
-  "#7C3AED",
-  "#0891B2",
-  "#BE123C",
-  "#4F46E5",
-] as const
-
 type OAuthRuntimeConfig = {
   clientId: string
   clientSecret: string
   callbackUrl: string
-  jwtAccessSecret: string
-  jwtAccessExpiresInSeconds: number
   successRedirect: string
   failureRedirect: string
 }
@@ -73,7 +60,7 @@ export type OAuthUserRecord = {
 export class GoogleOAuthService {
   constructor(
     private readonly configService: ConfigService,
-    private readonly jwtService: JwtService,
+    private readonly jwtService: JWTService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -116,7 +103,7 @@ export class GoogleOAuthService {
         avatarColorRecord?.avatarColor ??
         this.generateAvatarColor(profile.email),
     })
-    const accessToken = await this.signAccessToken({
+    const accessToken = await this.jwtService.signAccessToken({
       sub: user.id,
       email: user.email ?? profile.email,
       name: user.name,
@@ -197,18 +184,6 @@ export class GoogleOAuthService {
     }
   }
 
-  private async signAccessToken(
-    rawPayload: z.input<typeof jwtIdentityPayloadSchema>,
-  ): Promise<string> {
-    const config = this.getRuntimeConfigOrThrow()
-    const payload = jwtIdentityPayloadSchema.parse(rawPayload)
-
-    return this.jwtService.signAsync(payload, {
-      secret: config.jwtAccessSecret,
-      expiresIn: config.jwtAccessExpiresInSeconds,
-    })
-  }
-
   private buildSuccessRedirect(
     accessToken: string,
     config: OAuthRuntimeConfig,
@@ -231,13 +206,12 @@ export class GoogleOAuthService {
     const clientId = this.readConfigString("GOOGLE_CLIENT_ID")
     const clientSecret = this.readConfigString("GOOGLE_CLIENT_SECRET")
     const callbackUrl = this.readConfigString("GOOGLE_CALLBACK_URL")
-    const jwtAccessSecret = this.readConfigString("JWT_ACCESS_SECRET")
 
-    if (!clientId || !clientSecret || !callbackUrl || !jwtAccessSecret) {
+    if (!clientId || !clientSecret || !callbackUrl) {
       throw new ServiceUnavailableException({
         code: "INTERNAL_ERROR",
         message:
-          "Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL, and JWT_ACCESS_SECRET.",
+          "Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL",
       })
     }
 
@@ -245,10 +219,6 @@ export class GoogleOAuthService {
       clientId,
       clientSecret,
       callbackUrl,
-      jwtAccessSecret,
-      jwtAccessExpiresInSeconds:
-        this.configService.get<number>("JWT_ACCESS_EXPIRES_IN_SECONDS") ??
-        JWT_CONFIG_KEY.JWT_ACCESS_EXPIRES_IN_SECONDS,
       successRedirect:
         this.readConfigString("FRONTEND_LOGIN_SUCCESS_REDIRECT") ??
         FRONTEND_REDIRECT_URI_CONFIG_KEY.FRONTEND_LOGIN_SUCCESS_REDIRECT,

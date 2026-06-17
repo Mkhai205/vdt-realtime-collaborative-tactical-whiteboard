@@ -1,12 +1,11 @@
 import { z } from "zod"
-import { userSummarySchema } from "./common.js"
-import { defaultJoinRoleSchema } from "./board.js"
-import { boardRoleSchema } from "./identity.js"
+import { boardRoleSchema, defaultJoinRoleSchema } from "./board.js"
 import {
   operationAppliedEventSchema,
   toolSchema,
   whiteboardObjectSchema,
 } from "./whiteboard.js"
+import { userSummarySchema } from "./user.js"
 
 export const boardSocketPrefix = "board:"
 

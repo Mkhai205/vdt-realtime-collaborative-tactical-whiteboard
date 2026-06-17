@@ -75,6 +75,7 @@ export class WhiteboardObjectsQueryService {
             name: true,
             avatarUrl: true,
             avatarColor: true,
+            identityType: true,
           },
         },
         object: {
@@ -148,6 +149,7 @@ export class WhiteboardObjectsQueryService {
             name: true,
             avatarUrl: true,
             avatarColor: true,
+            identityType: true,
           },
         },
       },

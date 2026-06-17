@@ -1,31 +1,12 @@
-import {
-  buildBearerAuthHeader,
-  buildJwtSocketAuth,
-  guestIdentitySchema,
-  guestIdentityStorageKey,
-  type AuthRestHeaders,
-  type GuestIdentity,
-  type SocketAuthPayload,
-} from "@rctw/shared-contracts"
+import { guestIdentityStorageKey } from "@rctw/shared-contracts"
 
 const guestIdentityChangeEvent = "rctw:guest-identity-change"
 let cachedRawGuestIdentity: string | null = null
 let cachedGuestIdentity: GuestIdentity | null = null
 
-const avatarPalette = [
-  "#3B82F6",
-  "#16A34A",
-  "#DC2626",
-  "#D97706",
-  "#7C3AED",
-  "#0891B2",
-  "#BE123C",
-  "#4F46E5",
-] as const
-
 export function createGuestIdentity(
   displayName: string,
-  existingIdentity?: GuestIdentity | null
+  existingIdentity?: GuestIdentity | null,
 ): GuestIdentity {
   const id = existingIdentity?.id ?? crypto.randomUUID()
   const avatarColor =
@@ -101,6 +82,7 @@ export function writeStoredGuestToken(token: string): void {
     return
   }
   localStorage.setItem(guestTokenStorageKey, token.trim())
+  emitGuestTokenChange()
 }
 
 export function clearStoredGuestToken(): void {
@@ -108,6 +90,7 @@ export function clearStoredGuestToken(): void {
     return
   }
   localStorage.removeItem(guestTokenStorageKey)
+  emitGuestTokenChange()
 }
 
 export function clearStoredGuestIdentity(): void {
@@ -118,11 +101,10 @@ export function clearStoredGuestIdentity(): void {
   localStorage.removeItem(guestIdentityStorageKey)
   localStorage.removeItem(guestTokenStorageKey)
   emitGuestIdentityChange()
+  emitGuestTokenChange()
 }
 
-export function getGuestRestHeaders():
-  | AuthRestHeaders
-  | Record<string, never> {
+export function getGuestRestHeaders(): AuthRestHeaders | Record<string, never> {
   const token = readStoredGuestToken()
   return token ? buildBearerAuthHeader(token) : {}
 }
@@ -148,6 +130,22 @@ export function subscribeStoredGuestIdentity(listener: () => void): () => void {
   }
 }
 
+const guestTokenChangeEvent = "rctw:guest-token-change"
+
+export function subscribeStoredGuestToken(listener: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined
+  }
+
+  window.addEventListener("storage", listener)
+  window.addEventListener(guestTokenChangeEvent, listener)
+
+  return () => {
+    window.removeEventListener("storage", listener)
+    window.removeEventListener(guestTokenChangeEvent, listener)
+  }
+}
+
 function canUseLocalStorage(): boolean {
   return typeof window !== "undefined" && "localStorage" in window
 }
@@ -158,4 +156,12 @@ function emitGuestIdentityChange(): void {
   }
 
   window.dispatchEvent(new Event(guestIdentityChangeEvent))
+}
+
+function emitGuestTokenChange(): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.dispatchEvent(new Event(guestTokenChangeEvent))
 }
