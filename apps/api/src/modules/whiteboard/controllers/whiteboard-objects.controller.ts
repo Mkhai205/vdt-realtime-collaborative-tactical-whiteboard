@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
-import { Controller, Delete, Get, Patch, Post, UseGuards } from "@nestjs/common"
+import { Controller, Delete, Get, Patch, Post } from "@nestjs/common"
 import {
   boardIdParamsSchema,
   objectCreateRequestSchema,
@@ -17,11 +17,9 @@ import {
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../../common/decorators/current-user.decorator"
 import { ZodBody, ZodParam } from "../../../common/pipes"
-import { AuthGuard } from "../../auth/guards/auth.guard"
 import { WhiteboardObjectsService } from "../services/whiteboard-objects.service"
 
 @Controller("boards/:boardId/objects")
-@UseGuards(AuthGuard)
 export class WhiteboardObjectsController {
   constructor(
     private readonly whiteboardObjectsService: WhiteboardObjectsService,

@@ -4,9 +4,6 @@ import { JwtService } from "@nestjs/jwt"
 import {
   apiErrorCodeSchema,
   authorizationHeaderName,
-  guestIdentitySchema,
-  guestRestHeaderNames,
-  guestRestHeadersSchema,
   identityTypes,
   jwtIdentityPayloadSchema,
   socketAuthPayloadSchema,
@@ -41,6 +38,37 @@ export class AuthService {
     private readonly prisma: PrismaService,
   ) {}
 
+  async registerGuest(
+    identity: GuestIdentity,
+  ): Promise<{ accessToken: string }> {
+    const existingUser = await this.findIdentityType(identity.id)
+
+    if (existingUser && existingUser.identityType !== "GUEST") {
+      throw this.unauthenticated("Invalid guest identity.")
+    }
+
+    const guest = await this.upsertGuest(identity)
+    const jwtSecret = this.configService.getOrThrow<string>("JWT_ACCESS_SECRET")
+    const expiresIn = this.configService.getOrThrow<number>(
+      "JWT_ACCESS_EXPIRES_IN_SECONDS",
+    )
+
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: guest.id,
+        name: guest.name,
+        avatarColor: guest.avatarColor,
+        identityType: "GUEST",
+      },
+      {
+        secret: jwtSecret,
+        expiresIn,
+      },
+    )
+
+    return { accessToken }
+  }
+
   async resolveRestIdentity(headers: HeaderBag): Promise<UserSummary> {
     const bearerToken = this.readBearerToken(headers)
 
@@ -48,54 +76,17 @@ export class AuthService {
       return this.resolveJwtIdentity(bearerToken)
     }
 
-    const parsed = guestRestHeadersSchema.safeParse({
-      [guestRestHeaderNames.id]: this.readHeader(
-        headers,
-        guestRestHeaderNames.id,
-      ),
-      [guestRestHeaderNames.name]: this.readHeader(
-        headers,
-        guestRestHeaderNames.name,
-      ),
-      [guestRestHeaderNames.avatarColor]: this.readHeader(
-        headers,
-        guestRestHeaderNames.avatarColor,
-      ),
-    })
-
-    if (!parsed.success) {
-      throw this.unauthenticated()
-    }
-
-    return this.resolveGuestIdentity({
-      id: parsed.data[guestRestHeaderNames.id],
-      name: parsed.data[guestRestHeaderNames.name],
-      avatarColor: parsed.data[guestRestHeaderNames.avatarColor],
-    })
+    throw this.unauthenticated()
   }
 
   async resolveSocketIdentity(payload: unknown): Promise<UserSummary> {
     const parsed = socketAuthPayloadSchema.safeParse(payload ?? {})
 
-    if (!parsed.success) {
+    if (!parsed.success || !parsed.data.token) {
       throw this.unauthenticated()
     }
 
-    if (parsed.data.token) {
-      return this.resolveJwtIdentity(parsed.data.token)
-    }
-
-    const guestIdentity = guestIdentitySchema.safeParse({
-      id: parsed.data.guestId,
-      name: parsed.data.guestName,
-      avatarColor: parsed.data.guestAvatarColor,
-    })
-
-    if (!guestIdentity.success) {
-      throw this.unauthenticated()
-    }
-
-    return this.resolveGuestIdentity(guestIdentity.data)
+    return this.resolveJwtIdentity(parsed.data.token)
   }
 
   async resolveJwtIdentity(token: string): Promise<UserSummary> {
@@ -119,25 +110,12 @@ export class AuthService {
       throw this.unauthenticated("Invalid access token.")
     }
 
-    const user = await this.findById(parsedPayload.data.sub)
-
-    if (!user) {
-      throw this.unauthenticated("Invalid access token.")
+    return {
+      id: parsedPayload.data.sub,
+      name: parsedPayload.data.name,
+      avatarUrl: parsedPayload.data.avatarUrl,
+      avatarColor: parsedPayload.data.avatarColor,
     }
-
-    return user
-  }
-
-  private async resolveGuestIdentity(
-    identity: GuestIdentity,
-  ): Promise<UserSummary> {
-    const existingUser = await this.findIdentityType(identity.id)
-
-    if (existingUser && existingUser.identityType !== "GUEST") {
-      throw this.unauthenticated("Invalid guest identity.")
-    }
-
-    return this.upsertGuest(identity)
   }
 
   private readHeader(headers: HeaderBag, name: string): string | undefined {
@@ -174,17 +152,10 @@ export class AuthService {
     return token
   }
 
-  private unauthenticated(message = "Guest identity is required.") {
+  private unauthenticated(message = "Unauthenticated.") {
     return new UnauthorizedException({
       code: apiErrorCodeSchema.enum.UNAUTHENTICATED,
       message,
-    })
-  }
-
-  async findById(id: string): Promise<UserSummary | null> {
-    return this.prisma.user.findUnique({
-      where: { id },
-      select: userSummarySelect,
     })
   }
 

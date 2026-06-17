@@ -22,9 +22,22 @@ export function validateAuthConfig(config: RawEnv): RawEnv {
   )
   const googleCallbackUrl = normalizeRequiredString(config.GOOGLE_CALLBACK_URL)
 
+  if (!jwtAccessSecret) {
+    throw new Error("Environment variable JWT_ACCESS_SECRET is required")
+  }
+  if (!googleClientId) {
+    throw new Error("Environment variable GOOGLE_CLIENT_ID is required")
+  }
+  if (!googleClientSecret) {
+    throw new Error("Environment variable GOOGLE_CLIENT_SECRET is required")
+  }
+  if (!googleCallbackUrl) {
+    throw new Error("Environment variable GOOGLE_CALLBACK_URL is required")
+  }
+
   return {
     // JWT
-    JWT_ACCESS_SECRET: jwtAccessSecret || undefined,
+    JWT_ACCESS_SECRET: jwtAccessSecret,
     JWT_ACCESS_EXPIRES_IN_SECONDS: parseNumber(
       config.JWT_ACCESS_EXPIRES_IN_SECONDS,
       JWT_CONFIG_KEY.JWT_ACCESS_EXPIRES_IN_SECONDS,
@@ -46,9 +59,9 @@ export function validateAuthConfig(config: RawEnv): RawEnv {
       "VERIFY_EMAIL_TOKEN_EXPIRES_IN_SECONDS",
     ),
     // Google OAuth
-    GOOGLE_CLIENT_ID: googleClientId || undefined,
-    GOOGLE_CLIENT_SECRET: googleClientSecret || undefined,
-    GOOGLE_CALLBACK_URL: googleCallbackUrl || undefined,
+    GOOGLE_CLIENT_ID: googleClientId,
+    GOOGLE_CLIENT_SECRET: googleClientSecret,
+    GOOGLE_CALLBACK_URL: googleCallbackUrl,
     FRONTEND_LOGIN_SUCCESS_REDIRECT: String(
       config.FRONTEND_LOGIN_SUCCESS_REDIRECT ??
         FRONTEND_REDIRECT_URI_CONFIG_KEY.FRONTEND_LOGIN_SUCCESS_REDIRECT,

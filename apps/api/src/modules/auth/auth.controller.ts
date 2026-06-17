@@ -1,11 +1,13 @@
-import { Controller, Get, Query, Req, Res } from "@nestjs/common"
+import { Body, Controller, Get, Post, Query, Req, Res } from "@nestjs/common"
 import type { Request, Response } from "express"
+import { type GuestIdentity } from "@rctw/shared-contracts"
+import { AuthService } from "./auth.service"
 import {
   googleOAuthStateCookieMaxAgeMs,
   googleOAuthStateCookieName,
   OAuthCallbackError,
-  OAuthService,
-} from "./oauth.service"
+  GoogleOAuthService,
+} from "./google-oauth.service"
 
 const stateCookieOptions = {
   httpOnly: true,
@@ -15,12 +17,22 @@ const stateCookieOptions = {
 }
 
 @Controller("auth")
-export class OAuthController {
-  constructor(private readonly oauthService: OAuthService) {}
+export class AuthController {
+  constructor(
+    private readonly googleOAuthService: GoogleOAuthService,
+    private readonly authService: AuthService,
+  ) {}
+
+  @Post("guest")
+  async registerGuest(
+    @Body() body: GuestIdentity,
+  ): Promise<{ accessToken: string }> {
+    return this.authService.registerGuest(body)
+  }
 
   @Get("google")
   googleLogin(@Res() response: Response): void {
-    const { state, url } = this.oauthService.createGoogleAuthRedirect()
+    const { state, url } = this.googleOAuthService.createGoogleAuthRedirect()
 
     response.cookie(googleOAuthStateCookieName, state, stateCookieOptions)
     response.redirect(url)
@@ -33,7 +45,7 @@ export class OAuthController {
     @Res() response: Response,
   ): Promise<void> {
     try {
-      const redirectUrl = await this.oauthService.completeGoogleCallback(
+      const redirectUrl = await this.googleOAuthService.completeGoogleCallback(
         query,
         request.headers.cookie,
       )
@@ -44,7 +56,9 @@ export class OAuthController {
       response.clearCookie(googleOAuthStateCookieName, stateCookieOptions)
 
       if (error instanceof OAuthCallbackError) {
-        response.redirect(this.oauthService.buildFailureRedirect(error.reason))
+        response.redirect(
+          this.googleOAuthService.buildFailureRedirect(error.reason),
+        )
         return
       }
 

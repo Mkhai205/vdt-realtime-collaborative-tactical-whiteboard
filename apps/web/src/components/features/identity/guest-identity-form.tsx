@@ -18,7 +18,9 @@ import {
   readStoredGuestIdentity,
   subscribeStoredGuestIdentity,
   writeStoredGuestIdentity,
+  writeStoredGuestToken,
 } from "./guest-identity"
+import { apiClient } from "@/lib/api-client"
 
 const previewSeed = "rctw-preview"
 
@@ -43,7 +45,7 @@ export function GuestIdentityForm() {
     [identity?.avatarColor]
   )
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextName = displayName.trim()
     if (!nextName) {
@@ -51,9 +53,20 @@ export function GuestIdentityForm() {
       return
     }
     const nextIdentity = createGuestIdentity(nextName, identity)
-    writeStoredGuestIdentity(nextIdentity)
-    setDraftDisplayName(nextIdentity.name)
-    setError("")
+    try {
+      const response = await apiClient.post<{ accessToken: string }>(
+        "/auth/guest",
+        nextIdentity,
+      )
+      writeStoredGuestToken(response.data.accessToken)
+      writeStoredGuestIdentity(nextIdentity)
+      setDraftDisplayName(nextIdentity.name)
+      setError("")
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message || "Failed to register guest identity.",
+      )
+    }
   }
 
   function handleClear() {

@@ -1,10 +1,10 @@
 import {
-  buildGuestRestHeaders,
-  buildGuestSocketAuth,
+  buildBearerAuthHeader,
+  buildJwtSocketAuth,
   guestIdentitySchema,
   guestIdentityStorageKey,
+  type AuthRestHeaders,
   type GuestIdentity,
-  type GuestRestHeaders,
   type SocketAuthPayload,
 } from "@rctw/shared-contracts"
 
@@ -87,27 +87,51 @@ export function writeStoredGuestIdentity(identity: GuestIdentity): void {
   emitGuestIdentityChange()
 }
 
+export const guestTokenStorageKey = "rctw.guestToken.v1"
+
+export function readStoredGuestToken(): string | null {
+  if (!canUseLocalStorage()) {
+    return null
+  }
+  return localStorage.getItem(guestTokenStorageKey)?.trim() || null
+}
+
+export function writeStoredGuestToken(token: string): void {
+  if (!canUseLocalStorage()) {
+    return
+  }
+  localStorage.setItem(guestTokenStorageKey, token.trim())
+}
+
+export function clearStoredGuestToken(): void {
+  if (!canUseLocalStorage()) {
+    return
+  }
+  localStorage.removeItem(guestTokenStorageKey)
+}
+
 export function clearStoredGuestIdentity(): void {
   if (!canUseLocalStorage()) {
     return
   }
 
   localStorage.removeItem(guestIdentityStorageKey)
+  localStorage.removeItem(guestTokenStorageKey)
   emitGuestIdentityChange()
 }
 
 export function getGuestRestHeaders():
-  | GuestRestHeaders
+  | AuthRestHeaders
   | Record<string, never> {
-  const identity = readStoredGuestIdentity()
-  return identity ? buildGuestRestHeaders(identity) : {}
+  const token = readStoredGuestToken()
+  return token ? buildBearerAuthHeader(token) : {}
 }
 
 export function getGuestSocketAuth():
   | SocketAuthPayload
   | Record<string, never> {
-  const identity = readStoredGuestIdentity()
-  return identity ? buildGuestSocketAuth(identity) : {}
+  const token = readStoredGuestToken()
+  return token ? buildJwtSocketAuth(token) : {}
 }
 
 export function subscribeStoredGuestIdentity(listener: () => void): () => void {

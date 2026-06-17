@@ -1,14 +1,22 @@
 import { Module } from "@nestjs/common"
+import { APP_GUARD } from "@nestjs/core"
 import { JwtModule } from "@nestjs/jwt"
-import { OAuthController } from "./oauth.controller"
+import { AuthController } from "./auth.controller"
 import { AuthGuard } from "./guards/auth.guard"
 import { AuthService } from "./auth.service"
-import { OAuthService } from "./oauth.service"
+import { GoogleOAuthService } from "./google-oauth.service"
 
 @Module({
   imports: [JwtModule],
-  controllers: [OAuthController],
-  providers: [AuthService, AuthGuard, OAuthService],
-  exports: [AuthService, AuthGuard],
+  controllers: [AuthController],
+  providers: [
+    AuthService,
+    GoogleOAuthService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+  ],
+  exports: [AuthService],
 })
 export class AuthModule {}

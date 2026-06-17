@@ -7,7 +7,6 @@ import {
   HttpStatus,
   Patch,
   Post,
-  UseGuards,
 } from "@nestjs/common"
 import {
   addBoardMemberRequestSchema,
@@ -35,11 +34,9 @@ import {
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../../common/decorators/current-user.decorator"
 import { ZodBody, ZodParam, ZodQuery } from "../../../common/pipes"
-import { AuthGuard } from "../../auth/guards/auth.guard"
 import { BoardService } from "../services/board.service"
 
 @Controller("boards")
-@UseGuards(AuthGuard)
 export class BoardController {
   constructor(private readonly boardService: BoardService) {}
 

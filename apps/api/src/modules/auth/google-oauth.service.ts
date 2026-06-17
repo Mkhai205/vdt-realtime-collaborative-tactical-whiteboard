@@ -1,12 +1,7 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { JwtService } from "@nestjs/jwt"
-import {
-  GuestIdentity,
-  identityTypes,
-  jwtIdentityPayloadSchema,
-  UserSummary,
-} from "@rctw/shared-contracts"
+import { identityTypes, jwtIdentityPayloadSchema } from "@rctw/shared-contracts"
 import { OAuth2Client } from "google-auth-library"
 import { randomBytes } from "node:crypto"
 import { z } from "zod"
@@ -65,13 +60,6 @@ export class OAuthCallbackError extends Error {
   }
 }
 
-const userSummarySelect = {
-  id: true,
-  name: true,
-  avatarUrl: true,
-  avatarColor: true,
-} as const
-
 export type OAuthUserRecord = {
   id: string
   email: string | null
@@ -82,7 +70,7 @@ export type OAuthUserRecord = {
 }
 
 @Injectable()
-export class OAuthService {
+export class GoogleOAuthService {
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
@@ -309,37 +297,6 @@ export class OAuthService {
 
   private isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0
-  }
-
-  async findById(id: string): Promise<UserSummary | null> {
-    return this.prisma.user.findUnique({
-      where: { id },
-      select: userSummarySelect,
-    })
-  }
-
-  async findIdentityType(id: string): Promise<{ identityType: string } | null> {
-    return this.prisma.user.findUnique({
-      where: { id },
-      select: { identityType: true },
-    })
-  }
-
-  async upsertGuest(identity: GuestIdentity): Promise<UserSummary> {
-    return this.prisma.user.upsert({
-      where: { id: identity.id },
-      create: {
-        id: identity.id,
-        name: identity.name,
-        avatarColor: identity.avatarColor,
-        identityType: identityTypes.GUEST,
-      },
-      update: {
-        name: identity.name,
-        avatarColor: identity.avatarColor,
-      },
-      select: userSummarySelect,
-    })
   }
 
   async findAvatarColorByEmail(
