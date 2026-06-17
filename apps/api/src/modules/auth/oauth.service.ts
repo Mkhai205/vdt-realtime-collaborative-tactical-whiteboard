@@ -1,15 +1,17 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { JwtService } from "@nestjs/jwt"
-import { jwtIdentityPayloadSchema } from "@rctw/shared-contracts"
+import {
+  GuestIdentity,
+  identityTypes,
+  jwtIdentityPayloadSchema,
+  UserSummary,
+} from "@rctw/shared-contracts"
 import { OAuth2Client } from "google-auth-library"
 import { randomBytes } from "node:crypto"
 import { z } from "zod"
-import {
-  FRONTEND_REDIRECT_URI_CONFIG_KEY,
-  JWT_CONFIG_KEY,
-} from "../../../config"
-import { UserRepository } from "../../user/repositories/user.repository"
+import { FRONTEND_REDIRECT_URI_CONFIG_KEY, JWT_CONFIG_KEY } from "../../config"
+import { PrismaService } from "../../infrastructure/database"
 
 export const googleOAuthStateCookieName = "rctw_google_oauth_state"
 export const googleOAuthStateCookieMaxAgeMs = 5 * 60 * 1000
@@ -63,12 +65,28 @@ export class OAuthCallbackError extends Error {
   }
 }
 
+const userSummarySelect = {
+  id: true,
+  name: true,
+  avatarUrl: true,
+  avatarColor: true,
+} as const
+
+export type OAuthUserRecord = {
+  id: string
+  email: string | null
+  name: string
+  avatarUrl: string | null
+  avatarColor: string
+  identityType: string
+}
+
 @Injectable()
 export class OAuthService {
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-    private readonly userRepository: UserRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   createGoogleAuthRedirect(): { state: string; url: string } {
@@ -101,15 +119,14 @@ export class OAuthService {
     }
 
     const profile = await this.verifyGoogleCode(query.code, config)
-    const avatarColorRecord = await this.userRepository.findAvatarColorByEmail(
-      profile.email,
-    )
-    const user = await this.userRepository.upsertGoogleUser({
+    const avatarColorRecord = await this.findAvatarColorByEmail(profile.email)
+    const user = await this.upsertGoogleUser({
       email: profile.email,
       name: profile.name,
       avatarUrl: profile.avatarUrl,
       avatarColor:
-        avatarColorRecord?.avatarColor ?? generateAvatarColor(profile.email),
+        avatarColorRecord?.avatarColor ??
+        this.generateAvatarColor(profile.email),
     })
     const accessToken = await this.signAccessToken({
       sub: user.id,
@@ -190,20 +207,6 @@ export class OAuthService {
 
       throw new OAuthCallbackError("google_verification_failed")
     }
-  }
-
-  private async upsertGoogleUser(profile: GoogleProfile) {
-    const avatarColorRecord = await this.userRepository.findAvatarColorByEmail(
-      profile.email,
-    )
-
-    return this.userRepository.upsertGoogleUser({
-      email: profile.email,
-      name: profile.name,
-      avatarUrl: profile.avatarUrl,
-      avatarColor:
-        avatarColorRecord?.avatarColor ?? generateAvatarColor(profile.email),
-    })
   }
 
   private async signAccessToken(
@@ -307,14 +310,85 @@ export class OAuthService {
   private isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0
   }
-}
 
-function generateAvatarColor(seed: string): string {
-  let hash = 0
-
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0
+  async findById(id: string): Promise<UserSummary | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: userSummarySelect,
+    })
   }
 
-  return avatarPalette[hash % avatarPalette.length] ?? avatarPalette[0]
+  async findIdentityType(id: string): Promise<{ identityType: string } | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: { identityType: true },
+    })
+  }
+
+  async upsertGuest(identity: GuestIdentity): Promise<UserSummary> {
+    return this.prisma.user.upsert({
+      where: { id: identity.id },
+      create: {
+        id: identity.id,
+        name: identity.name,
+        avatarColor: identity.avatarColor,
+        identityType: identityTypes.GUEST,
+      },
+      update: {
+        name: identity.name,
+        avatarColor: identity.avatarColor,
+      },
+      select: userSummarySelect,
+    })
+  }
+
+  async findAvatarColorByEmail(
+    email: string,
+  ): Promise<{ avatarColor: string } | null> {
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: { avatarColor: true },
+    })
+  }
+
+  async upsertGoogleUser(profile: {
+    email: string
+    name: string
+    avatarUrl: string | null
+    avatarColor: string
+  }): Promise<OAuthUserRecord> {
+    return this.prisma.user.upsert({
+      where: { email: profile.email },
+      create: {
+        email: profile.email,
+        name: profile.name,
+        avatarUrl: profile.avatarUrl,
+        avatarColor: profile.avatarColor,
+        identityType: identityTypes.GOOGLE,
+      },
+      update: {
+        name: profile.name,
+        avatarUrl: profile.avatarUrl,
+        identityType: identityTypes.GOOGLE,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatarUrl: true,
+        avatarColor: true,
+        identityType: true,
+      },
+    })
+  }
+
+  private generateAvatarColor(seed: string): string {
+    let hash = 0
+
+    for (let index = 0; index < seed.length; index += 1) {
+      hash = (hash * 31 + seed.charCodeAt(index)) >>> 0
+    }
+
+    return avatarPalette[hash % avatarPalette.length] ?? avatarPalette[0]
+  }
 }

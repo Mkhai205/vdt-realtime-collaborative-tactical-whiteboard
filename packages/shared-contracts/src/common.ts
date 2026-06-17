@@ -2,6 +2,7 @@ import { z } from "zod"
 
 export const apiErrorCodeSchema = z.enum([
   "UNAUTHENTICATED",
+  "USER_NOT_FOUND",
   "PERMISSION_DENIED",
   "VALIDATION_ERROR",
   "BOARD_NOT_FOUND",

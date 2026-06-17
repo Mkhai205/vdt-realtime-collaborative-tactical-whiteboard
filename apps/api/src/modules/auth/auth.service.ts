@@ -7,21 +7,38 @@ import {
   guestIdentitySchema,
   guestRestHeaderNames,
   guestRestHeadersSchema,
+  identityTypes,
   jwtIdentityPayloadSchema,
   socketAuthPayloadSchema,
   type GuestIdentity,
   type UserSummary,
 } from "@rctw/shared-contracts"
-import { UserRepository } from "../../user/repositories/user.repository"
+import { PrismaService } from "../../infrastructure/database"
 
 type HeaderBag = Record<string, unknown>
+
+const userSummarySelect = {
+  id: true,
+  name: true,
+  avatarUrl: true,
+  avatarColor: true,
+} as const
+
+export type OAuthUserRecord = {
+  id: string
+  email: string | null
+  name: string
+  avatarUrl: string | null
+  avatarColor: string
+  identityType: string
+}
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly userRepository: UserRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async resolveRestIdentity(headers: HeaderBag): Promise<UserSummary> {
@@ -102,7 +119,7 @@ export class AuthService {
       throw this.unauthenticated("Invalid access token.")
     }
 
-    const user = await this.userRepository.findById(parsedPayload.data.sub)
+    const user = await this.findById(parsedPayload.data.sub)
 
     if (!user) {
       throw this.unauthenticated("Invalid access token.")
@@ -114,13 +131,13 @@ export class AuthService {
   private async resolveGuestIdentity(
     identity: GuestIdentity,
   ): Promise<UserSummary> {
-    const existingUser = await this.userRepository.findIdentityType(identity.id)
+    const existingUser = await this.findIdentityType(identity.id)
 
     if (existingUser && existingUser.identityType !== "GUEST") {
       throw this.unauthenticated("Invalid guest identity.")
     }
 
-    return this.userRepository.upsertGuest(identity)
+    return this.upsertGuest(identity)
   }
 
   private readHeader(headers: HeaderBag, name: string): string | undefined {
@@ -161,6 +178,37 @@ export class AuthService {
     return new UnauthorizedException({
       code: apiErrorCodeSchema.enum.UNAUTHENTICATED,
       message,
+    })
+  }
+
+  async findById(id: string): Promise<UserSummary | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: userSummarySelect,
+    })
+  }
+
+  async findIdentityType(id: string): Promise<{ identityType: string } | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: { identityType: true },
+    })
+  }
+
+  async upsertGuest(identity: GuestIdentity): Promise<UserSummary> {
+    return this.prisma.user.upsert({
+      where: { id: identity.id },
+      create: {
+        id: identity.id,
+        name: identity.name,
+        avatarColor: identity.avatarColor,
+        identityType: identityTypes.GUEST,
+      },
+      update: {
+        name: identity.name,
+        avatarColor: identity.avatarColor,
+      },
+      select: userSummarySelect,
     })
   }
 }

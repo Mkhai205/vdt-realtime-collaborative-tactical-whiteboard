@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Controller, Delete, Get, Patch, Post, UseGuards } from "@nestjs/common"
 import {
   boardIdParamsSchema,

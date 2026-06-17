@@ -1,8 +1,8 @@
 import { Controller, Get, UseGuards } from "@nestjs/common"
 import type { UserSummary } from "@rctw/shared-contracts"
-import { CurrentUser } from "../../../common/decorators/current-user.decorator"
-import { AuthGuard } from "../../auth/guards/auth.guard"
-import { UserService } from "../services/user.service"
+import { CurrentUser } from "../../common/decorators/current-user.decorator"
+import { AuthGuard } from "../auth/guards/auth.guard"
+import { UserService } from "./user.service"
 
 @Controller("users")
 @UseGuards(AuthGuard)

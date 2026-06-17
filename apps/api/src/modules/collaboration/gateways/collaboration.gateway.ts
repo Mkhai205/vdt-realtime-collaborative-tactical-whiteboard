@@ -10,7 +10,7 @@ import {
 } from "@nestjs/websockets"
 import type { UserSummary } from "@rctw/shared-contracts"
 import type { Server, Socket } from "socket.io"
-import { AuthService } from "../../auth/services/auth.service"
+import { AuthService } from "../../auth/auth.service"
 import {
   BoardSessionHandler,
   CollaborationHandler,

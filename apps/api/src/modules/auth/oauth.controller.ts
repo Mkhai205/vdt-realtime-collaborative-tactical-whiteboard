@@ -5,7 +5,7 @@ import {
   googleOAuthStateCookieName,
   OAuthCallbackError,
   OAuthService,
-} from "../services/oauth.service"
+} from "./oauth.service"
 
 const stateCookieOptions = {
   httpOnly: true,
