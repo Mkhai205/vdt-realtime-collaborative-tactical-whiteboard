@@ -16,7 +16,7 @@ import {
   CollaborationHandler,
   WhiteboardMutationHandler,
 } from "../handlers"
-import { PresenceService } from "../../presence"
+import { PresenceService } from "../../presence/presence.service"
 
 const socketCorsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
   .split(",")

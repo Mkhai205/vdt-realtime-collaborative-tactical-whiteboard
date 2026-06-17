@@ -8,13 +8,13 @@ import {
   type SyncResponse,
 } from "@rctw/shared-contracts"
 import { BoardService } from "../../board/services/board.service"
-import { WhiteboardObjectsService } from "../../whiteboard"
-import { PresenceService } from "../../presence"
 import type { CollaborationContext } from "../collaboration-context"
 import {
   toSocketError,
   toValidationSocketError,
 } from "../collaboration-socket-errors"
+import { WhiteboardObjectsService } from "../../whiteboard/services/whiteboard-objects.service"
+import { PresenceService } from "../../presence/presence.service"
 
 @Injectable()
 export class BoardSessionHandler {

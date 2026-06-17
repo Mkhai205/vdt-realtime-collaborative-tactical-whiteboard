@@ -10,12 +10,12 @@ import {
   type CursorUpdatedEvent,
   type ObjectEditingEvent,
 } from "@rctw/shared-contracts"
-import { PresenceService } from "../../presence"
 import type { CollaborationContext } from "../collaboration-context"
 import {
   toSocketError,
   toValidationSocketError,
 } from "../collaboration-socket-errors"
+import { PresenceService } from "../../presence/presence.service"
 
 @Injectable()
 export class CollaborationHandler {

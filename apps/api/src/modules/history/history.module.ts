@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common"
-import { WhiteboardModule } from "../whiteboard"
 import { HistoryService } from "./services/history.service"
+import { WhiteboardModule } from "../whiteboard/whiteboard.module"
 
 @Module({
   imports: [WhiteboardModule],

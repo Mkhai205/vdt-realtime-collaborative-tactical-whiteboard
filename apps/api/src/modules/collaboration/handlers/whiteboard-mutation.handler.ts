@@ -10,9 +10,6 @@ import {
   type UserSummary,
 } from "@rctw/shared-contracts"
 import { z } from "zod"
-import { WhiteboardObjectsService } from "../../whiteboard"
-import { PresenceService } from "../../presence"
-import { HistoryService } from "../../history"
 import type { CollaborationContext } from "../collaboration-context"
 import {
   operationRejected,
@@ -21,6 +18,9 @@ import {
   toValidationSocketError,
   type OperationRejectionContext,
 } from "../collaboration-socket-errors"
+import { WhiteboardObjectsService } from "../../whiteboard/services/whiteboard-objects.service"
+import { PresenceService } from "../../presence/presence.service"
+import { HistoryService } from "../../history/services/history.service"
 
 @Injectable()
 export class WhiteboardMutationHandler {

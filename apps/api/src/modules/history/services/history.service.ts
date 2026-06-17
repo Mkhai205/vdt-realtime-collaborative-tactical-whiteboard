@@ -4,7 +4,7 @@ import {
   type UndoRedoOperation,
   type UserSummary,
 } from "@rctw/shared-contracts"
-import { WhiteboardObjectsService } from "../../whiteboard"
+import { WhiteboardObjectsService } from "../../whiteboard/services/whiteboard-objects.service"
 
 @Injectable()
 export class HistoryService {
