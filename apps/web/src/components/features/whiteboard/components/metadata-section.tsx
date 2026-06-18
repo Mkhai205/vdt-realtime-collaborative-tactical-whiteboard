@@ -24,7 +24,7 @@ export function MetadataSection({ object }: { object: WhiteboardObject }) {
         </summary>
         <div className="mt-3 grid grid-cols-[5.25rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
           <ReadonlyRow label="Object id" value={object.id} mono breakAll />
-          <ReadonlyRow label="Room id" value={object.roomId} mono breakAll />
+          <ReadonlyRow label="Room id" value={object.boardId} mono breakAll />
           <ReadonlyRow label="Created" value={formatTimestamp(object.createdAt)} mono />
           <ReadonlyRow label="Updated" value={formatTimestamp(object.updatedAt)} mono />
           <ReadonlyRow label="Creator" value={object.createdById} mono breakAll />

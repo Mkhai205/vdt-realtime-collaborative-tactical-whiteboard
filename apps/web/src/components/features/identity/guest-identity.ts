@@ -1,22 +1,25 @@
-import { guestIdentityStorageKey } from "@rctw/shared-contracts"
+import { avatarPalette } from "@rctw/shared-contracts"
+import { useAuthStore } from "@/stores/auth-store"
 
-const guestIdentityChangeEvent = "rctw:guest-identity-change"
-let cachedRawGuestIdentity: string | null = null
-let cachedGuestIdentity: GuestIdentity | null = null
+export type GuestIdentity = {
+  id: string
+  name: string
+  avatarColor: string
+}
 
 export function createGuestIdentity(
   displayName: string,
   existingIdentity?: GuestIdentity | null,
 ): GuestIdentity {
-  const id = existingIdentity?.id ?? crypto.randomUUID()
+  const id = existingIdentity?.id || crypto.randomUUID()
   const avatarColor =
-    existingIdentity?.avatarColor ?? generateGuestAvatarColor(id)
+    existingIdentity?.avatarColor || generateGuestAvatarColor(id)
 
-  return guestIdentitySchema.parse({
+  return {
     id,
     name: displayName,
     avatarColor,
-  })
+  }
 }
 
 export function generateGuestAvatarColor(seed: string): string {
@@ -30,138 +33,73 @@ export function generateGuestAvatarColor(seed: string): string {
 }
 
 export function readStoredGuestIdentity(): GuestIdentity | null {
-  if (!canUseLocalStorage()) {
-    return null
+  const user = useAuthStore.getState().user
+  if (user && user.identityType === "GUEST") {
+    return {
+      id: user.id,
+      name: user.name,
+      avatarColor: user.avatarColor || "#3B82F6",
+    }
   }
-
-  const rawValue = localStorage.getItem(guestIdentityStorageKey)
-
-  if (!rawValue) {
-    cachedRawGuestIdentity = null
-    cachedGuestIdentity = null
-    return null
-  }
-
-  if (rawValue === cachedRawGuestIdentity) {
-    return cachedGuestIdentity
-  }
-
-  try {
-    const parsed = guestIdentitySchema.safeParse(JSON.parse(rawValue))
-    cachedRawGuestIdentity = rawValue
-    cachedGuestIdentity = parsed.success ? parsed.data : null
-    return cachedGuestIdentity
-  } catch {
-    cachedRawGuestIdentity = rawValue
-    cachedGuestIdentity = null
-    return null
-  }
+  return null
 }
 
 export function writeStoredGuestIdentity(identity: GuestIdentity): void {
-  if (!canUseLocalStorage()) {
-    return
-  }
-
-  const parsed = guestIdentitySchema.parse(identity)
-  localStorage.setItem(guestIdentityStorageKey, JSON.stringify(parsed))
-  emitGuestIdentityChange()
+  // Deprecated: Zustand handles the identity state via access token
+  void identity
 }
 
-export const guestTokenStorageKey = "rctw.guestToken.v1"
-
 export function readStoredGuestToken(): string | null {
-  if (!canUseLocalStorage()) {
-    return null
+  const state = useAuthStore.getState()
+  if (state.user && state.user.identityType === "GUEST") {
+    return state.accessToken
   }
-  return localStorage.getItem(guestTokenStorageKey)?.trim() || null
+  return null
 }
 
 export function writeStoredGuestToken(token: string): void {
-  if (!canUseLocalStorage()) {
-    return
-  }
-  localStorage.setItem(guestTokenStorageKey, token.trim())
-  emitGuestTokenChange()
+  useAuthStore.getState().setAccessToken(token)
 }
 
 export function clearStoredGuestToken(): void {
-  if (!canUseLocalStorage()) {
-    return
-  }
-  localStorage.removeItem(guestTokenStorageKey)
-  emitGuestTokenChange()
+  void useAuthStore.getState().logout()
 }
 
 export function clearStoredGuestIdentity(): void {
-  if (!canUseLocalStorage()) {
-    return
-  }
-
-  localStorage.removeItem(guestIdentityStorageKey)
-  localStorage.removeItem(guestTokenStorageKey)
-  emitGuestIdentityChange()
-  emitGuestTokenChange()
+  void useAuthStore.getState().logout()
 }
 
-export function getGuestRestHeaders(): AuthRestHeaders | Record<string, never> {
+export function getGuestRestHeaders(): Record<string, string> {
   const token = readStoredGuestToken()
-  return token ? buildBearerAuthHeader(token) : {}
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export function getGuestSocketAuth():
-  | SocketAuthPayload
-  | Record<string, never> {
+export function getGuestSocketAuth(): { token: string } | Record<string, never> {
   const token = readStoredGuestToken()
-  return token ? buildJwtSocketAuth(token) : {}
+  return token ? { token } : {}
 }
 
 export function subscribeStoredGuestIdentity(listener: () => void): () => void {
-  if (typeof window === "undefined") {
-    return () => undefined
-  }
+  return useAuthStore.subscribe((state, prevState) => {
+    const isGuest = state.user?.identityType === "GUEST"
+    const wasGuest = prevState.user?.identityType === "GUEST"
+    const isDifferent =
+      state.user?.id !== prevState.user?.id ||
+      state.user?.name !== prevState.user?.name ||
+      state.user?.avatarColor !== prevState.user?.avatarColor
 
-  window.addEventListener("storage", listener)
-  window.addEventListener(guestIdentityChangeEvent, listener)
-
-  return () => {
-    window.removeEventListener("storage", listener)
-    window.removeEventListener(guestIdentityChangeEvent, listener)
-  }
+    if (isGuest !== wasGuest || (isGuest && isDifferent)) {
+      listener()
+    }
+  })
 }
-
-const guestTokenChangeEvent = "rctw:guest-token-change"
 
 export function subscribeStoredGuestToken(listener: () => void): () => void {
-  if (typeof window === "undefined") {
-    return () => undefined
-  }
-
-  window.addEventListener("storage", listener)
-  window.addEventListener(guestTokenChangeEvent, listener)
-
-  return () => {
-    window.removeEventListener("storage", listener)
-    window.removeEventListener(guestTokenChangeEvent, listener)
-  }
-}
-
-function canUseLocalStorage(): boolean {
-  return typeof window !== "undefined" && "localStorage" in window
-}
-
-function emitGuestIdentityChange(): void {
-  if (typeof window === "undefined") {
-    return
-  }
-
-  window.dispatchEvent(new Event(guestIdentityChangeEvent))
-}
-
-function emitGuestTokenChange(): void {
-  if (typeof window === "undefined") {
-    return
-  }
-
-  window.dispatchEvent(new Event(guestTokenChangeEvent))
+  return useAuthStore.subscribe((state, prevState) => {
+    const isGuest = state.user?.identityType === "GUEST"
+    const wasGuest = prevState.user?.identityType === "GUEST"
+    if (isGuest !== wasGuest || (isGuest && state.accessToken !== prevState.accessToken)) {
+      listener()
+    }
+  })
 }

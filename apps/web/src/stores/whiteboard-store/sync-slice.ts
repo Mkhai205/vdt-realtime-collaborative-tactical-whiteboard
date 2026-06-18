@@ -165,7 +165,7 @@ export const createSyncSlice: StateCreator<
     let nextSelectedObjectId: string | null | undefined
 
     set((state) => {
-      if (state.roomId !== operation.roomId) {
+      if (state.roomId !== operation.boardId) {
         return state
       }
 
@@ -255,7 +255,7 @@ export const createSyncSlice: StateCreator<
     let nextSelectedObjectId: string | null | undefined
 
     set((state) => {
-      if (state.roomId !== rejection.roomId) {
+      if (state.roomId !== rejection.boardId) {
         return state
       }
 
@@ -264,7 +264,7 @@ export const createSyncSlice: StateCreator<
           mutationError: rejection.message,
           currentRevision: getMonotonicRevision(
             state.currentRevision,
-            rejection.currentRoomRevision,
+            rejection.currentBoardRevision,
           ),
         }
       }
@@ -290,7 +290,7 @@ export const createSyncSlice: StateCreator<
         objects: nextObjects,
         currentRevision: getMonotonicRevision(
           state.currentRevision,
-          rejection.currentRoomRevision,
+          rejection.currentBoardRevision,
         ),
         mutationError: showConflictToast ? null : rejection.message,
         remoteEditors: rejection.latestObject.deletedAt

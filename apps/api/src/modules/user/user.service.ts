@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common"
-import { apiErrorCodes, type UserSummary } from "@rctw/shared-contracts"
+import { apiErrorCodes, type UserSummary, type UpdateProfileRequest } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 
 const userSummarySelect = {
@@ -28,5 +28,31 @@ export class UserService {
     }
 
     return user
+  }
+
+  async updateProfile(
+    userId: string,
+    data: UpdateProfileRequest,
+  ): Promise<UserSummary> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new NotFoundException({
+        code: apiErrorCodes.USER_NOT_FOUND,
+        message: "User not found.",
+      })
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: data.name ?? undefined,
+        avatarColor: data.avatarColor ?? undefined,
+        lastSeenAt: new Date(),
+      },
+      select: userSummarySelect,
+    })
   }
 }

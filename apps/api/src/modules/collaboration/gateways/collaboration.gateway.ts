@@ -17,6 +17,7 @@ import {
 } from "../handlers"
 import { PresenceService } from "../../presence/presence.service"
 import { JWTService } from "../../auth/jwt.service"
+import { AuthService } from "../../auth/auth.service"
 
 const socketCorsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
   .split(",")
@@ -51,6 +52,7 @@ export class CollaborationGateway
     private readonly boardSessionHandler: BoardSessionHandler,
     private readonly whiteboardMutationHandler: WhiteboardMutationHandler,
     private readonly collaborationHandler: CollaborationHandler,
+    private readonly authService: AuthService,
   ) {}
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -61,6 +63,9 @@ export class CollaborationGateway
 
       client.data.currentUser =
         await this.jwtService.verifyAccessToken(accessToken)
+
+      // Asynchronously update user's lastSeenAt
+      void this.authService.updateLastSeen(client.data.currentUser.id || (client.data.currentUser as any).sub)
     } catch (error) {
       this.logger.warn("Socket auth failed", error)
       client.emit("error", {

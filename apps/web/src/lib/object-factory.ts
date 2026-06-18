@@ -16,7 +16,7 @@ import {
 import type { CanvasPoint } from "@/lib/canvas-utils"
 
 export function createLocalObjectRecord(
-  roomId: string,
+  boardId: string,
   input: {
     type: ObjectType
     x: number
@@ -34,7 +34,7 @@ export function createLocalObjectRecord(
   const timestamp = new Date().toISOString()
   return {
     id: crypto.randomUUID(),
-    roomId,
+    boardId,
     type: input.type,
     x: input.x,
     y: input.y,
@@ -53,11 +53,11 @@ export function createLocalObjectRecord(
   }
 }
 
-export function createDemoObjects(roomId: string): WhiteboardObject[] {
+export function createDemoObjects(boardId: string): WhiteboardObject[] {
   return [
     {
       id: "00000000-0000-4000-8000-000000000501",
-      roomId,
+      boardId,
       type: "RECTANGLE",
       x: 9780,
       y: 9820,
@@ -79,7 +79,7 @@ export function createDemoObjects(roomId: string): WhiteboardObject[] {
     },
     {
       id: "00000000-0000-4000-8000-000000000502",
-      roomId,
+      boardId,
       type: "CIRCLE",
       x: 10130,
       y: 9840,
@@ -101,7 +101,7 @@ export function createDemoObjects(roomId: string): WhiteboardObject[] {
     },
     {
       id: "00000000-0000-4000-8000-000000000503",
-      roomId,
+      boardId,
       type: "LINE",
       x: 10010,
       y: 10100,
@@ -122,7 +122,7 @@ export function createDemoObjects(roomId: string): WhiteboardObject[] {
     },
     {
       id: "00000000-0000-4000-8000-000000000504",
-      roomId,
+      boardId,
       type: "TEXT",
       x: 9760,
       y: 10120,

@@ -62,3 +62,11 @@ export function parseStringArray(
     `Environment variable ${key} must be a string or an array of strings`,
   )
 }
+
+export function normalizeRequiredString(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+  const str = String(value).trim()
+  return str.length > 0 ? str : undefined
+}

@@ -40,6 +40,7 @@ model User {
   avatarUrl    String?      @db.Text
   avatarColor  String       @default("#3B82F6") @db.VarChar(20)
   identityType IdentityType @default(GUEST)
+  lastSeenAt   DateTime     @default(now()) @db.Timestamptz(6)
   createdAt    DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
 
@@ -48,6 +49,20 @@ model User {
   operations     WhiteboardOperation[]
   objectsCreated WhiteboardObject[]    @relation("ObjectCreator")
   objectsUpdated WhiteboardObject[]    @relation("ObjectUpdater")
+  refreshTokens  RefreshToken[]
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  tokenHash  String    @unique
+  userId     String    @db.Uuid
+  expiresAt  DateTime  @db.Timestamptz(6)
+  revokedAt  DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Board {

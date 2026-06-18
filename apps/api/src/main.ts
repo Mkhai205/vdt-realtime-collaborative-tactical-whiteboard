@@ -1,4 +1,5 @@
 import { NestFactory } from "@nestjs/core"
+import cookieParser from "cookie-parser"
 import { AppModule } from "./app.module"
 import { ApiExceptionFilter } from "./common/filters"
 import { ConfigService } from "@nestjs/config"
@@ -7,6 +8,7 @@ import { LoggingInterceptor } from "./common/interceptors"
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
+  app.use(cookieParser())
   const configService = app.get(ConfigService)
   const logger = new Logger("Bootstrap")
 

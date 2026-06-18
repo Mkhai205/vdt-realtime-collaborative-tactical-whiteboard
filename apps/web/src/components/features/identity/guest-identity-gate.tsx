@@ -1,26 +1,25 @@
 "use client"
 
-import { useSyncExternalStore } from "react"
-import { readStoredAuthToken, subscribeStoredAuthToken } from "./auth-token"
-import {
-  readStoredGuestToken,
-  subscribeStoredGuestToken,
-} from "./guest-identity"
+import { Loader2 } from "lucide-react"
+import { useAuthStore } from "@/stores/auth-store"
 import { GuestIdentityForm } from "./guest-identity-form"
 import { RoomList } from "../rooms/room-list"
 
 export function GuestIdentityGate() {
-  const authToken = useSyncExternalStore(
-    subscribeStoredAuthToken,
-    readStoredAuthToken,
-    () => null,
-  )
-  const guestToken = useSyncExternalStore(
-    subscribeStoredGuestToken,
-    readStoredGuestToken,
-    () => null,
-  )
-  const isActive = Boolean(authToken) || Boolean(guestToken)
+  const user = useAuthStore((state) => state.user)
+  const isLoading = useAuthStore((state) => state.isLoading)
+  const isActive = Boolean(user)
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground font-medium">Restoring session...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">

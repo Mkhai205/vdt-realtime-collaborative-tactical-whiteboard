@@ -16,8 +16,8 @@ import type {
   OperationAppliedEvent,
   OperationRejectedEvent,
   RedoRequest,
-  RoomRole,
-  RoomStateEvent,
+  BoardRole as RoomRole,
+  BoardStateEvent as RoomStateEvent,
   SelectionUpdateRequest,
   ShapeStyle,
   Tool,
@@ -35,7 +35,7 @@ export type WhiteboardCurrentUser = UserSummary & {
   role: RoomRole
 }
 
-export type WhiteboardRoomState = RoomStateEvent["room"]
+export type WhiteboardRoomState = RoomStateEvent["board"]
 
 export type ConnectionStatus =
   | "idle"

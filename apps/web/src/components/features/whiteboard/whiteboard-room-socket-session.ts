@@ -5,7 +5,7 @@ import type {
   OperationRejectedEvent,
   ObjectTransformPreviewedEvent,
   PresenceUpdateEvent,
-  RoomStateEvent,
+  BoardStateEvent as RoomStateEvent,
   SocketErrorEvent,
   SyncResponse,
   WhiteboardObject,
@@ -33,7 +33,7 @@ export type PendingOperation = {
 export interface WhiteboardStoreActions {
   setRoomId: (roomId: string) => void
   setLoadedRoomState: (state: {
-    room: RoomStateEvent["room"]
+    room: RoomStateEvent["board"]
     currentUser: WhiteboardCurrentUser
     currentRevision: number
     objects: WhiteboardObject[]
@@ -105,7 +105,7 @@ export class WhiteboardRoomSocketSession {
     this.bufferedOperations.length = 0
 
     if (this.socket.connected) {
-      this.socket.emit("room:leave", { roomId: this.roomId })
+      this.socket.emit("board:leave", { boardId: this.roomId })
     }
 
     this.unbindEvents()
@@ -116,7 +116,7 @@ export class WhiteboardRoomSocketSession {
     this.socket.on("connect", this.handleConnect)
     this.socket.on("disconnect", this.handleDisconnect)
     this.socket.on("connect_error", this.handleConnectError)
-    this.socket.on("room:state", this.handleRoomState)
+    this.socket.on("board:state", this.handleRoomState)
     this.socket.on("presence:update", this.handlePresenceUpdate)
     this.socket.on("cursor:updated", this.handleCursorUpdated)
     this.socket.on("object:editing", this.handleObjectEditing)
@@ -131,7 +131,7 @@ export class WhiteboardRoomSocketSession {
     this.socket.off("connect", this.handleConnect)
     this.socket.off("disconnect", this.handleDisconnect)
     this.socket.off("connect_error", this.handleConnectError)
-    this.socket.off("room:state", this.handleRoomState)
+    this.socket.off("board:state", this.handleRoomState)
     this.socket.off("presence:update", this.handlePresenceUpdate)
     this.socket.off("cursor:updated", this.handleCursorUpdated)
     this.socket.off("object:editing", this.handleObjectEditing)
@@ -149,13 +149,13 @@ export class WhiteboardRoomSocketSession {
       this.isSyncing = true
       this.bufferedOperations.length = 0
       this.socket.emit("sync:request", {
-        roomId: this.roomId,
+        boardId: this.roomId,
         lastSeenRevision: this.actions.getLastSeenRevision(),
       })
       return
     }
 
-    this.socket.emit("room:join", { roomId: this.roomId })
+    this.socket.emit("board:join", { boardId: this.roomId })
   }
 
   private handleDisconnect = () => {
@@ -168,7 +168,7 @@ export class WhiteboardRoomSocketSession {
   }
 
   private handleRoomState = (event: RoomStateEvent) => {
-    if (event.room.id !== this.roomId) {
+    if (event.board.id !== this.roomId) {
       return
     }
 
@@ -176,16 +176,16 @@ export class WhiteboardRoomSocketSession {
     this.isSyncing = false
     this.bufferedOperations.length = 0
     this.actions.setLoadedRoomState({
-      room: event.room,
+      room: event.board,
       currentUser: event.currentUser,
-      currentRevision: event.room.currentRevision,
+      currentRevision: event.board.currentRevision,
       objects: event.objects,
       onlineUsers: event.onlineUsers,
     })
   }
 
   private handlePresenceUpdate = (event: PresenceUpdateEvent) => {
-    if (event.roomId !== this.roomId) {
+    if (event.boardId !== this.roomId) {
       return
     }
 
@@ -198,7 +198,7 @@ export class WhiteboardRoomSocketSession {
       this.bufferedOperations.length = 0
 
       if (this.socket.connected) {
-        this.socket.emit("room:join", { roomId: this.roomId })
+        this.socket.emit("board:join", { boardId: this.roomId })
       }
     }
 
@@ -206,7 +206,7 @@ export class WhiteboardRoomSocketSession {
   }
 
   private handleTransformPreviewed = (event: ObjectTransformPreviewedEvent) => {
-    if (event.roomId !== this.roomId) {
+    if (event.boardId !== this.roomId) {
       return
     }
 
@@ -214,7 +214,7 @@ export class WhiteboardRoomSocketSession {
   }
 
   private handleCursorUpdated = (event: CursorUpdatedEvent) => {
-    if (event.roomId !== this.roomId) {
+    if (event.boardId !== this.roomId) {
       return
     }
 
@@ -222,7 +222,7 @@ export class WhiteboardRoomSocketSession {
   }
 
   private handleObjectEditing = (event: ObjectEditingEvent) => {
-    if (event.roomId !== this.roomId) {
+    if (event.boardId !== this.roomId) {
       return
     }
 
@@ -230,7 +230,7 @@ export class WhiteboardRoomSocketSession {
   }
 
   private handleOperationApplied = (event: OperationAppliedEvent) => {
-    if (event.roomId !== this.roomId) {
+    if (event.boardId !== this.roomId) {
       return
     }
 
@@ -243,7 +243,7 @@ export class WhiteboardRoomSocketSession {
   }
 
   private handleSyncResponse = (event: SyncResponse) => {
-    if (event.roomId !== this.roomId) {
+    if (event.boardId !== this.roomId) {
       return
     }
 
@@ -274,7 +274,7 @@ export class WhiteboardRoomSocketSession {
   }
 
   private handleOperationRejected = (event: OperationRejectedEvent) => {
-    if (event.roomId !== this.roomId) {
+    if (event.boardId !== this.roomId) {
       return
     }
 
@@ -309,11 +309,11 @@ export class WhiteboardRoomSocketSession {
 
   private emitObjectOperation(
     emitOperation: () => void,
-    request: { clientOpId: string; roomId: string },
+    request: { clientOpId: string; boardId: string },
     options?: WhiteboardOperationSenderOptions,
   ): Promise<OperationAppliedEvent> {
     return new Promise((resolve, reject) => {
-      if (request.roomId !== this.roomId) {
+      if (request.boardId !== this.roomId) {
         reject(new Error("Object operation targets a different room."))
         return
       }
@@ -363,7 +363,7 @@ export class WhiteboardRoomSocketSession {
   public createTransformPreviewSender(): WhiteboardTransformPreviewSender {
     return {
       sendPreview: (request) => {
-        if (request.roomId !== this.roomId || !this.socket.connected) {
+        if (request.boardId !== this.roomId || !this.socket.connected) {
           return
         }
 
@@ -375,7 +375,7 @@ export class WhiteboardRoomSocketSession {
   public createCursorSender(): WhiteboardCursorSender {
     return {
       sendCursorUpdate: (request) => {
-        if (request.roomId !== this.roomId || !this.socket.connected) {
+        if (request.boardId !== this.roomId || !this.socket.connected) {
           return
         }
 
@@ -387,14 +387,14 @@ export class WhiteboardRoomSocketSession {
   public createEditingSender(): WhiteboardEditingSender {
     return {
       startEditing: (request) => {
-        if (request.roomId !== this.roomId || !this.socket.connected) {
+        if (request.boardId !== this.roomId || !this.socket.connected) {
           return
         }
 
         this.socket.emit("editing:start", request)
       },
       endEditing: (request) => {
-        if (request.roomId !== this.roomId || !this.socket.connected) {
+        if (request.boardId !== this.roomId || !this.socket.connected) {
           return
         }
 
@@ -406,7 +406,7 @@ export class WhiteboardRoomSocketSession {
   public createSelectionSender(): WhiteboardSelectionSender {
     return {
       sendSelectionUpdate: (request) => {
-        if (request.roomId !== this.roomId || !this.socket.connected) {
+        if (request.boardId !== this.roomId || !this.socket.connected) {
           return
         }
 

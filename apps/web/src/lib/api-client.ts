@@ -1,20 +1,18 @@
 import axios, { AxiosHeaders } from "axios"
-import { getAuthRestHeaders } from "@/components/features/identity"
-import { getGuestRestHeaders } from "@/components/features/identity"
 import { apiBaseUrl } from "./api-url"
+import { useAuthStore } from "@/stores/auth-store"
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
+  withCredentials: true,
 })
 
 apiClient.interceptors.request.use((config) => {
   const headers = AxiosHeaders.from(config.headers)
-  const authHeaders = getAuthRestHeaders()
-  const identityHeaders =
-    "Authorization" in authHeaders ? authHeaders : getGuestRestHeaders()
+  const token = useAuthStore.getState().accessToken
 
-  for (const [name, value] of Object.entries(identityHeaders)) {
-    headers.set(name, value)
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`)
   }
 
   config.headers = headers

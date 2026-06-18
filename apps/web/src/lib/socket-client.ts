@@ -13,21 +13,21 @@ import type {
   OperationRejectedEvent,
   PresenceUpdateEvent,
   RedoRequest,
-  RoomJoinRequest,
-  RoomLeaveRequest,
+  BoardJoinRequest,
+  BoardLeaveRequest,
   SelectionUpdateRequest,
-  RoomStateEvent,
+  BoardStateEvent,
   SocketErrorEvent,
   SyncRequest,
   SyncResponse,
   UndoRequest,
 } from "@rctw/shared-contracts"
 import { io, type Socket } from "socket.io-client"
-import { getIdentitySocketAuth } from "@/components/features/identity"
 import { socketBaseUrl } from "./api-url"
+import { useAuthStore } from "@/stores/auth-store"
 
 type ServerToClientEvents = {
-  "room:state": (event: RoomStateEvent) => void
+  "board:state": (event: BoardStateEvent) => void
   "presence:update": (event: PresenceUpdateEvent) => void
   "cursor:updated": (event: CursorUpdatedEvent) => void
   "object:editing": (event: ObjectEditingEvent) => void
@@ -39,8 +39,8 @@ type ServerToClientEvents = {
 }
 
 type ClientToServerEvents = {
-  "room:join": (request: RoomJoinRequest) => void
-  "room:leave": (request: RoomLeaveRequest) => void
+  "board:join": (request: BoardJoinRequest) => void
+  "board:leave": (request: BoardLeaveRequest) => void
   "sync:request": (request: SyncRequest) => void
   "selection:update": (request: SelectionUpdateRequest) => void
   "cursor:update": (request: CursorUpdateRequest) => void
@@ -60,9 +60,10 @@ export type WhiteboardSocket = Socket<
 >
 
 export function createWhiteboardSocket(): WhiteboardSocket {
+  const token = useAuthStore.getState().accessToken
   return io(socketBaseUrl, {
     autoConnect: false,
-    auth: getIdentitySocketAuth(),
+    auth: token ? { token } : {},
     withCredentials: true,
   })
 }

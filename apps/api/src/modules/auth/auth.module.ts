@@ -13,6 +13,7 @@ import { JWTService } from "./jwt.service"
   providers: [
     AuthService,
     GoogleOAuthService,
+    JWTService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

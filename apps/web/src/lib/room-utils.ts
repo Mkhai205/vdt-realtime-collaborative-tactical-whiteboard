@@ -1,8 +1,5 @@
-import { type RoomRole, canEditRoomRole } from "@rctw/shared-contracts"
+import { type BoardRole } from "@rctw/shared-contracts"
 
-export function canEditRoom(role: RoomRole | null | undefined): boolean {
-  if (!role) {
-    return false
-  }
-  return canEditRoomRole(role)
+export function canEditRoom(role: BoardRole | null | undefined): boolean {
+  return role === "OWNER" || role === "EDITOR"
 }

@@ -52,7 +52,7 @@ export function RoomCreateDialog() {
         defaultJoinRole: "EDITOR",
       })
       setOpen(false)
-      router.push(`/rooms/${response.room.id}`)
+      router.push(`/rooms/${response.board.id}`)
     } catch (err) {
       setCreateRoomError(getApiErrorMessage(err))
       setIsCreatingRoom(false)

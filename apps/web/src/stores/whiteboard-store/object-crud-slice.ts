@@ -96,7 +96,7 @@ export const createObjectCrudSlice: StateCreator<
 
         await sender.updateObject(
           {
-            roomId: queuedState.roomId,
+            boardId: queuedState.roomId,
             objectId,
             clientOpId,
             baseRoomRevision: queuedState.currentRevision,
@@ -220,7 +220,7 @@ export const createObjectCrudSlice: StateCreator<
 
         await sender.deleteObject(
           {
-            roomId: queuedState.roomId,
+            boardId: queuedState.roomId,
             objectId: selectedObjectId,
             clientOpId,
             baseRoomRevision: queuedState.currentRevision,
@@ -292,7 +292,7 @@ export const createObjectCrudSlice: StateCreator<
 
         await sender.createObject(
           {
-            roomId: queuedState.roomId,
+            boardId: queuedState.roomId,
             clientOpId,
             baseRoomRevision: queuedState.currentRevision,
             object: requestObject,
@@ -312,7 +312,7 @@ export const createObjectCrudSlice: StateCreator<
   seedDemoObjects: (roomId) =>
     set((state) => {
       const hasRoomObjects = Object.values(state.objects).some(
-        (object) => object.roomId === roomId && !object.deletedAt,
+        (object) => object.boardId === roomId && !object.deletedAt,
       )
 
       if (hasRoomObjects) {

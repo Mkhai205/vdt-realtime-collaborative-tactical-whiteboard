@@ -2,13 +2,13 @@ import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common"
 import { Reflector } from "@nestjs/core"
 import { IS_PUBLIC_KEY } from "../../../common/decorators/public.decorator"
 import type { RequestWithCurrentUser } from "../../../common/types/request.types"
-import { JWTService } from "../jwt.service"
+import { AuthService } from "../auth.service"
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly jwtService: JWTService,
+    private readonly authService: AuthService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -23,11 +23,14 @@ export class AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<RequestWithCurrentUser>()
 
-    const accessToken = this.jwtService.getBearerToken(
+    const accessToken = this.authService.getBearerToken(
       request.headers.authorization ?? "",
     )
-    const payload = await this.jwtService.verifyAccessToken(accessToken)
+    const payload = await this.authService.verifyAccessToken(accessToken)
     request.currentUser = payload
+
+    // Asynchronously update user's lastSeenAt
+    void this.authService.updateLastSeen(payload.sub)
 
     return true
   }

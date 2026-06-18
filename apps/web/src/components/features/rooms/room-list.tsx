@@ -3,7 +3,7 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { type RoomSummary } from "@rctw/shared-contracts"
+import { type BoardSummary as RoomSummary } from "@rctw/shared-contracts"
 import {
   ArrowRight,
   Compass,
@@ -46,7 +46,7 @@ export function RoomList() {
       try {
         const response = await listRooms()
         if (isCurrent) {
-          setRooms(response.rooms)
+          setRooms(response.boards)
         }
       } catch (err) {
         if (isCurrent) {

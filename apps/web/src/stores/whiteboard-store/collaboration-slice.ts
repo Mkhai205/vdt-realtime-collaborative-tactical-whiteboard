@@ -187,7 +187,7 @@ export const createCollaborationSlice: StateCreator<
   applyRemoteTransformPreview: (event) => {
     const state = get()
 
-    if (state.roomId !== event.roomId) {
+    if (state.roomId !== event.boardId) {
       return
     }
 
@@ -198,7 +198,7 @@ export const createCollaborationSlice: StateCreator<
     }
 
     set((currentState) => {
-      if (currentState.roomId !== event.roomId) {
+      if (currentState.roomId !== event.boardId) {
         return currentState
       }
 
@@ -213,6 +213,7 @@ export const createCollaborationSlice: StateCreator<
           ...currentState.remoteTransformPreviews,
           [event.objectId]: {
             ...event,
+            roomId: event.boardId,
             receivedAt: Date.now(),
           },
         },
@@ -227,7 +228,7 @@ export const createCollaborationSlice: StateCreator<
   applyRemoteCursor: (event) =>
     set((state) => {
       if (
-        state.roomId !== event.roomId ||
+        state.roomId !== event.boardId ||
         state.currentUser?.id === event.user.id
       ) {
         return state
@@ -238,6 +239,7 @@ export const createCollaborationSlice: StateCreator<
           ...state.remoteCursors,
           [event.user.id]: {
             ...event,
+            roomId: event.boardId,
             receivedAt: Date.now(),
           },
         },
@@ -246,7 +248,7 @@ export const createCollaborationSlice: StateCreator<
   applyRemoteEditing: (event) =>
     set((state) => {
       if (
-        state.roomId !== event.roomId ||
+        state.roomId !== event.boardId ||
         state.currentUser?.id === event.user.id
       ) {
         return state
@@ -287,6 +289,7 @@ export const createCollaborationSlice: StateCreator<
             ...currentEditors,
             [event.user.id]: {
               ...event,
+              roomId: event.boardId,
               receivedAt: Date.now(),
             },
           },
@@ -319,7 +322,7 @@ export const createCollaborationSlice: StateCreator<
     }
 
     state.cursorSender.sendCursorUpdate({
-      roomId: state.roomId,
+      boardId: state.roomId,
       x: point.x,
       y: point.y,
       selectedObjectId: state.selectedObjectId,
@@ -341,7 +344,7 @@ export const createCollaborationSlice: StateCreator<
     }
 
     state.editingSender.startEditing({
-      roomId: state.roomId,
+      boardId: state.roomId,
       objectId,
     })
   },
@@ -357,7 +360,7 @@ export const createCollaborationSlice: StateCreator<
     }
 
     state.editingSender.endEditing({
-      roomId: state.roomId,
+      boardId: state.roomId,
       objectId,
     })
   },
@@ -369,7 +372,7 @@ export const createCollaborationSlice: StateCreator<
     }
 
     state.selectionSender.sendSelectionUpdate({
-      roomId: state.roomId,
+      boardId: state.roomId,
       selectedObjectId,
     })
   },
@@ -388,7 +391,7 @@ export const createCollaborationSlice: StateCreator<
     }
 
     state.transformPreviewSender.sendPreview({
-      roomId: state.roomId,
+      boardId: state.roomId,
       objectId,
       preview,
     })

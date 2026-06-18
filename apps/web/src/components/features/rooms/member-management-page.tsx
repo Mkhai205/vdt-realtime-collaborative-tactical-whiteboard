@@ -3,10 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { ShieldIcon, UserPlusIcon, UsersIcon } from "lucide-react"
 import type {
-  GetRoomResponse,
+  GetBoardResponse as GetRoomResponse,
   MemberRoleInput,
-  RoomMemberSummary,
-  RoomSummary,
+  BoardMemberSummary as RoomMemberSummary,
+  BoardSummary as RoomSummary,
 } from "@rctw/shared-contracts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -91,7 +91,7 @@ export function MemberManagementPage({ roomId }: { roomId: string }) {
           return
         }
 
-        setRoom(roomResponse.room)
+        setRoom(roomResponse.board)
         setCurrentUser(roomResponse.currentUser)
         setMembers(membersResponse.members)
         setLoadState("ready")

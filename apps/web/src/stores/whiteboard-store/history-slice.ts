@@ -102,7 +102,7 @@ export const createHistorySlice: StateCreator<
       try {
         const operation = await queuedState.objectOperationSender.undoOperation(
           {
-            roomId: queuedState.roomId,
+            boardId: queuedState.roomId,
             clientOpId: crypto.randomUUID(),
             inverseOperation,
           },
@@ -177,7 +177,7 @@ export const createHistorySlice: StateCreator<
       try {
         const operation = await queuedState.objectOperationSender.redoOperation(
           {
-            roomId: queuedState.roomId,
+            boardId: queuedState.roomId,
             clientOpId: crypto.randomUUID(),
             redoOperation,
           },

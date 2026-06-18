@@ -1,48 +1,30 @@
 "use client"
 
-import { FormEvent, useMemo, useState, useSyncExternalStore } from "react"
-import { authTokenStorageKey, type UserSummary } from "@rctw/shared-contracts"
+import { FormEvent, useMemo, useState } from "react"
+import { type UserSummary } from "@rctw/shared-contracts"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { googleOAuthStartUrl } from "@/lib/api-url"
-import {
-  clearStoredAuthToken,
-  readStoredAuthToken,
-  subscribeStoredAuthToken,
-} from "./auth-token"
-import {
-  clearStoredGuestIdentity,
-  createGuestIdentity,
-  generateGuestAvatarColor,
-  readStoredGuestIdentity,
-  subscribeStoredGuestIdentity,
-  writeStoredGuestIdentity,
-  writeStoredGuestToken,
-} from "./guest-identity"
-import { apiClient } from "@/lib/api-client"
+import { generateGuestAvatarColor } from "./guest-identity"
+import { useAuthStore } from "@/stores/auth-store"
 
 const previewSeed = "rctw-preview"
 
 export function GuestIdentityForm() {
-  const authToken = useSyncExternalStore(
-    subscribeStoredAuthToken,
-    readStoredAuthToken,
-    () => null
-  )
-  const identity = useSyncExternalStore(
-    subscribeStoredGuestIdentity,
-    readStoredGuestIdentity,
-    () => null
-  )
+  const user = useAuthStore((state) => state.user)
+  const registerGuestAction = useAuthStore((state) => state.registerGuest)
+  const updateProfileAction = useAuthStore((state) => state.updateProfile)
+  const logoutAction = useAuthStore((state) => state.logout)
+
   const [draftDisplayName, setDraftDisplayName] = useState<string | null>(null)
   const [error, setError] = useState("")
 
-  const displayName = draftDisplayName ?? identity?.name ?? ""
+  const displayName = draftDisplayName ?? user?.name ?? ""
 
   const avatarColor = useMemo(
-    () => identity?.avatarColor ?? generateGuestAvatarColor(previewSeed),
-    [identity?.avatarColor]
+    () => user?.avatarColor ?? generateGuestAvatarColor(previewSeed),
+    [user?.avatarColor],
   )
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -53,40 +35,32 @@ export function GuestIdentityForm() {
       return
     }
     try {
-      const response = await apiClient.post<{
-        accessToken: string
-        user: UserSummary
-      }>("/auth/guest", {
-        id: identity?.id,
-        name: nextName,
-      })
-      writeStoredGuestToken(response.data.accessToken)
-      writeStoredGuestIdentity({
-        id: response.data.user.id,
-        name: response.data.user.name,
-        avatarColor: response.data.user.avatarColor ?? "#3B82F6",
-      })
-      setDraftDisplayName(response.data.user.name)
+      if (user?.id) {
+        await updateProfileAction({ name: nextName })
+      } else {
+        await registerGuestAction(nextName)
+      }
+      setDraftDisplayName(nextName)
       setError("")
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || "Failed to register guest identity.",
+        err?.response?.data?.message || "Failed to save guest identity.",
       )
     }
   }
 
   function handleClear() {
-    clearStoredGuestIdentity()
+    void logoutAction()
     setDraftDisplayName("")
     setError("")
   }
 
   function handleLogout() {
-    clearStoredAuthToken()
+    void logoutAction()
   }
 
-  const isAuthenticated = Boolean(authToken)
-  const hasIdentity = Boolean(identity)
+  const isAuthenticated = user?.identityType === "GOOGLE"
+  const hasIdentity = user?.identityType === "GUEST"
 
   return (
     <div className="flex flex-col gap-5">
@@ -208,9 +182,9 @@ export function GuestIdentityForm() {
       {/* Status info — compact */}
       {hasIdentity && (
         <div className="rounded-lg bg-secondary/60 border px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
-          <span className="font-medium text-foreground">{identity?.name}</span>
+          <span className="font-medium text-foreground">{user?.name}</span>
           {" · "}
-          <span className="font-mono text-[11px]">{identity?.id?.slice(0, 8)}…</span>
+          <span className="font-mono text-[11px]">{user?.id?.slice(0, 8)}…</span>
           {isAuthenticated ? " · JWT active" : " · Guest headers"}
         </div>
       )}

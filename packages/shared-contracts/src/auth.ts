@@ -1,2 +1,8 @@
-export const guestIdentityStorageKey = "rctw.guestIdentity.v1"
-export const authTokenStorageKey = "rctw.authToken.v1"
+import { IdentityType } from "./user"
+
+export type JwtPayload = {
+  id: string
+  name: string
+  email: string | null
+  identityType: IdentityType
+}

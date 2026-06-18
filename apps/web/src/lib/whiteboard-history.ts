@@ -84,7 +84,7 @@ export function createWhiteboardHistoryEntry(
     ...pendingEntry,
     operationId: operation.operationId,
     clientOpId: operation.clientOpId,
-    roomId: operation.roomId,
+    roomId: operation.boardId,
     revision: operation.revision,
     objectId,
     createdAt: operation.createdAt,

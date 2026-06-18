@@ -145,12 +145,12 @@ export function getOperationRejection(error: unknown): OperationRejectedEvent | 
     typeof error === "object" &&
     error !== null &&
     "clientOpId" in error &&
-    "roomId" in error &&
+    "boardId" in error &&
     "reason" in error &&
     "message" in error &&
     typeof (error as { message?: unknown }).message === "string"
   ) {
-    return error as OperationRejectedEvent
+    return error as unknown as OperationRejectedEvent
   }
 
   return null
