@@ -143,7 +143,7 @@ export class CollaborationHandler {
     }
 
     try {
-      ctx.client.data.currentUser! // assert authenticated
+      if (!ctx.client.data.currentUser) return
 
       const { boardId, selectedObjectId } = parsed.data
       const onlineUsers = this.presenceService.updateSelectedObject({

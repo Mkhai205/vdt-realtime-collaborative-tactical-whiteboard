@@ -30,7 +30,7 @@ export class AuthGuard implements CanActivate {
     request.currentUser = payload
 
     // Asynchronously update user's lastSeenAt
-    void this.authService.updateLastSeen(payload.sub)
+    void this.authService.updateLastSeen(payload.sub as string)
 
     return true
   }

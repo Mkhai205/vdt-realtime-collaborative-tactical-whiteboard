@@ -1,21 +1,26 @@
 import { create } from "zustand"
-import { type UserSummary, type UpdateProfileRequest } from "@rctw/shared-contracts"
+import {
+  type UserSummary,
+  type UpdateProfileRequest,
+} from "@rctw/shared-contracts"
 import { apiClient } from "@/lib/api-client"
 import { updateProfile as apiUpdateProfile } from "@/lib/user-api"
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function decodeJwt(token: string): any {
   try {
     const base64Url = token.split(".")[1]
     if (!base64Url) return null
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
     const jsonPayload = decodeURIComponent(
-      window.atob(base64)
+      window
+        .atob(base64)
         .split("")
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
+        .join(""),
     )
     return JSON.parse(jsonPayload)
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -31,6 +36,7 @@ export interface AuthState {
   registerGuest: (name: string) => Promise<void>
   updateProfile: (request: UpdateProfileRequest) => Promise<void>
   logout: () => Promise<void>
+  loginWithGoogle: (idToken: string) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -51,7 +57,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           avatarUrl: decoded.avatarUrl,
           avatarColor: decoded.avatarColor,
           identityType: decoded.identityType,
-          lastSeenAt: decoded.lastSeenAt ? new Date(decoded.lastSeenAt) : undefined,
+          lastSeenAt: decoded.lastSeenAt
+            ? new Date(decoded.lastSeenAt)
+            : undefined,
         },
       })
     } else {
@@ -66,7 +74,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   initializeAuth: async () => {
     set({ isLoading: true })
     try {
-      const response = await apiClient.post<{ accessToken: string; user: UserSummary }>("/auth/refresh")
+      const response = await apiClient.post<{
+        accessToken: string
+        user: UserSummary
+      }>("/auth/refresh")
       const { accessToken } = response.data
       const decoded = decodeJwt(accessToken)
       if (decoded) {
@@ -79,7 +90,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             avatarUrl: decoded.avatarUrl,
             avatarColor: decoded.avatarColor,
             identityType: decoded.identityType,
-            lastSeenAt: decoded.lastSeenAt ? new Date(decoded.lastSeenAt) : undefined,
+            lastSeenAt: decoded.lastSeenAt
+              ? new Date(decoded.lastSeenAt)
+              : undefined,
           },
         })
       } else {
@@ -95,7 +108,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   registerGuest: async (name: string) => {
     set({ isLoading: true })
     try {
-      const response = await apiClient.post<{ accessToken: string; user: UserSummary }>("/auth/guest", {
+      const response = await apiClient.post<{
+        accessToken: string
+        user: UserSummary
+      }>("/auth/guest", {
         name,
       })
       const { accessToken } = response.data
@@ -110,7 +126,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             avatarUrl: decoded.avatarUrl,
             avatarColor: decoded.avatarColor,
             identityType: decoded.identityType,
-            lastSeenAt: decoded.lastSeenAt ? new Date(decoded.lastSeenAt) : undefined,
+            lastSeenAt: decoded.lastSeenAt
+              ? new Date(decoded.lastSeenAt)
+              : undefined,
           },
         })
       }
@@ -142,6 +160,41 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Proceed with local logout even if api call fails
     } finally {
       set({ accessToken: null, user: null, isLoading: false })
+    }
+  },
+
+  loginWithGoogle: async (idToken: string) => {
+    set({ isLoading: true })
+    try {
+      const response = await apiClient.post<{
+        accessToken: string
+        user: UserSummary
+      }>("/auth/google", {
+        idToken,
+      })
+      const { accessToken } = response.data
+      const decoded = decodeJwt(accessToken)
+      if (decoded) {
+        set({
+          accessToken,
+          user: {
+            id: decoded.id || decoded.sub,
+            name: decoded.name,
+            email: decoded.email,
+            avatarUrl: decoded.avatarUrl,
+            avatarColor: decoded.avatarColor,
+            identityType: decoded.identityType,
+            lastSeenAt: decoded.lastSeenAt
+              ? new Date(decoded.lastSeenAt)
+              : undefined,
+          },
+        })
+      }
+    } catch (err) {
+      set({ accessToken: null, user: null })
+      throw err
+    } finally {
+      set({ isLoading: false })
     }
   },
 }))

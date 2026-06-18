@@ -7,3 +7,10 @@ export function unauthenticated(message = "Unauthenticated.") {
     message,
   })
 }
+
+export function userNotFound(message = "User not found.") {
+  return new UnauthorizedException({
+    code: apiErrorCodes.USER_NOT_FOUND,
+    message,
+  })
+}

@@ -1,13 +1,19 @@
-import { Injectable, NotFoundException } from "@nestjs/common"
-import { apiErrorCodes, type UserSummary, type UpdateProfileRequest } from "@rctw/shared-contracts"
+import { Injectable } from "@nestjs/common"
+import {
+  type UserSummary,
+  type UpdateProfileRequest,
+} from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
+import { userNotFound } from "../../common/utils/error"
 
-const userSummarySelect = {
+export const userSummarySelect = {
   id: true,
   name: true,
+  email: true,
   avatarUrl: true,
   avatarColor: true,
   identityType: true,
+  lastSeenAt: true,
 } as const
 
 @Injectable()
@@ -21,10 +27,7 @@ export class UserService {
     })
 
     if (!user) {
-      throw new NotFoundException({
-        code: apiErrorCodes.USER_NOT_FOUND,
-        message: "User not found.",
-      })
+      throw userNotFound()
     }
 
     return user
@@ -39,10 +42,7 @@ export class UserService {
     })
 
     if (!user) {
-      throw new NotFoundException({
-        code: apiErrorCodes.USER_NOT_FOUND,
-        message: "User not found.",
-      })
+      throw userNotFound()
     }
 
     return this.prisma.user.update({

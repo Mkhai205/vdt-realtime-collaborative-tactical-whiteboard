@@ -1,4 +1,4 @@
-import { Controller, Post, Req, Res } from "@nestjs/common"
+import { Controller, Post, Req, Res, Body } from "@nestjs/common"
 import type { Request, Response } from "express"
 import { type UserSummary } from "@rctw/shared-contracts"
 import { AuthService, REFRESH_TOKEN_EXPIRES } from "./auth.service"
@@ -25,6 +25,35 @@ export class AuthController {
   ): Promise<{ accessToken: string; user: UserSummary }> {
     const { accessToken, refreshToken, user } =
       await this.authService.registerGuest()
+
+    this.setRefreshTokenCookie(response, refreshToken)
+
+    return { accessToken, user }
+  }
+
+  @Public()
+  @Post("google")
+  async googleLogin(
+    @Req() request: Request,
+    @Body() body: { idToken: string },
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ accessToken: string; user: UserSummary }> {
+    let guestUserId: string | null = null
+    const authHeader = request.headers.authorization
+    if (authHeader) {
+      try {
+        const token = this.authService.getBearerToken(authHeader)
+        const payload = await this.authService.verifyAccessToken(token)
+        if (payload) {
+          guestUserId = payload.sub
+        }
+      } catch {
+        // Ignore token verify error here - if the token is invalid, we treat them as not logged in as a Guest
+      }
+    }
+
+    const { accessToken, refreshToken, user } =
+      await this.authService.loginWithGoogle(body.idToken, guestUserId)
 
     this.setRefreshTokenCookie(response, refreshToken)
 

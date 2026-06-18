@@ -4,8 +4,6 @@ export const apiBaseUrl =
 export const socketBaseUrl =
   process.env.NEXT_PUBLIC_SOCKET_URL ?? toSocketBaseUrl(apiBaseUrl)
 
-export const googleOAuthStartUrl = `${apiBaseUrl}/auth/google`
-
 function toSocketBaseUrl(url: string): string {
   if (url.startsWith("/")) {
     return ""

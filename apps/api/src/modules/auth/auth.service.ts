@@ -10,27 +10,25 @@ import { PrismaService } from "../../infrastructure/database"
 import { ConfigService } from "@nestjs/config"
 import { JwtService } from "@nestjs/jwt"
 import { unauthenticated } from "../../common/utils/error"
-
-export const userSummarySelect = {
-  id: true,
-  name: true,
-  email: true,
-  avatarUrl: true,
-  avatarColor: true,
-  identityType: true,
-  lastSeenAt: true,
-} as const
+import { OAuth2Client } from "google-auth-library"
+import { userSummarySelect } from "../user/user.service"
 
 export const REFRESH_TOKEN_EXPIRES = 30 * 24 * 60 * 60 * 10000 // 30 days
 export const JWT_ACCESS_EXPIRES = 15 * 60 * 1000 // 15 minutes
 
 @Injectable()
 export class AuthService {
+  private readonly oauthClient: OAuth2Client
+
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+    this.oauthClient = new OAuth2Client(
+      this.configService.getOrThrow("GOOGLE_CLIENT_ID"),
+    )
+  }
 
   async registerGuest(): Promise<{
     accessToken: string
@@ -51,7 +49,7 @@ export class AuthService {
     })
 
     const accessToken = await this.createAccessToken({
-      id: guest.id,
+      sub: guest.id,
       name: guest.name,
       email: guest.email,
       identityType: guest.identityType,
@@ -110,7 +108,7 @@ export class AuthService {
     // Create a new one
     const newRefreshToken = await this.createRefreshToken(existingToken.user.id)
     const accessToken = await this.createAccessToken({
-      id: existingToken.user.id,
+      sub: existingToken.user.id,
       name: existingToken.user.name,
       email: existingToken.user.email,
       identityType: existingToken.user.identityType,
@@ -131,14 +129,90 @@ export class AuthService {
   }
 
   async updateLastSeen(userId: string): Promise<void> {
-    try {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { lastSeenAt: new Date() },
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastSeenAt: new Date() },
+    })
+  }
+
+  async loginWithGoogle(
+    idToken: string,
+    guestUserId?: string | null,
+  ): Promise<{
+    accessToken: string
+    refreshToken: string
+    user: UserSummary
+  }> {
+    const googlePayload = await this.verifyGoogleIdToken(idToken)
+    const now = new Date()
+
+    let user = await this.prisma.user.findUnique({
+      where: { googleId: googlePayload.sub },
+    })
+
+    if (guestUserId) {
+      // Try to upgrade guest user
+      const guestUser = await this.prisma.user.findUnique({
+        where: { id: guestUserId },
       })
-    } catch {
-      // Fail silently to not impact request performance
+
+      if (guestUser && guestUser.identityType === identityTypes.GUEST) {
+        user = await this.prisma.user.update({
+          where: { id: guestUserId },
+          data: {
+            identityType: identityTypes.GOOGLE,
+            googleId: googlePayload.sub,
+            email: googlePayload.email,
+            name: googlePayload.name || guestUser.name,
+            avatarUrl: googlePayload.picture || guestUser.avatarUrl,
+            lastSeenAt: new Date(),
+          },
+        })
+      }
     }
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          googleId: googlePayload.sub,
+          email: googlePayload.email,
+          name: googlePayload.name!,
+          avatarUrl: googlePayload.picture,
+          avatarColor: this.generateAvatarColor(),
+          identityType: identityTypes.GOOGLE,
+          lastSeenAt: now,
+        },
+      })
+    } else {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: googlePayload.picture || user.avatarUrl,
+          lastSeenAt: now,
+        },
+      })
+    }
+
+    const userSummary: UserSummary = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      avatarColor: user.avatarColor,
+      identityType: user.identityType,
+      lastSeenAt: user.lastSeenAt,
+    }
+
+    const accessToken = await this.createAccessToken({
+      sub: user.id,
+      name: user.name,
+      email: user.email,
+      identityType: user.identityType,
+    })
+
+    const refreshToken = await this.createRefreshToken(user.id)
+
+    return { accessToken, refreshToken, user: userSummary }
   }
 
   // Helper
@@ -171,6 +245,31 @@ export class AuthService {
     }
 
     return token
+  }
+
+  private async verifyGoogleIdToken(idToken: string): Promise<{
+    sub: string
+    email?: string
+    name?: string
+    picture?: string
+  }> {
+    try {
+      const ticket = await this.oauthClient.verifyIdToken({
+        idToken,
+      })
+      const payload = ticket.getPayload()
+      if (!payload) {
+        throw unauthenticated("Invalid Google ID token payload.")
+      }
+      return {
+        sub: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+      }
+    } catch (e: any) {
+      throw unauthenticated(`Google token verification failed: ${e.message}`)
+    }
   }
 
   private createHashToken(token: string): string {

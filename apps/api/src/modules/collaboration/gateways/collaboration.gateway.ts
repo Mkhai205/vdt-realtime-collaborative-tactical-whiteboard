@@ -16,7 +16,6 @@ import {
   WhiteboardMutationHandler,
 } from "../handlers"
 import { PresenceService } from "../../presence/presence.service"
-import { JWTService } from "../../auth/jwt.service"
 import { AuthService } from "../../auth/auth.service"
 
 const socketCorsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
@@ -47,7 +46,6 @@ export class CollaborationGateway
   private server!: Server
 
   constructor(
-    private readonly jwtService: JWTService,
     private readonly presenceService: PresenceService,
     private readonly boardSessionHandler: BoardSessionHandler,
     private readonly whiteboardMutationHandler: WhiteboardMutationHandler,
@@ -62,10 +60,10 @@ export class CollaborationGateway
       const accessToken = client.handshake.auth.token as string
 
       client.data.currentUser =
-        await this.jwtService.verifyAccessToken(accessToken)
+        await this.authService.verifyAccessToken(accessToken)
 
       // Asynchronously update user's lastSeenAt
-      void this.authService.updateLastSeen(client.data.currentUser.id || (client.data.currentUser as any).sub)
+      void this.authService.updateLastSeen(client.data.currentUser.sub)
     } catch (error) {
       this.logger.warn("Socket auth failed", error)
       client.emit("error", {

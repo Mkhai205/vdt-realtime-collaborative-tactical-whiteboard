@@ -1,7 +1,7 @@
 import { IdentityType } from "./user"
 
 export type JwtPayload = {
-  id: string
+  sub: string
   name: string
   email: string | null
   identityType: IdentityType
