@@ -41,20 +41,6 @@ export function parseBoolean(
   throw new Error(`Environment variable ${key} must be a valid boolean`)
 }
 
-export function normalizeRequiredString(value: unknown): string {
-  const normalized = String(value).trim()
-
-  if (
-    !normalized ||
-    normalized.toLowerCase() === "undefined" ||
-    normalized.toLowerCase() === "null"
-  ) {
-    return ""
-  }
-
-  return normalized
-}
-
 export function parseStringArray(
   value: unknown,
   fallback: string[],
