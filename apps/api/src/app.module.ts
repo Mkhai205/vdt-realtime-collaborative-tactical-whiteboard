@@ -5,6 +5,7 @@ import { ConfigModule } from "@nestjs/config"
 import { ScheduleModule } from "@nestjs/schedule"
 import { validateEnv } from "./config"
 import { DatabaseModule } from "./infrastructure/database"
+import { MailModule } from "./infrastructure/mail/mail.module"
 import { AuthModule } from "./modules/auth/auth.module"
 import { PermissionModule } from "./modules/permission/permission.module"
 import { PresenceModule } from "./modules/presence/presence.module"
@@ -24,6 +25,7 @@ import { UserModule } from "./modules/user/user.module"
     }),
     ScheduleModule.forRoot(),
     DatabaseModule,
+    MailModule,
     AuthModule,
     UserModule,
     PermissionModule,

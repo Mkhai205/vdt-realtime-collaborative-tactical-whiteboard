@@ -1,7 +1,7 @@
 import type { RawEnv } from "../env.validation"
 import { normalizeRequiredString } from "../env.utils"
 
-export function validateDatabaseConfig(config: RawEnv): RawEnv {
+export function validateDatabaseConfig(config: RawEnv) {
   const databaseUrl = normalizeRequiredString(config.DATABASE_URL)
 
   if (!databaseUrl) {

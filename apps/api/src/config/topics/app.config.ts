@@ -6,7 +6,7 @@ export const APP_CONFIG_KEY = {
   CORS_ORIGIN: "http://localhost:3000",
 } as const
 
-export function validateAppConfig(config: RawEnv): RawEnv {
+export function validateAppConfig(config: RawEnv) {
   const corsOrigins = parseStringArray(
     config.CORS_ORIGIN,
     [APP_CONFIG_KEY.CORS_ORIGIN],
