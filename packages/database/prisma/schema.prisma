@@ -71,7 +71,6 @@ model Board {
   @@index([createdById])
   @@index([isPublic])
   @@index([deletedAt])
-  @@map("boards")
 }
 
 model BoardMember {
@@ -88,7 +87,6 @@ model BoardMember {
   @@unique([boardId, userId])
   @@index([boardId, role])
   @@index([userId])
-  @@map("board_members")
 }
 
 model WhiteboardObject {
@@ -157,5 +155,4 @@ model BoardSnapshot {
   board Board @relation(fields: [boardId], references: [id])
 
   @@unique([boardId, revision])
-  @@map("board_snapshots")
 }
