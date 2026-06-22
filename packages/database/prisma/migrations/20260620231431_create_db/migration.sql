@@ -1,7 +1,4 @@
 -- CreateEnum
-CREATE TYPE "IdentityType" AS ENUM ('GUEST', 'GOOGLE');
-
--- CreateEnum
 CREATE TYPE "BoardRole" AS ENUM ('OWNER', 'EDITOR', 'VIEWER');
 
 -- CreateEnum
@@ -14,14 +11,26 @@ CREATE TYPE "OperationType" AS ENUM ('OBJECT_CREATE', 'OBJECT_UPDATE', 'OBJECT_D
 CREATE TABLE "User" (
     "id" UUID NOT NULL,
     "email" TEXT,
+    "googleId" TEXT,
     "name" VARCHAR(120) NOT NULL,
     "avatarUrl" TEXT,
     "avatarColor" VARCHAR(20) NOT NULL DEFAULT '#3B82F6',
-    "identityType" "IdentityType" NOT NULL DEFAULT 'GUEST',
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RefreshToken" (
+    "id" UUID NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "userId" UUID NOT NULL,
+    "expiresAt" TIMESTAMPTZ(6) NOT NULL,
+    "revokedAt" TIMESTAMPTZ(6),
+    "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -30,12 +39,11 @@ CREATE TABLE "Board" (
     "name" VARCHAR(160) NOT NULL,
     "description" TEXT,
     "createdById" UUID NOT NULL,
-    "currentRevision" BIGINT NOT NULL DEFAULT 0,
+    "currentRevision" INTEGER NOT NULL DEFAULT 0,
     "isPublic" BOOLEAN NOT NULL DEFAULT true,
     "defaultJoinRole" "BoardRole" NOT NULL DEFAULT 'EDITOR',
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(6) NOT NULL,
-    "deletedAt" TIMESTAMPTZ(6),
 
     CONSTRAINT "Board_pkey" PRIMARY KEY ("id")
 );
@@ -53,7 +61,7 @@ CREATE TABLE "BoardMember" (
 );
 
 -- CreateTable
-CREATE TABLE "WhiteboardObject" (
+CREATE TABLE "BoardObject" (
     "id" UUID NOT NULL,
     "boardId" UUID NOT NULL,
     "type" "ObjectType" NOT NULL,
@@ -73,31 +81,31 @@ CREATE TABLE "WhiteboardObject" (
     "updatedAt" TIMESTAMPTZ(6) NOT NULL,
     "deletedAt" TIMESTAMPTZ(6),
 
-    CONSTRAINT "WhiteboardObject_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "BoardObject_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "WhiteboardOperation" (
+CREATE TABLE "BoardOperation" (
     "id" UUID NOT NULL,
     "clientOpId" VARCHAR(120) NOT NULL,
     "boardId" UUID NOT NULL,
     "actorId" UUID NOT NULL,
     "objectId" UUID,
-    "revision" BIGINT NOT NULL,
+    "revision" INTEGER NOT NULL,
     "type" "OperationType" NOT NULL,
     "baseObjectVersion" INTEGER,
     "payload" JSONB NOT NULL,
     "inversePayload" JSONB,
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "WhiteboardOperation_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "BoardOperation_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "BoardSnapshot" (
     "id" UUID NOT NULL,
     "boardId" UUID NOT NULL,
-    "revision" BIGINT NOT NULL,
+    "revision" INTEGER NOT NULL,
     "data" JSONB NOT NULL,
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -108,13 +116,19 @@ CREATE TABLE "BoardSnapshot" (
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_googleId_key" ON "User"("googleId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RefreshToken_tokenHash_key" ON "RefreshToken"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "RefreshToken_userId_idx" ON "RefreshToken"("userId");
+
+-- CreateIndex
 CREATE INDEX "Board_createdById_idx" ON "Board"("createdById");
 
 -- CreateIndex
 CREATE INDEX "Board_isPublic_idx" ON "Board"("isPublic");
-
--- CreateIndex
-CREATE INDEX "Board_deletedAt_idx" ON "Board"("deletedAt");
 
 -- CreateIndex
 CREATE INDEX "BoardMember_boardId_role_idx" ON "BoardMember"("boardId", "role");
@@ -126,64 +140,67 @@ CREATE INDEX "BoardMember_userId_idx" ON "BoardMember"("userId");
 CREATE UNIQUE INDEX "BoardMember_boardId_userId_key" ON "BoardMember"("boardId", "userId");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardObject_boardId_idx" ON "WhiteboardObject"("boardId");
+CREATE INDEX "BoardObject_boardId_idx" ON "BoardObject"("boardId");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardObject_boardId_deletedAt_idx" ON "WhiteboardObject"("boardId", "deletedAt");
+CREATE INDEX "BoardObject_boardId_deletedAt_idx" ON "BoardObject"("boardId", "deletedAt");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardObject_boardId_zIndex_idx" ON "WhiteboardObject"("boardId", "zIndex");
+CREATE INDEX "BoardObject_boardId_zIndex_idx" ON "BoardObject"("boardId", "zIndex");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardObject_createdById_idx" ON "WhiteboardObject"("createdById");
+CREATE INDEX "BoardObject_createdById_idx" ON "BoardObject"("createdById");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardOperation_boardId_revision_idx" ON "WhiteboardOperation"("boardId", "revision");
+CREATE INDEX "BoardOperation_boardId_revision_idx" ON "BoardOperation"("boardId", "revision");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardOperation_objectId_idx" ON "WhiteboardOperation"("objectId");
+CREATE INDEX "BoardOperation_objectId_idx" ON "BoardOperation"("objectId");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardOperation_actorId_idx" ON "WhiteboardOperation"("actorId");
+CREATE INDEX "BoardOperation_actorId_idx" ON "BoardOperation"("actorId");
 
 -- CreateIndex
-CREATE INDEX "WhiteboardOperation_createdAt_idx" ON "WhiteboardOperation"("createdAt");
+CREATE INDEX "BoardOperation_createdAt_idx" ON "BoardOperation"("createdAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "WhiteboardOperation_boardId_clientOpId_key" ON "WhiteboardOperation"("boardId", "clientOpId");
+CREATE UNIQUE INDEX "BoardOperation_boardId_clientOpId_key" ON "BoardOperation"("boardId", "clientOpId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "WhiteboardOperation_boardId_revision_key" ON "WhiteboardOperation"("boardId", "revision");
+CREATE UNIQUE INDEX "BoardOperation_boardId_revision_key" ON "BoardOperation"("boardId", "revision");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "BoardSnapshot_boardId_revision_key" ON "BoardSnapshot"("boardId", "revision");
 
 -- AddForeignKey
+ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Board" ADD CONSTRAINT "Board_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BoardMember" ADD CONSTRAINT "BoardMember_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BoardMember" ADD CONSTRAINT "BoardMember_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BoardMember" ADD CONSTRAINT "BoardMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WhiteboardObject" ADD CONSTRAINT "WhiteboardObject_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BoardObject" ADD CONSTRAINT "BoardObject_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WhiteboardObject" ADD CONSTRAINT "WhiteboardObject_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BoardObject" ADD CONSTRAINT "BoardObject_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WhiteboardObject" ADD CONSTRAINT "WhiteboardObject_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "BoardObject" ADD CONSTRAINT "BoardObject_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WhiteboardOperation" ADD CONSTRAINT "WhiteboardOperation_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BoardOperation" ADD CONSTRAINT "BoardOperation_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WhiteboardOperation" ADD CONSTRAINT "WhiteboardOperation_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BoardOperation" ADD CONSTRAINT "BoardOperation_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WhiteboardOperation" ADD CONSTRAINT "WhiteboardOperation_objectId_fkey" FOREIGN KEY ("objectId") REFERENCES "WhiteboardObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "BoardOperation" ADD CONSTRAINT "BoardOperation_objectId_fkey" FOREIGN KEY ("objectId") REFERENCES "BoardObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BoardSnapshot" ADD CONSTRAINT "BoardSnapshot_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BoardSnapshot" ADD CONSTRAINT "BoardSnapshot_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;

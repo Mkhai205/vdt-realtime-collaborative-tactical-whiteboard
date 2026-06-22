@@ -17,7 +17,7 @@ This repository contains the **Realtime Collaborative Tactical Whiteboard** proj
 
 ### 1.2 Scope & Priority (MVP vs. Non-Goals)
 
-- **Must-Have (MVP)**: Guest sign-in (by name), public room creation and sharing via link, role enforcement (Owner, Editor, Viewer), canvas interactions (pan, zoom, create/move/resize/rotate/delete rectangles, circles, arrow lines, and text), realtime sync, remote cursors, and DB persistence.
+- **Must-Have (MVP)**: Public room creation and sharing via link, role enforcement (Owner, Editor, Viewer), canvas interactions (pan, zoom, create/move/resize/rotate/delete rectangles, circles, arrow lines, and text), realtime sync, remote cursors, and DB persistence.
 - **Should-Have**: Google OAuth login (JWT), private rooms, owner-only room deletion, role management UI, and object-locking indicators.
 - **Won't-Have**: Infinite canvas, real map integration, mobile-first design, freehand drawing, layer system, grouping, multi-select, voice/chat, or media/image upload.
 
@@ -63,7 +63,7 @@ flowchart TD
 
 ## 3. Database Design
 
-The database uses **PostgreSQL** with **Prisma ORM**. The schema distinguishes between the **current state** (`WhiteboardObject`) and **historical changes** (`WhiteboardOperation`) to support operations log, conflict resolution, and reconnect sync.
+The database uses **PostgreSQL** with **Prisma ORM**. The schema distinguishes between the **current state** (`BoardObject`) and **historical changes** (`BoardOperation`) to support operations log, conflict resolution, and reconnect sync.
 
 ### 3.1 Entity Relationship Diagram
 
@@ -71,21 +71,21 @@ The database uses **PostgreSQL** with **Prisma ORM**. The schema distinguishes b
 erDiagram
     User ||--o{ Board : "creates"
     User ||--o{ BoardMember : "joins"
-    User ||--o{ WhiteboardOperation : "performs"
+    User ||--o{ BoardOperation : "performs"
     Board ||--o{ BoardMember : "has"
-    Board ||--o{ WhiteboardObject : "contains"
-    Board ||--o{ WhiteboardOperation : "records"
+    Board ||--o{ BoardObject : "contains"
+    Board ||--o{ BoardOperation : "records"
     Board ||--o{ BoardSnapshot : "has"
-    WhiteboardObject ||--o{ WhiteboardOperation : "targets"
+    BoardObject ||--o{ BoardOperation : "targets"
 ```
 
 ### 3.2 Prisma Schema Models
 
-- **`User`**: Manages guest identities (`GUEST`) and Google OAuth accounts (`GOOGLE`), avatar styles, and names.
+- **`User`**: Manages user identity, authentication, and profile information.
 - **`Board`**: Represents the collaboration room containing metadata, the current room revision, and deletion state.
 - **`BoardMember`**: Maps users to boards with roles (`OWNER`, `EDITOR`, `VIEWER`).
-- **`WhiteboardObject`**: Stores current canvas objects (type: `RECTANGLE`, `CIRCLE`, `LINE`, `TEXT`), coordinate data (`x`, `y`, `width`, `height`), style properties, `zIndex`, and current `version` for conflict checks.
-- **`WhiteboardOperation`**: Records sequential historical events (`OBJECT_CREATE`, `OBJECT_UPDATE`, `OBJECT_DELETE`, `OBJECT_RESTORE`) linked to specific room revisions.
+- **`BoardObject`**: Stores current canvas objects (type: `RECTANGLE`, `CIRCLE`, `LINE`, `TEXT`), coordinate data (`x`, `y`, `width`, `height`), style properties, `zIndex`, and current `version` for conflict checks.
+- **`BoardOperation`**: Records sequential historical events (`OBJECT_CREATE`, `OBJECT_UPDATE`, `OBJECT_DELETE`, `OBJECT_RESTORE`) linked to specific room revisions.
 - **`BoardSnapshot`**: Optional snapshots storing serialized state at fixed revisions for recovery optimization.
 
 ---
@@ -110,5 +110,5 @@ Clients apply edits locally in an optimistic or preview state, but must send ope
 
 When a disconnected client reconnects, it sends `sync:request` containing its last known room revision:
 
-- If the client is only a few revisions behind, the server sends all `WhiteboardOperation` events recorded since that revision.
-- If the client is too far behind or does not specify a revision, the server sends the full board state (`WhiteboardObject[]`).
+- If the client is only a few revisions behind, the server sends all `BoardOperation` events recorded since that revision.
+- If the client is too far behind or does not specify a revision, the server sends the full board state (`BoardObject[]`).

@@ -39,7 +39,7 @@ export type WhiteboardOperationRecord = {
   clientOpId: string
   boardId: string
   objectId?: string | null
-  revision: bigint | number
+  revision: number
   type: string
   createdAt: TimestampValue
 }

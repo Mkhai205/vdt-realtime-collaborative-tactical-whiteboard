@@ -8,11 +8,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum IdentityType {
-  GUEST
-  GOOGLE
-}
-
 enum BoardRole {
   OWNER
   EDITOR
@@ -34,32 +29,30 @@ enum OperationType {
 }
 
 model User {
-  id           String       @id @default(uuid()) @db.Uuid
-  email        String?      @unique
-  googleId     String?      @unique
-  name         String       @db.VarChar(120)
-  avatarUrl    String?      @db.Text
-  avatarColor  String       @default("#3B82F6") @db.VarChar(20)
-  identityType IdentityType @default(GUEST)
-  lastSeenAt   DateTime     @default(now()) @db.Timestamptz(6)
-  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+  id          String   @id @default(uuid()) @db.Uuid
+  email       String?  @unique
+  googleId    String?  @unique
+  name        String   @db.VarChar(120)
+  avatarUrl   String?  @db.Text
+  avatarColor String   @default("#3B82F6") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
-  createdBoards  Board[]               @relation("BoardCreator")
+  createdBoards  Board[]          @relation("BoardCreator")
   memberships    BoardMember[]
-  operations     WhiteboardOperation[]
-  objectsCreated WhiteboardObject[]    @relation("ObjectCreator")
-  objectsUpdated WhiteboardObject[]    @relation("ObjectUpdater")
+  operations     BoardOperation[]
+  objectsCreated BoardObject[]    @relation("ObjectCreator")
+  objectsUpdated BoardObject[]    @relation("ObjectUpdater")
   refreshTokens  RefreshToken[]
 }
 
 model RefreshToken {
-  id         String    @id @default(uuid()) @db.Uuid
-  tokenHash  String    @unique
-  userId     String    @db.Uuid
-  expiresAt  DateTime  @db.Timestamptz(6)
-  revokedAt  DateTime? @db.Timestamptz(6)
-  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique
+  userId    String    @db.Uuid
+  expiresAt DateTime  @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -71,22 +64,20 @@ model Board {
   name            String    @db.VarChar(160)
   description     String?   @db.Text
   createdById     String    @db.Uuid
-  currentRevision BigInt    @default(0)
+  currentRevision Int       @default(0)
   isPublic        Boolean   @default(true)
   defaultJoinRole BoardRole @default(EDITOR)
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
-  deletedAt       DateTime? @db.Timestamptz(6)
 
-  createdBy  User                  @relation("BoardCreator", fields: [createdById], references: [id])
+  createdBy  User             @relation("BoardCreator", fields: [createdById], references: [id])
   members    BoardMember[]
-  objects    WhiteboardObject[]
-  operations WhiteboardOperation[]
+  objects    BoardObject[]
+  operations BoardOperation[]
   snapshots  BoardSnapshot[]
 
   @@index([createdById])
   @@index([isPublic])
-  @@index([deletedAt])
 }
 
 model BoardMember {
@@ -97,7 +88,7 @@ model BoardMember {
   joinedAt  DateTime  @default(now()) @db.Timestamptz(6)
   removedAt DateTime? @db.Timestamptz(6)
 
-  board Board @relation(fields: [boardId], references: [id])
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id])
 
   @@unique([boardId, userId])
@@ -105,7 +96,7 @@ model BoardMember {
   @@index([userId])
 }
 
-model WhiteboardObject {
+model BoardObject {
   id          String     @id @default(uuid()) @db.Uuid
   boardId     String     @db.Uuid
   type        ObjectType
@@ -125,10 +116,10 @@ model WhiteboardObject {
   updatedAt   DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt   DateTime?  @db.Timestamptz(6)
 
-  board      Board                 @relation(fields: [boardId], references: [id])
-  createdBy  User                  @relation("ObjectCreator", fields: [createdById], references: [id])
-  updatedBy  User?                 @relation("ObjectUpdater", fields: [updatedById], references: [id])
-  operations WhiteboardOperation[]
+  board      Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdBy  User             @relation("ObjectCreator", fields: [createdById], references: [id])
+  updatedBy  User?            @relation("ObjectUpdater", fields: [updatedById], references: [id])
+  operations BoardOperation[]
 
   @@index([boardId])
   @@index([boardId, deletedAt])
@@ -136,22 +127,22 @@ model WhiteboardObject {
   @@index([createdById])
 }
 
-model WhiteboardOperation {
+model BoardOperation {
   id                String        @id @default(uuid()) @db.Uuid
   clientOpId        String        @db.VarChar(120)
   boardId           String        @db.Uuid
   actorId           String        @db.Uuid
   objectId          String?       @db.Uuid
-  revision          BigInt
+  revision          Int
   type              OperationType
   baseObjectVersion Int?
   payload           Json
   inversePayload    Json?
   createdAt         DateTime      @default(now()) @db.Timestamptz(6)
 
-  board  Board             @relation(fields: [boardId], references: [id])
-  actor  User              @relation(fields: [actorId], references: [id])
-  object WhiteboardObject? @relation(fields: [objectId], references: [id])
+  board  Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  actor  User         @relation(fields: [actorId], references: [id])
+  object BoardObject? @relation(fields: [objectId], references: [id])
 
   @@unique([boardId, clientOpId])
   @@unique([boardId, revision])
@@ -164,11 +155,11 @@ model WhiteboardOperation {
 model BoardSnapshot {
   id        String   @id @default(uuid()) @db.Uuid
   boardId   String   @db.Uuid
-  revision  BigInt
+  revision  Int
   data      Json
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
-  board Board @relation(fields: [boardId], references: [id])
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
   @@unique([boardId, revision])
 }

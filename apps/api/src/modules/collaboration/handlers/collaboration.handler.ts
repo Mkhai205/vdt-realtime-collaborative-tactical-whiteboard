@@ -10,15 +10,18 @@ import {
   type CursorUpdatedEvent,
   type ObjectEditingEvent,
 } from "@rctw/shared-contracts"
+import { Logger } from "@nestjs/common"
 import type { CollaborationContext } from "../collaboration-context"
 import {
   toSocketError,
   toValidationSocketError,
 } from "../collaboration-socket-errors"
-import { PresenceService } from "../../presence/presence.service"
+import { PresenceService } from "../presence.service"
 
 @Injectable()
 export class CollaborationHandler {
+  private readonly logger = new Logger(CollaborationHandler.name)
+
   constructor(private readonly presenceService: PresenceService) {}
 
   handleEditingStart(ctx: CollaborationContext, payload: unknown): void {
@@ -255,7 +258,9 @@ export class CollaborationHandler {
   }
 
   private logError(message: string, error: unknown): void {
-    void message
-    void error
+    this.logger.error(
+      message,
+      error instanceof Error ? error.stack : String(error),
+    )
   }
 }

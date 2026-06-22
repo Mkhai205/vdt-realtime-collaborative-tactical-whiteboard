@@ -4,14 +4,14 @@ import {
   type UserSummary,
   type WhiteboardObject,
 } from "@rctw/shared-contracts"
-import { toOperationAppliedEvent } from "./whiteboard-object-response.mapper"
+import { toOperationAppliedEvent } from "./board-object-response.mapper"
 
 export type OperationReplayRecord = {
   id: string
   clientOpId: string
   boardId: string
   objectId?: string | null
-  revision: bigint | number
+  revision: number
   type: string
   payload: unknown
   createdAt: Date | string

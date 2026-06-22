@@ -3,12 +3,12 @@ import type { Request, Response } from "express"
 import { type UserSummary } from "@rctw/shared-contracts"
 import { AuthService, REFRESH_TOKEN_EXPIRES } from "./auth.service"
 import { Public } from "../../common/decorators/public.decorator"
-import { unauthenticated } from "../../common/utils/error"
+import { unauthenticated } from "./auth.utils"
 
 const refreshCookieName = "rctw_refresh_token"
 const refreshCookieOptions = {
   httpOnly: true,
-  secure: false,
+  secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   maxAge: REFRESH_TOKEN_EXPIRES,
   path: "/",
@@ -19,41 +19,13 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @Post("guest")
-  async registerGuest(
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<{ accessToken: string; user: UserSummary }> {
-    const { accessToken, refreshToken, user } =
-      await this.authService.registerGuest()
-
-    this.setRefreshTokenCookie(response, refreshToken)
-
-    return { accessToken, user }
-  }
-
-  @Public()
   @Post("google")
   async googleLogin(
-    @Req() request: Request,
     @Body() body: { idToken: string },
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ accessToken: string; user: UserSummary }> {
-    let guestUserId: string | null = null
-    const authHeader = request.headers.authorization
-    if (authHeader) {
-      try {
-        const token = this.authService.getBearerToken(authHeader)
-        const payload = await this.authService.verifyAccessToken(token)
-        if (payload) {
-          guestUserId = payload.sub
-        }
-      } catch {
-        // Ignore token verify error here - if the token is invalid, we treat them as not logged in as a Guest
-      }
-    }
-
     const { accessToken, refreshToken, user } =
-      await this.authService.loginWithGoogle(body.idToken, guestUserId)
+      await this.authService.loginWithGoogle(body.idToken)
 
     this.setRefreshTokenCookie(response, refreshToken)
 
@@ -79,8 +51,15 @@ export class AuthController {
   @Public()
   @Post("logout")
   async logout(
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ success: boolean }> {
+    const refreshToken = request.cookies?.[refreshCookieName] as
+      | string
+      | undefined
+    if (refreshToken) {
+      await this.authService.revokeRefreshToken(refreshToken)
+    }
     response.clearCookie(refreshCookieName)
 
     return { success: true }

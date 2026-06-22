@@ -3,12 +3,12 @@ import { boardRoles, type BoardRole } from "@rctw/shared-contracts"
 import {
   BoardNotFoundException,
   PermissionDeniedException,
-} from "../../../common/exceptions"
-import { BoardMemberRepository } from "../repositories/board-member.repository"
+} from "../../common/exceptions"
+import { PrismaService } from "../../infrastructure/database"
 
 @Injectable()
 export class BoardPermissionService {
-  constructor(private readonly boardMemberRepository: BoardMemberRepository) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // ── Stateless role checks (no DB call) ───────────────────────────────
 
@@ -47,8 +47,7 @@ export class BoardPermissionService {
    * @returns the user's BoardRole
    */
   async assertBoardMember(userId: string, boardId: string): Promise<BoardRole> {
-    const { boardExists, role } =
-      await this.boardMemberRepository.findMembership(userId, boardId)
+    const { boardExists, role } = await this.findMembership(userId, boardId)
 
     if (!boardExists) {
       throw new BoardNotFoundException()
@@ -83,5 +82,35 @@ export class BoardPermissionService {
     const role = await this.assertBoardMember(userId, boardId)
     this.assertCanEdit(role)
     return role
+  }
+
+  async findMembership(
+    userId: string,
+    boardId: string,
+  ): Promise<{ boardExists: boolean; role: BoardRole | null }> {
+    const board = await this.prisma.board.findFirst({
+      where: {
+        id: boardId,
+      },
+      include: {
+        members: {
+          where: {
+            userId,
+            removedAt: null,
+          },
+          select: {
+            role: true,
+          },
+          take: 1,
+        },
+      },
+    })
+
+    if (!board) {
+      return { boardExists: false, role: null }
+    }
+
+    const member = board.members.at(0)
+    return { boardExists: true, role: member?.role ?? null }
   }
 }

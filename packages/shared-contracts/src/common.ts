@@ -22,5 +22,21 @@ export const apiErrorSchema = z.object({
   details: z.unknown().optional(),
 })
 
+export const PaginationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
+
+export type PaginationQuery = z.infer<typeof PaginationQuerySchema>
+
+export type PaginatedResponse<T> = {
+  items: T[]
+  meta: {
+    total: number
+    page?: number
+    limit?: number
+  }
+}
+
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>
 export type ApiError = z.infer<typeof apiErrorSchema>

@@ -1,15 +1,16 @@
 import { Injectable } from "@nestjs/common"
-import { Prisma } from "@rctw/database"
+import { Prisma, PrismaClient } from "@rctw/database"
 import {
   type ObjectCreateRequest,
   type ObjectDeleteRequest,
   type ObjectRestoreRequest,
   type ObjectUpdateRequest,
   type OperationAppliedEvent,
+  type JwtPayload,
   type UserSummary,
 } from "@rctw/shared-contracts"
-import { PrismaService } from "../../../infrastructure/database"
-import { BoardPermissionService } from "../../permission/services/board-permission.service"
+import { PrismaService } from "../../infrastructure/database"
+import { BoardPermissionService } from "./board-permission.service"
 import {
   boardNotFound,
   duplicateOperation,
@@ -17,46 +18,50 @@ import {
   objectNotFound,
   objectVersionConflict,
   permissionDenied,
-} from "../whiteboard-object-errors"
+} from "./board.utils"
 import {
   getPreviousValues,
   toCreateObjectData,
   toJsonValue,
   toUpdateObjectData,
-} from "../mappers/whiteboard-object-mutation.mapper"
+} from "./mappers/board-object-mutation.mapper"
 import {
   toOperationAppliedEvent,
   toWhiteboardObject,
   type WhiteboardObjectRecord,
-} from "../mappers/whiteboard-object-response.mapper"
-import type { WhiteboardTransactionClient } from "../whiteboard-objects.types"
+} from "./mappers/board-object-response.mapper"
+
+type WhiteboardTransactionClient = Pick<
+  PrismaClient,
+  "board" | "boardMember" | "boardObject" | "boardOperation"
+>
 
 type MutationContext = {
-  currentUser: UserSummary
+  currentUser: JwtPayload
   boardId: string
   clientOpId: string
   baseObjectVersion?: number
 }
 
 @Injectable()
-export class WhiteboardObjectsMutationService {
+export class BoardObjectsMutationService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly boardPermissionService: BoardPermissionService,
   ) {}
 
   async createObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     request: ObjectCreateRequest,
   ): Promise<OperationAppliedEvent> {
     return this.runObjectMutation(async (tx) => {
-      await this.assertCanMutateBoard(tx, currentUser.id, boardId)
+      await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
-      const object = await tx.whiteboardObject.create({
+      const object = await tx.boardObject.create({
         data: {
-          ...toCreateObjectData(boardId, currentUser.id, request.object),
+          ...toCreateObjectData(boardId, currentUser.sub, request.object),
         },
       })
       const resultingObject = toWhiteboardObject(object)
@@ -73,7 +78,7 @@ export class WhiteboardObjectsMutationService {
 
       return toOperationAppliedEvent({
         operation,
-        actor: currentUser,
+        actor: this.toUserSummary(currentUser),
         payload,
         resultingObject,
       })
@@ -81,13 +86,13 @@ export class WhiteboardObjectsMutationService {
   }
 
   async updateObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     objectId: string,
     request: ObjectUpdateRequest,
   ): Promise<OperationAppliedEvent> {
     return this.runObjectMutation(async (tx) => {
-      await this.assertCanMutateBoard(tx, currentUser.id, boardId)
+      await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
       const currentObject = await this.loadObjectForMutation(
@@ -101,7 +106,7 @@ export class WhiteboardObjectsMutationService {
         boardId,
         objectId,
         request.baseObjectVersion,
-        toUpdateObjectData(currentObject, request.patch, currentUser.id),
+        toUpdateObjectData(currentObject, request.patch, currentUser.sub),
       )
       const resultingObject = toWhiteboardObject(updatedObject)
       const payload = {
@@ -123,7 +128,7 @@ export class WhiteboardObjectsMutationService {
 
       return toOperationAppliedEvent({
         operation,
-        actor: currentUser,
+        actor: this.toUserSummary(currentUser),
         payload,
         resultingObject,
       })
@@ -131,13 +136,13 @@ export class WhiteboardObjectsMutationService {
   }
 
   async deleteObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     objectId: string,
     request: ObjectDeleteRequest,
   ): Promise<OperationAppliedEvent> {
     return this.runObjectMutation(async (tx) => {
-      await this.assertCanMutateBoard(tx, currentUser.id, boardId)
+      await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
       const currentObject = await this.loadObjectForMutation(
@@ -153,7 +158,7 @@ export class WhiteboardObjectsMutationService {
         request.baseObjectVersion,
         {
           deletedAt: new Date(),
-          updatedById: currentUser.id,
+          updatedById: currentUser.sub,
           version: { increment: 1 },
         },
       )
@@ -172,7 +177,7 @@ export class WhiteboardObjectsMutationService {
 
       return toOperationAppliedEvent({
         operation,
-        actor: currentUser,
+        actor: this.toUserSummary(currentUser),
         payload,
         resultingObject,
       })
@@ -180,13 +185,13 @@ export class WhiteboardObjectsMutationService {
   }
 
   async restoreObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     objectId: string,
     request: ObjectRestoreRequest,
   ): Promise<OperationAppliedEvent> {
     return this.runObjectMutation(async (tx) => {
-      await this.assertCanMutateBoard(tx, currentUser.id, boardId)
+      await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
       const currentObject = await this.loadObjectIncludingDeleted(
@@ -210,7 +215,7 @@ export class WhiteboardObjectsMutationService {
         request.baseObjectVersion,
         {
           deletedAt: null,
-          updatedById: currentUser.id,
+          updatedById: currentUser.sub,
           version: { increment: 1 },
         },
       )
@@ -229,7 +234,7 @@ export class WhiteboardObjectsMutationService {
 
       return toOperationAppliedEvent({
         operation,
-        actor: currentUser,
+        actor: this.toUserSummary(currentUser),
         payload,
         resultingObject,
       })
@@ -255,7 +260,7 @@ export class WhiteboardObjectsMutationService {
     boardId: string,
   ): Promise<void> {
     const board = await tx.board.findFirst({
-      where: { id: boardId, deletedAt: null },
+      where: { id: boardId },
       select: {
         members: {
           where: { userId, removedAt: null },
@@ -287,7 +292,7 @@ export class WhiteboardObjectsMutationService {
     boardId: string,
     clientOpId: string,
   ): Promise<void> {
-    const existingOperation = await tx.whiteboardOperation.findUnique({
+    const existingOperation = await tx.boardOperation.findUnique({
       where: {
         boardId_clientOpId: { boardId, clientOpId },
       },
@@ -304,7 +309,7 @@ export class WhiteboardObjectsMutationService {
     boardId: string,
     objectId: string,
   ): Promise<WhiteboardObjectRecord> {
-    const object = await tx.whiteboardObject.findFirst({
+    const object = await tx.boardObject.findFirst({
       where: { id: objectId, boardId },
     })
 
@@ -319,7 +324,7 @@ export class WhiteboardObjectsMutationService {
     boardId: string,
     objectId: string,
   ): Promise<WhiteboardObjectRecord> {
-    const object = await tx.whiteboardObject.findFirst({
+    const object = await tx.boardObject.findFirst({
       where: { id: objectId, boardId },
     })
 
@@ -332,15 +337,18 @@ export class WhiteboardObjectsMutationService {
     tx: WhiteboardTransactionClient,
     boardId: string,
     objectId: string,
-    baseObjectVersion: number,
-    data: Prisma.WhiteboardObjectUncheckedUpdateManyInput,
+    baseObjectVersion: number | undefined,
+    data: Prisma.BoardObjectUncheckedUpdateManyInput,
   ): Promise<WhiteboardObjectRecord> {
-    const result = await tx.whiteboardObject.updateMany({
+    const versionFilter =
+      baseObjectVersion !== undefined ? { version: baseObjectVersion } : {}
+
+    const result = await tx.boardObject.updateMany({
       where: {
         id: objectId,
         boardId,
         deletedAt: null,
-        version: baseObjectVersion,
+        ...versionFilter,
       },
       data,
     })
@@ -349,7 +357,7 @@ export class WhiteboardObjectsMutationService {
       await this.rejectConditionalMutationMiss(tx, boardId, objectId)
     }
 
-    const object = await tx.whiteboardObject.findFirst({
+    const object = await tx.boardObject.findFirst({
       where: { id: objectId, boardId },
     })
 
@@ -362,15 +370,18 @@ export class WhiteboardObjectsMutationService {
     tx: WhiteboardTransactionClient,
     boardId: string,
     objectId: string,
-    baseObjectVersion: number,
-    data: Prisma.WhiteboardObjectUncheckedUpdateManyInput,
+    baseObjectVersion: number | undefined,
+    data: Prisma.BoardObjectUncheckedUpdateManyInput,
   ): Promise<WhiteboardObjectRecord> {
-    const result = await tx.whiteboardObject.updateMany({
+    const versionFilter =
+      baseObjectVersion !== undefined ? { version: baseObjectVersion } : {}
+
+    const result = await tx.boardObject.updateMany({
       where: {
         id: objectId,
         boardId,
         deletedAt: { not: null },
-        version: baseObjectVersion,
+        ...versionFilter,
       },
       data,
     })
@@ -379,7 +390,7 @@ export class WhiteboardObjectsMutationService {
       await this.rejectRestoreConditionalMutationMiss(tx, boardId, objectId)
     }
 
-    const object = await tx.whiteboardObject.findFirst({
+    const object = await tx.boardObject.findFirst({
       where: { id: objectId, boardId },
     })
 
@@ -393,7 +404,7 @@ export class WhiteboardObjectsMutationService {
     boardId: string,
     objectId: string,
   ): Promise<never> {
-    const object = await tx.whiteboardObject.findFirst({
+    const object = await tx.boardObject.findFirst({
       where: { id: objectId, boardId },
     })
 
@@ -411,7 +422,7 @@ export class WhiteboardObjectsMutationService {
     boardId: string,
     objectId: string,
   ): Promise<never> {
-    const object = await tx.whiteboardObject.findFirst({
+    const object = await tx.boardObject.findFirst({
       where: { id: objectId, boardId },
     })
 
@@ -432,7 +443,7 @@ export class WhiteboardObjectsMutationService {
       select: { currentRevision: true },
     })
 
-    return board ? Number(board.currentRevision) : undefined
+    return board ? board.currentRevision : undefined
   }
 
   private async createOperation(
@@ -454,11 +465,11 @@ export class WhiteboardObjectsMutationService {
       select: { currentRevision: true },
     })
 
-    return tx.whiteboardOperation.create({
+    return tx.boardOperation.create({
       data: {
         clientOpId: input.clientOpId,
         boardId: input.boardId,
-        actorId: input.currentUser.id,
+        actorId: input.currentUser.sub,
         objectId: input.objectId,
         revision: board.currentRevision,
         type: input.type,
@@ -472,6 +483,14 @@ export class WhiteboardObjectsMutationService {
     })
   }
 
+  private toUserSummary(currentUser: JwtPayload): UserSummary {
+    return {
+      id: currentUser.sub,
+      name: currentUser.name,
+      email: currentUser.email,
+    }
+  }
+
   private isDuplicateClientOperationConstraintError(error: unknown): boolean {
     if (!isPrismaUniqueConstraintError(error)) {
       return false
@@ -483,7 +502,7 @@ export class WhiteboardObjectsMutationService {
       return target.includes("boardId") && target.includes("clientOpId")
     }
 
-    return target === "WhiteboardOperation_boardId_clientOpId_key"
+    return target === "BoardOperation_boardId_clientOpId_key"
   }
 }
 

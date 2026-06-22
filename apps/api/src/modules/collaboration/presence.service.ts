@@ -13,6 +13,17 @@ export type ActiveEditingState = {
   user: UserSummary
 }
 
+/**
+ * TODO: Migrate to Redis for distributed presence.
+ *
+ * Currently, presence state is stored in-memory. This means that if the API is
+ * scaled to multiple instances, presence will not sync across instances correctly.
+ *
+ * Migration path:
+ * 1. Use Redis Hashes to store user session data (boardId:socketId -> PresenceSession).
+ * 2. Use Redis Pub/Sub to emit `presence:update` and `object:editing` events across nodes.
+ * 3. Use Socket.IO Redis Adapter to scale WebSocket rooms.
+ */
 @Injectable()
 export class PresenceService {
   private readonly boardSessions = new Map<
@@ -228,7 +239,6 @@ export class PresenceService {
       name: session.name,
       avatarUrl: session.avatarUrl,
       avatarColor: session.avatarColor,
-      identityType: session.identityType,
       role: session.role,
       status: session.status,
       selectedObjectId: latestSelectionSession.selectedObjectId,
@@ -242,7 +252,6 @@ export class PresenceService {
       name: session.name,
       avatarUrl: session.avatarUrl,
       avatarColor: session.avatarColor,
-      identityType: session.identityType,
     }
   }
 }

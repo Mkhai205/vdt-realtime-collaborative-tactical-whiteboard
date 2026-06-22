@@ -9,27 +9,27 @@ import {
   type ObjectUpdateRequest,
   type OperationAppliedEvent,
   type SyncResponse,
-  type UserSummary,
+  type JwtPayload,
 } from "@rctw/shared-contracts"
-import { WhiteboardObjectsMutationService } from "./whiteboard-objects-mutation.service"
-import { WhiteboardObjectsQueryService } from "./whiteboard-objects-query.service"
+import { BoardObjectsMutationService } from "./board-objects-mutation.service"
+import { BoardObjectsQueryService } from "./board-objects-query.service"
 
 @Injectable()
-export class WhiteboardObjectsService {
+export class BoardObjectsService {
   constructor(
-    private readonly queryService: WhiteboardObjectsQueryService,
-    private readonly mutationService: WhiteboardObjectsMutationService,
+    private readonly queryService: BoardObjectsQueryService,
+    private readonly mutationService: BoardObjectsMutationService,
   ) {}
 
   async getBoardObjects(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
   ): Promise<GetBoardObjectsResponse> {
     return this.queryService.getBoardObjects(currentUser, boardId)
   }
 
   async getBoardOperations(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     query: Partial<GetBoardOperationsQuery> = {},
   ): Promise<GetBoardOperationsResponse> {
@@ -37,7 +37,7 @@ export class WhiteboardObjectsService {
   }
 
   async getBoardOperationReplay(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     lastSeenRevision: number,
   ): Promise<SyncResponse> {
@@ -49,7 +49,7 @@ export class WhiteboardObjectsService {
   }
 
   async createObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     request: ObjectCreateRequest,
   ): Promise<OperationAppliedEvent> {
@@ -57,7 +57,7 @@ export class WhiteboardObjectsService {
   }
 
   async updateObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     objectId: string,
     request: ObjectUpdateRequest,
@@ -71,7 +71,7 @@ export class WhiteboardObjectsService {
   }
 
   async deleteObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     objectId: string,
     request: ObjectDeleteRequest,
@@ -85,7 +85,7 @@ export class WhiteboardObjectsService {
   }
 
   async restoreObject(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     objectId: string,
     request: ObjectRestoreRequest,

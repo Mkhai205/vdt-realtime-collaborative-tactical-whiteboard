@@ -12,6 +12,10 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (context.getType() === "ws") {
+      return true
+    }
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -28,9 +32,6 @@ export class AuthGuard implements CanActivate {
     )
     const payload = await this.authService.verifyAccessToken(accessToken)
     request.currentUser = payload
-
-    // Asynchronously update user's lastSeenAt
-    void this.authService.updateLastSeen(payload.sub as string)
 
     return true
   }

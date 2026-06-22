@@ -4,6 +4,7 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -15,13 +16,10 @@ import {
   CollaborationHandler,
   WhiteboardMutationHandler,
 } from "../handlers"
-import { PresenceService } from "../../presence/presence.service"
+import { PresenceService } from "../presence.service"
 import { AuthService } from "../../auth/auth.service"
 
-const socketCorsOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean)
+import { ConfigService } from "@nestjs/config"
 
 type CollaborationSocketData = {
   currentUser?: UserSummary
@@ -31,14 +29,9 @@ export type CollaborationSocket = Socket & {
   data: CollaborationSocketData
 }
 
-@WebSocketGateway({
-  cors: {
-    origin: socketCorsOrigins,
-    credentials: true,
-  },
-})
+@WebSocketGateway({ cors: false })
 export class CollaborationGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   private readonly logger = new Logger(CollaborationGateway.name)
 
@@ -51,9 +44,21 @@ export class CollaborationGateway
     private readonly whiteboardMutationHandler: WhiteboardMutationHandler,
     private readonly collaborationHandler: CollaborationHandler,
     private readonly authService: AuthService,
+    private readonly configService: ConfigService,
   ) {}
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
+
+  afterInit(server: Server): void {
+    const corsOrigins = (
+      this.configService.get<string>("CORS_ORIGIN") ?? "http://localhost:3000"
+    )
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+
+    server.engine.opts.cors = { origin: corsOrigins, credentials: true }
+  }
 
   async handleConnection(client: CollaborationSocket): Promise<void> {
     try {
@@ -61,9 +66,6 @@ export class CollaborationGateway
 
       client.data.currentUser =
         await this.authService.verifyAccessToken(accessToken)
-
-      // Asynchronously update user's lastSeenAt
-      void this.authService.updateLastSeen(client.data.currentUser.sub)
     } catch (error) {
       this.logger.warn("Socket auth failed", error)
       client.emit("error", {
@@ -135,6 +137,7 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
+    this.requireCurrentUser(client)
     return this.whiteboardMutationHandler.handleObjectCreate(
       { server: this.server, client },
       payload,
@@ -146,6 +149,7 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
+    this.requireCurrentUser(client)
     return this.whiteboardMutationHandler.handleObjectUpdate(
       { server: this.server, client },
       payload,
@@ -157,6 +161,7 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
+    this.requireCurrentUser(client)
     return this.whiteboardMutationHandler.handleObjectDelete(
       { server: this.server, client },
       payload,
@@ -168,6 +173,7 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
+    this.requireCurrentUser(client)
     return this.whiteboardMutationHandler.handleUndoRequest(
       { server: this.server, client },
       payload,
@@ -179,6 +185,7 @@ export class CollaborationGateway
     @ConnectedSocket() client: CollaborationSocket,
     @MessageBody() payload: unknown,
   ): Promise<void> {
+    this.requireCurrentUser(client)
     return this.whiteboardMutationHandler.handleRedoRequest(
       { server: this.server, client },
       payload,

@@ -7,13 +7,13 @@ import {
   toShapeStyle,
   toWhiteboardObject,
   type WhiteboardObjectRecord,
-} from "./whiteboard-object-response.mapper"
+} from "./board-object-response.mapper"
 
 export function toCreateObjectData(
   boardId: string,
   createdById: string,
   input: ObjectCreateInput,
-): Prisma.WhiteboardObjectUncheckedCreateInput {
+): Prisma.BoardObjectUncheckedCreateInput {
   return {
     boardId,
     type: input.type,
@@ -35,8 +35,8 @@ export function toUpdateObjectData(
   object: WhiteboardObjectRecord,
   patch: ObjectMutablePatch,
   updatedById: string,
-): Prisma.WhiteboardObjectUncheckedUpdateManyInput {
-  const data: Prisma.WhiteboardObjectUncheckedUpdateManyInput = {
+): Prisma.BoardObjectUncheckedUpdateManyInput {
+  const data: Prisma.BoardObjectUncheckedUpdateManyInput = {
     updatedById,
     version: {
       increment: 1,

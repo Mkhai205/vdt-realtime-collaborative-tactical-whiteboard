@@ -4,35 +4,38 @@ import {
   type GetBoardOperationsQuery,
   type GetBoardOperationsResponse,
   type SyncResponse,
-  type UserSummary,
+  type JwtPayload,
 } from "@rctw/shared-contracts"
-import { PrismaService } from "../../../infrastructure/database"
-import { BoardPermissionService } from "../../permission/services/board-permission.service"
-import { boardNotFound } from "../whiteboard-object-errors"
+import { PrismaService } from "../../infrastructure/database"
+import { BoardPermissionService } from "./board-permission.service"
+import { boardNotFound } from "./board.utils"
 import {
   toOperationSummary,
   toWhiteboardObject,
   type WhiteboardObjectRecord,
-} from "../mappers/whiteboard-object-response.mapper"
-import { toOperationReplayEvent } from "../mappers/whiteboard-operation-replay.mapper"
+} from "./mappers/board-object-response.mapper"
+import { toOperationReplayEvent } from "./mappers/board-operation-replay.mapper"
 
 const maxOperationReplayCount = 100
 
 @Injectable()
-export class WhiteboardObjectsQueryService {
+export class BoardObjectsQueryService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly boardPermissionService: BoardPermissionService,
   ) {}
 
   async getBoardObjects(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
   ): Promise<GetBoardObjectsResponse> {
-    await this.boardPermissionService.assertBoardMember(currentUser.id, boardId)
+    await this.boardPermissionService.assertBoardMember(
+      currentUser.sub,
+      boardId,
+    )
 
     const board = await this.prismaService.board.findFirst({
-      where: { id: boardId, deletedAt: null },
+      where: { id: boardId },
       select: { currentRevision: true },
     })
 
@@ -44,19 +47,22 @@ export class WhiteboardObjectsQueryService {
 
     return {
       boardId,
-      currentRevision: Number(board.currentRevision),
+      currentRevision: board.currentRevision,
       objects: objects.map(toWhiteboardObject),
     }
   }
 
   async getBoardOperations(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     query: Partial<GetBoardOperationsQuery> = {},
   ): Promise<GetBoardOperationsResponse> {
-    await this.boardPermissionService.assertBoardMember(currentUser.id, boardId)
+    await this.boardPermissionService.assertBoardMember(
+      currentUser.sub,
+      boardId,
+    )
 
-    const operations = await this.prismaService.whiteboardOperation.findMany({
+    const operations = await this.prismaService.boardOperation.findMany({
       where: { boardId },
       orderBy: { revision: "desc" },
       take: normalizeOperationLimit(query.limit),
@@ -75,7 +81,6 @@ export class WhiteboardObjectsQueryService {
             name: true,
             avatarUrl: true,
             avatarColor: true,
-            identityType: true,
           },
         },
         object: {
@@ -91,14 +96,17 @@ export class WhiteboardObjectsQueryService {
   }
 
   async getBoardOperationReplay(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     lastSeenRevision: number,
   ): Promise<SyncResponse> {
-    await this.boardPermissionService.assertBoardMember(currentUser.id, boardId)
+    await this.boardPermissionService.assertBoardMember(
+      currentUser.sub,
+      boardId,
+    )
 
     const board = await this.prismaService.board.findFirst({
-      where: { id: boardId, deletedAt: null },
+      where: { id: boardId },
       select: { currentRevision: true },
     })
 
@@ -106,7 +114,7 @@ export class WhiteboardObjectsQueryService {
       throw boardNotFound()
     }
 
-    const currentRevision = Number(board.currentRevision)
+    const currentRevision = board.currentRevision
 
     if (lastSeenRevision === currentRevision) {
       return {
@@ -125,12 +133,12 @@ export class WhiteboardObjectsQueryService {
       return this.getFullStateSyncResponse(boardId, currentRevision)
     }
 
-    const operations = await this.prismaService.whiteboardOperation.findMany({
+    const operations = await this.prismaService.boardOperation.findMany({
       where: {
         boardId,
         revision: {
-          gt: BigInt(lastSeenRevision),
-          lte: board.currentRevision,
+          gt: lastSeenRevision,
+          lte: currentRevision,
         },
       },
       orderBy: { revision: "asc" },
@@ -149,7 +157,6 @@ export class WhiteboardObjectsQueryService {
             name: true,
             avatarUrl: true,
             avatarColor: true,
-            identityType: true,
           },
         },
       },
@@ -173,7 +180,7 @@ export class WhiteboardObjectsQueryService {
   private async getActiveBoardObjects(
     boardId: string,
   ): Promise<WhiteboardObjectRecord[]> {
-    return this.prismaService.whiteboardObject.findMany({
+    return this.prismaService.boardObject.findMany({
       where: { boardId, deletedAt: null },
       orderBy: [{ zIndex: "asc" }, { createdAt: "asc" }],
     })
@@ -195,7 +202,7 @@ export class WhiteboardObjectsQueryService {
 }
 
 function isCompleteOperationReplay(
-  operations: Array<{ revision: bigint | number }>,
+  operations: Array<{ revision: number }>,
   lastSeenRevision: number,
   currentRevision: number,
 ): boolean {
@@ -204,8 +211,7 @@ function isCompleteOperationReplay(
   }
 
   return operations.every(
-    (operation, index) =>
-      Number(operation.revision) === lastSeenRevision + index + 1,
+    (operation, index) => operation.revision === lastSeenRevision + index + 1,
   )
 }
 

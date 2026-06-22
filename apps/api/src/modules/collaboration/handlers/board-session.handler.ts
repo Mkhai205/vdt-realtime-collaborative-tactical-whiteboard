@@ -1,26 +1,30 @@
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import {
   boardJoinRequestSchema,
   boardLeaveRequestSchema,
+  JwtPayload,
   syncRequestSchema,
   toBoardSocketName,
   type BoardStateEvent,
   type SyncResponse,
+  type UserSummary,
 } from "@rctw/shared-contracts"
-import { BoardService } from "../../board/services/board.service"
+import { BoardService } from "../../board/board.service"
 import type { CollaborationContext } from "../collaboration-context"
 import {
   toSocketError,
   toValidationSocketError,
 } from "../collaboration-socket-errors"
-import { WhiteboardObjectsService } from "../../whiteboard/services/whiteboard-objects.service"
-import { PresenceService } from "../../presence/presence.service"
+import { BoardObjectsService } from "../../board/board-objects.service"
+import { PresenceService } from "../presence.service"
 
 @Injectable()
 export class BoardSessionHandler {
+  private readonly logger = new Logger(BoardSessionHandler.name)
+
   constructor(
     private readonly boardService: BoardService,
-    private readonly whiteboardObjectsService: WhiteboardObjectsService,
+    private readonly whiteboardObjectsService: BoardObjectsService,
     private readonly presenceService: PresenceService,
   ) {}
 
@@ -38,7 +42,9 @@ export class BoardSessionHandler {
     const { boardId } = parsed.data
 
     try {
-      const currentUser = client.data.currentUser!
+      const currentUser = client.data.currentUser as JwtPayload
+      const userSummary = toUserSummary(currentUser)
+
       const joinResponse = await this.boardService.joinBoard(
         currentUser,
         boardId,
@@ -54,20 +60,23 @@ export class BoardSessionHandler {
       const onlineUsers = this.presenceService.joinBoard({
         socketId: client.id,
         boardId,
-        user: currentUser,
-        role: joinResponse.currentUser.role,
+        user: userSummary,
+        role: joinResponse.memberBoardStatus.role,
       })
 
       const boardState: BoardStateEvent = {
         board: {
-          id: joinResponse.board.id,
-          name: joinResponse.board.name,
-          description: joinResponse.board.description ?? null,
+          id: joinResponse.id,
+          name: joinResponse.name,
+          description: joinResponse.description ?? null,
           currentRevision: objectsResponse.currentRevision,
-          isPublic: joinResponse.board.isPublic,
-          defaultJoinRole: joinResponse.board.defaultJoinRole,
+          isPublic: joinResponse.isPublic,
+          defaultJoinRole: joinResponse.defaultJoinRole,
         },
-        currentUser: joinResponse.currentUser,
+        currentUser: {
+          ...userSummary,
+          role: joinResponse.memberBoardStatus.role,
+        },
         objects: objectsResponse.objects,
         onlineUsers,
       }
@@ -117,19 +126,29 @@ export class BoardSessionHandler {
     const { boardId, lastSeenRevision } = parsed.data
 
     try {
-      const currentUser = client.data.currentUser!
+      const currentUser = client.data.currentUser as JwtPayload
+      const userSummary = toUserSummary(currentUser)
+
+      const alreadyInBoard = this.presenceService.hasSocketInBoard(
+        client.id,
+        boardId,
+      )
+
       const joinResponse = await this.boardService.joinBoard(
         currentUser,
         boardId,
       )
 
       await client.join(toBoardSocketName(boardId))
-      this.presenceService.joinBoard({
-        socketId: client.id,
-        boardId,
-        user: currentUser,
-        role: joinResponse.currentUser.role,
-      })
+
+      if (!alreadyInBoard) {
+        this.presenceService.joinBoard({
+          socketId: client.id,
+          boardId,
+          user: userSummary,
+          role: joinResponse.memberBoardStatus.role,
+        })
+      }
 
       const response: SyncResponse =
         await this.whiteboardObjectsService.getBoardOperationReplay(
@@ -162,7 +181,7 @@ export class BoardSessionHandler {
     states: Array<{
       boardId: string
       objectId: string
-      user: import("@rctw/shared-contracts").UserSummary
+      user: UserSummary
     }>,
     exceptSocketId?: string,
   ): void {
@@ -183,8 +202,17 @@ export class BoardSessionHandler {
   }
 
   private logError(message: string, error: unknown): void {
-    // Surface to NestJS logger via gateway or suppress here
-    void message
-    void error
+    this.logger.error(
+      message,
+      error instanceof Error ? error.stack : String(error),
+    )
+  }
+}
+
+function toUserSummary(currentUser: JwtPayload): UserSummary {
+  return {
+    id: currentUser.sub,
+    name: currentUser.name,
+    email: currentUser.email,
   }
 }

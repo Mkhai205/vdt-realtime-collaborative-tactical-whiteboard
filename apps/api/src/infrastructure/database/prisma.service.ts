@@ -48,7 +48,7 @@ export class PrismaService
         this.logger.log("👌 Connected to PostgreSQL database via Prisma")
         return
       } catch (error) {
-        const delay = attempt * 2000 // Exponential backoff: 2s, 4s, 6s, etc.
+        const delay = attempt * 2000 // Linear backoff: 2s, 4s, 6s, 8s, 10s
         this.logger.warn(
           `🤌 Prisma connect attempt ${attempt}/${delay} failed: ${error}`,
         )

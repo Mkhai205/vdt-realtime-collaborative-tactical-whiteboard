@@ -5,12 +5,12 @@ import {
 } from "@nestjs/common"
 import { Prisma, type PrismaClient } from "@rctw/database"
 import { apiErrorCodes, type WhiteboardObject } from "@rctw/shared-contracts"
-import { PrismaService } from "../../../infrastructure/database"
-import { toWhiteboardObject } from "../mappers/whiteboard-object-response.mapper"
+import { PrismaService } from "../../infrastructure/database"
+import { toWhiteboardObject } from "./mappers/board-object-response.mapper"
 
-type WhiteboardSnapshotTransactionClient = Pick<
+type BoardSnapshotTransactionClient = Pick<
   PrismaClient,
-  "board" | "boardSnapshot" | "whiteboardObject"
+  "board" | "boardSnapshot" | "boardObject"
 >
 
 export type BoardSnapshotData = {
@@ -28,13 +28,13 @@ export type BoardSnapshotResult = {
 type BoardSnapshotRecord = {
   id: string
   boardId: string
-  revision: bigint | number
+  revision: number
   data: unknown
   createdAt: Date | string
 }
 
 @Injectable()
-export class WhiteboardSnapshotsService {
+export class BoardSnapshotsService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async createSnapshot(boardId: string): Promise<BoardSnapshotResult> {
@@ -47,13 +47,12 @@ export class WhiteboardSnapshotsService {
   }
 
   private async createSnapshotInTransaction(
-    tx: WhiteboardSnapshotTransactionClient,
+    tx: BoardSnapshotTransactionClient,
     boardId: string,
   ): Promise<BoardSnapshotResult> {
     const board = await tx.board.findFirst({
       where: {
         id: boardId,
-        deletedAt: null,
       },
       select: {
         currentRevision: true,
@@ -71,7 +70,7 @@ export class WhiteboardSnapshotsService {
       return this.toBoardSnapshotResult(existingSnapshot)
     }
 
-    const objects = await tx.whiteboardObject.findMany({
+    const objects = await tx.boardObject.findMany({
       where: {
         boardId,
         deletedAt: null,
@@ -104,9 +103,9 @@ export class WhiteboardSnapshotsService {
   }
 
   private findSnapshot(
-    tx: WhiteboardSnapshotTransactionClient,
+    tx: BoardSnapshotTransactionClient,
     boardId: string,
-    revision: bigint | number,
+    revision: number,
   ) {
     return tx.boardSnapshot.findUnique({
       where: {
@@ -124,7 +123,7 @@ export class WhiteboardSnapshotsService {
     return {
       id: snapshot.id,
       boardId: snapshot.boardId,
-      revision: Number(snapshot.revision),
+      revision: snapshot.revision,
       data: this.toSnapshotData(snapshot.data),
       createdAt: this.toIsoString(snapshot.createdAt),
     }

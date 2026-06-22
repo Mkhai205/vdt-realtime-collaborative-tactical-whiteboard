@@ -7,23 +7,16 @@ import {
   WhiteboardMutationHandler,
 } from "./handlers"
 import { CollaborationGateway } from "./gateways/collaboration.gateway"
-import { WhiteboardModule } from "../whiteboard/whiteboard.module"
-import { PresenceModule } from "../presence/presence.module"
-import { HistoryModule } from "../history/history.module"
+import { PresenceService } from "./presence.service"
 
 @Module({
-  imports: [
-    AuthModule,
-    BoardModule,
-    WhiteboardModule,
-    PresenceModule,
-    HistoryModule,
-  ],
+  imports: [AuthModule, BoardModule],
   providers: [
     CollaborationGateway,
     BoardSessionHandler,
     WhiteboardMutationHandler,
     CollaborationHandler,
+    PresenceService,
   ],
 })
 export class CollaborationModule {}

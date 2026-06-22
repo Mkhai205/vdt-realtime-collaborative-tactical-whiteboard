@@ -2,18 +2,16 @@ import { Injectable } from "@nestjs/common"
 import {
   type OperationAppliedEvent,
   type UndoRedoOperation,
-  type UserSummary,
+  type JwtPayload,
 } from "@rctw/shared-contracts"
-import { WhiteboardObjectsService } from "../../whiteboard/services/whiteboard-objects.service"
+import { BoardObjectsService } from "./board-objects.service"
 
 @Injectable()
-export class HistoryService {
-  constructor(
-    private readonly whiteboardObjectsService: WhiteboardObjectsService,
-  ) {}
+export class BoardHistoryService {
+  constructor(private readonly whiteboardObjectsService: BoardObjectsService) {}
 
   processUndoRedoOperation(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     clientOpId: string,
     operation: UndoRedoOperation,

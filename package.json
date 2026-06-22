@@ -11,14 +11,9 @@
     "build:web": "turbo run build --filter=@rctw/web",
     "build:api": "turbo run build --filter=@rctw/api",
     "build:sc": "turbo run build --filter=@rctw/shared-contracts",
+    "build:db": "turbo run build --filter=@rctw/database",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "db:studio": "turbo run db:studio --filter=@rctw/database",
-    "db:format": "turbo run db:format --filter=@rctw/database",
-    "db:generate": "turbo run db:generate --filter=@rctw/database",
-    "db:migrate:deploy": "turbo run db:migrate:deploy --filter=@rctw/database",
-    "db:migrate:status": "turbo run db:migrate:status --filter=@rctw/database"
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "turbo": "^2.6.1",

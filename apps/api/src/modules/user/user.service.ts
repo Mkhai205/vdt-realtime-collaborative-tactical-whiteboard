@@ -4,16 +4,18 @@ import {
   type UpdateProfileRequest,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
-import { userNotFound } from "../../common/utils/error"
+import { userNotFound } from "../auth/auth.utils"
 
 export const userSummarySelect = {
   id: true,
   name: true,
-  email: true,
   avatarUrl: true,
   avatarColor: true,
-  identityType: true,
-  lastSeenAt: true,
+} as const
+
+export const userProfileSelect = {
+  ...userSummarySelect,
+  email: true,
 } as const
 
 @Injectable()
@@ -23,7 +25,7 @@ export class UserService {
   async getProfile(userId: string): Promise<UserSummary> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: userSummarySelect,
+      select: userProfileSelect,
     })
 
     if (!user) {
@@ -50,7 +52,6 @@ export class UserService {
       data: {
         name: data.name ?? undefined,
         avatarColor: data.avatarColor ?? undefined,
-        lastSeenAt: new Date(),
       },
       select: userSummarySelect,
     })

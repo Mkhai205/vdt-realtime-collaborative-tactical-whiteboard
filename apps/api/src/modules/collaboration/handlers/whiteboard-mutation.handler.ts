@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import {
+  JwtPayload,
   objectCreateSocketRequestSchema,
   objectDeleteSocketRequestSchema,
   objectUpdateSocketRequestSchema,
@@ -7,7 +8,6 @@ import {
   toBoardSocketName,
   undoRequestSchema,
   type OperationAppliedEvent,
-  type UserSummary,
 } from "@rctw/shared-contracts"
 import { z } from "zod"
 import type { CollaborationContext } from "../collaboration-context"
@@ -18,16 +18,18 @@ import {
   toValidationSocketError,
   type OperationRejectionContext,
 } from "../collaboration-socket-errors"
-import { WhiteboardObjectsService } from "../../whiteboard/services/whiteboard-objects.service"
-import { PresenceService } from "../../presence/presence.service"
-import { HistoryService } from "../../history/services/history.service"
+import { BoardObjectsService } from "../../board/board-objects.service"
+import { PresenceService } from "../presence.service"
+import { BoardHistoryService } from "../../board/board-history.service"
 
 @Injectable()
 export class WhiteboardMutationHandler {
+  private readonly logger = new Logger(WhiteboardMutationHandler.name)
+
   constructor(
-    private readonly whiteboardObjectsService: WhiteboardObjectsService,
+    private readonly whiteboardObjectsService: BoardObjectsService,
     private readonly presenceService: PresenceService,
-    private readonly historyService: HistoryService,
+    private readonly historyService: BoardHistoryService,
   ) {}
 
   async handleObjectCreate(
@@ -146,7 +148,7 @@ export class WhiteboardMutationHandler {
     { server, client }: CollaborationContext,
     context: OperationRejectionContext,
     persistOperation: (
-      currentUser: UserSummary,
+      currentUser: JwtPayload,
     ) => Promise<OperationAppliedEvent>,
   ): Promise<void> {
     try {
@@ -198,7 +200,9 @@ export class WhiteboardMutationHandler {
   }
 
   private logError(message: string, error: unknown): void {
-    void message
-    void error
+    this.logger.error(
+      message,
+      error instanceof Error ? error.stack : String(error),
+    )
   }
 }

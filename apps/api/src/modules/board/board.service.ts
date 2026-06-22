@@ -1,47 +1,80 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import {
   type AddBoardMemberRequest,
-  type BoardMemberMutationResponse,
+  type BoardMemberSummary,
   type BoardRole,
+  type BoardSummary,
   type CreateBoardRequest,
   type CreateBoardResponse,
+  type DefaultJoinRole,
   type GetBoardMembersResponse,
   type GetBoardResponse,
-  type JoinBoardResponse,
+  type JwtPayload,
   type ListBoardsQuery,
   type ListBoardsResponse,
   type UpdateBoardMemberRoleRequest,
   type UpdateBoardRequest,
   type UpdateBoardResponse,
   type UserSummary,
-  apiErrorCodes,
   boardRoles,
 } from "@rctw/shared-contracts"
-import { PrismaService } from "../../../infrastructure/database"
-import { BoardPermissionService } from "../../permission/services/board-permission.service"
+import { PrismaService } from "../../infrastructure/database"
+import { BoardPermissionService } from "./board-permission.service"
+import { userSummarySelect } from "../user/user.service"
 import {
-  toBoardMemberSummary,
-  toBoardSummary,
-} from "../mappers/board-response.mapper"
-
-const userSummarySelect = {
-  id: true,
-  name: true,
-  avatarUrl: true,
-  avatarColor: true,
-  identityType: true,
-} as const
+  boardNotFound,
+  memberNotFound,
+  permissionDenied,
+  validationError,
+} from "./board.utils"
 
 const boardWithCreatorInclude = {
   createdBy: {
     select: userSummarySelect,
   },
 } as const
+
+type BoardWithCreator = {
+  id: string
+  name: string
+  description: string | null
+  currentRevision: number
+  isPublic: boolean
+  defaultJoinRole: BoardRole
+  createdAt: Date
+  updatedAt: Date
+  createdBy: UserSummary
+}
+
+type BoardMemberWithUser = {
+  id: string
+  role: BoardRole
+  joinedAt: Date
+  removedAt: Date | null
+  user: UserSummary
+}
+
+function toBoardSummary(board: BoardWithCreator): BoardSummary {
+  return {
+    id: board.id,
+    name: board.name,
+    description: board.description,
+    currentRevision: board.currentRevision,
+    isPublic: board.isPublic,
+    defaultJoinRole: board.defaultJoinRole as DefaultJoinRole,
+    createdBy: board.createdBy,
+    createdAt: board.createdAt,
+    updatedAt: board.updatedAt,
+  }
+}
+
+function toBoardMemberSummary(member: BoardMemberWithUser): BoardMemberSummary {
+  return {
+    role: member.role,
+    joinedAt: member.joinedAt,
+    user: member.user,
+  }
+}
 
 @Injectable()
 export class BoardService {
@@ -51,7 +84,7 @@ export class BoardService {
   ) {}
 
   async createBoard(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     request: CreateBoardRequest,
   ): Promise<CreateBoardResponse> {
     const board = await this.prismaService.$transaction(async (tx) =>
@@ -61,10 +94,10 @@ export class BoardService {
           description: request.description ?? null,
           isPublic: request.isPublic,
           defaultJoinRole: request.defaultJoinRole,
-          createdById: currentUser.id,
+          createdById: currentUser.sub,
           members: {
             create: {
-              userId: currentUser.id,
+              userId: currentUser.sub,
               role: boardRoles.OWNER,
             },
           },
@@ -73,81 +106,92 @@ export class BoardService {
       }),
     )
 
+    return toBoardSummary(board)
+  }
+
+  async listBoards(
+    currentUser: JwtPayload,
+    query: ListBoardsQuery,
+  ): Promise<ListBoardsResponse> {
+    const where = {
+      members: {
+        some: {
+          userId: currentUser.sub,
+          removedAt: null,
+        },
+      },
+    } as const
+
+    const [boards, total] = await Promise.all([
+      this.prismaService.board.findMany({
+        where,
+        include: boardWithCreatorInclude,
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        orderBy: { updatedAt: "desc" },
+      }),
+      this.prismaService.board.count({ where }),
+    ])
+
     return {
-      board: toBoardSummary(board),
-      currentUser: {
-        ...currentUser,
-        role: boardRoles.OWNER,
+      items: boards.map(toBoardSummary),
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
       },
     }
   }
 
-  async listBoards(
-    currentUser: UserSummary,
-    query: ListBoardsQuery,
-  ): Promise<ListBoardsResponse> {
-    const boards = await this.prismaService.board.findMany({
-      where: {
-        deletedAt: null,
-        OR: [
-          { isPublic: true },
-          {
-            members: {
-              some: {
-                userId: currentUser.id,
-                removedAt: null,
-              },
-            },
-          },
-        ],
-      },
-      include: boardWithCreatorInclude,
-      orderBy: { updatedAt: "desc" },
-      take: query.limit,
-    })
-
-    return { boards: boards.map(toBoardSummary) }
-  }
-
   async getBoard(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
   ): Promise<GetBoardResponse> {
-    const board = await this.prismaService.board.findFirst({
-      where: { id: boardId, deletedAt: null },
+    const board = await this.prismaService.board.findUnique({
+      where: { id: boardId },
       include: {
         ...boardWithCreatorInclude,
         members: {
-          where: { userId: currentUser.id, removedAt: null },
-          select: { role: true },
+          where: { userId: currentUser.sub, removedAt: null },
+          select: { role: true, joinedAt: true },
           take: 1,
         },
       },
     })
 
     if (!board) {
-      throw this.boardNotFound()
+      throw boardNotFound()
     }
 
-    const role = this.resolveAccessibleRole(board)
+    const { members, ...boardData } = board
+
+    const role = this.resolveAccessibleRole({
+      isPublic: boardData.isPublic,
+      defaultJoinRole: boardData.defaultJoinRole,
+      members,
+    })
 
     return {
-      board: toBoardSummary(board),
-      currentUser: { ...currentUser, role },
+      ...toBoardSummary(boardData),
+      memberBoardStatus: {
+        role,
+        joinedAt: members.at(0)?.joinedAt,
+        user: boardData.createdBy,
+      },
     }
   }
 
   async joinBoard(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
-  ): Promise<JoinBoardResponse> {
+  ): Promise<GetBoardResponse> {
     const joined = await this.prismaService.$transaction(async (tx) => {
       const board = await tx.board.findFirst({
-        where: { id: boardId, deletedAt: null },
+        where: { id: boardId },
         include: {
           ...boardWithCreatorInclude,
           members: {
-            where: { userId: currentUser.id },
+            where: { userId: currentUser.sub },
             select: { id: true, role: true, removedAt: true },
             take: 1,
           },
@@ -155,7 +199,7 @@ export class BoardService {
       })
 
       if (!board) {
-        throw this.boardNotFound()
+        throw boardNotFound()
       }
 
       const existingMember = board.members.at(0)
@@ -165,7 +209,7 @@ export class BoardService {
       }
 
       if (!board.isPublic) {
-        throw this.permissionDenied("You do not have access to this board.")
+        throw permissionDenied("You do not have access to this board.")
       }
 
       const role = board.defaultJoinRole
@@ -174,10 +218,10 @@ export class BoardService {
         where: {
           boardId_userId: {
             boardId,
-            userId: currentUser.id,
+            userId: currentUser.sub,
           },
         },
-        create: { boardId, userId: currentUser.id, role },
+        create: { boardId, userId: currentUser.sub, role },
         update: { role, joinedAt: new Date(), removedAt: null },
       })
 
@@ -185,16 +229,22 @@ export class BoardService {
     })
 
     return {
-      board: toBoardSummary(joined.board),
-      currentUser: { ...currentUser, role: joined.role },
+      ...toBoardSummary(joined.board),
+      memberBoardStatus: {
+        role: joined.role,
+        user: joined.board.createdBy,
+      },
     }
   }
 
   async getBoardMembers(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
   ): Promise<GetBoardMembersResponse> {
-    await this.boardPermissionService.assertBoardMember(currentUser.id, boardId)
+    await this.boardPermissionService.assertBoardMember(
+      currentUser.sub,
+      boardId,
+    )
 
     const members = await this.prismaService.boardMember.findMany({
       where: { boardId, removedAt: null },
@@ -202,18 +252,15 @@ export class BoardService {
       orderBy: { joinedAt: "asc" },
     })
 
-    return {
-      boardId,
-      members: members.map(toBoardMemberSummary),
-    }
+    return members.map(toBoardMemberSummary)
   }
 
   async addBoardMember(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     request: AddBoardMemberRequest,
-  ): Promise<BoardMemberMutationResponse> {
-    await this.boardPermissionService.assertBoardOwner(currentUser.id, boardId)
+  ): Promise<BoardMemberSummary> {
+    await this.boardPermissionService.assertBoardOwner(currentUser.sub, boardId)
 
     const member = await this.prismaService.$transaction(async (tx) => {
       const targetUser = await tx.user.findUnique({
@@ -222,7 +269,7 @@ export class BoardService {
       })
 
       if (!targetUser) {
-        throw this.memberNotFound("Target user not found.")
+        throw memberNotFound()
       }
 
       const existingMember = await tx.boardMember.findUnique({
@@ -233,7 +280,7 @@ export class BoardService {
       })
 
       if (existingMember?.role === "OWNER") {
-        throw this.validationError("Owner membership cannot be modified.")
+        throw validationError("Owner membership cannot be modified.")
       }
 
       if (existingMember) {
@@ -255,16 +302,16 @@ export class BoardService {
       })
     })
 
-    return { member: toBoardMemberSummary(member) }
+    return toBoardMemberSummary(member)
   }
 
   async updateBoardMemberRole(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     memberId: string,
     request: UpdateBoardMemberRoleRequest,
-  ): Promise<BoardMemberMutationResponse> {
-    await this.boardPermissionService.assertBoardOwner(currentUser.id, boardId)
+  ): Promise<BoardMemberSummary> {
+    await this.boardPermissionService.assertBoardOwner(currentUser.sub, boardId)
 
     const member = await this.prismaService.$transaction(async (tx) => {
       const existingMember = await tx.boardMember.findFirst({
@@ -273,29 +320,29 @@ export class BoardService {
       })
 
       if (!existingMember) {
-        throw this.memberNotFound()
+        throw memberNotFound()
       }
 
       if (existingMember.role === boardRoles.OWNER) {
-        throw this.validationError("Owner membership cannot be modified.")
+        throw validationError("Owner membership cannot be modified.")
       }
 
       return tx.boardMember.update({
         where: { id: memberId },
-        data: { role: request.role },
+        data: { role: request },
         include: { user: { select: userSummarySelect } },
       })
     })
 
-    return { member: toBoardMemberSummary(member) }
+    return toBoardMemberSummary(member)
   }
 
   async updateBoard(
-    currentUser: UserSummary,
+    currentUser: JwtPayload,
     boardId: string,
     request: UpdateBoardRequest,
   ): Promise<UpdateBoardResponse> {
-    await this.boardPermissionService.assertBoardOwner(currentUser.id, boardId)
+    await this.boardPermissionService.assertBoardOwner(currentUser.sub, boardId)
 
     const board = await this.prismaService.board.update({
       where: { id: boardId },
@@ -303,15 +350,14 @@ export class BoardService {
       include: boardWithCreatorInclude,
     })
 
-    return { board: toBoardSummary(board) }
+    return toBoardSummary(board)
   }
 
-  async deleteBoard(currentUser: UserSummary, boardId: string): Promise<void> {
-    await this.boardPermissionService.assertBoardOwner(currentUser.id, boardId)
+  async deleteBoard(currentUser: JwtPayload, boardId: string): Promise<void> {
+    await this.boardPermissionService.assertBoardOwner(currentUser.sub, boardId)
 
-    await this.prismaService.board.update({
+    await this.prismaService.board.delete({
       where: { id: boardId },
-      data: { deletedAt: new Date() },
     })
   }
 
@@ -327,34 +373,6 @@ export class BoardService {
     if (memberRole) return memberRole
     if (board.isPublic) return board.defaultJoinRole
 
-    throw this.permissionDenied("You do not have access to this board.")
-  }
-
-  private boardNotFound(message = "Board not found.") {
-    return new NotFoundException({
-      code: apiErrorCodes.BOARD_NOT_FOUND,
-      message,
-    })
-  }
-
-  private memberNotFound(message = "Board member not found.") {
-    return new NotFoundException({
-      code: apiErrorCodes.MEMBER_NOT_FOUND,
-      message,
-    })
-  }
-
-  private validationError(message: string) {
-    return new BadRequestException({
-      code: apiErrorCodes.VALIDATION_ERROR,
-      message,
-    })
-  }
-
-  private permissionDenied(message: string) {
-    return new ForbiddenException({
-      code: apiErrorCodes.PERMISSION_DENIED,
-      message,
-    })
+    throw permissionDenied("You do not have access to this board.")
   }
 }

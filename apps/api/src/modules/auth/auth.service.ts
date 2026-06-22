@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import {
   avatarPalette,
-  identityTypes,
   JwtPayload,
   type UserSummary,
 } from "@rctw/shared-contracts"
@@ -9,11 +8,11 @@ import * as crypto from "node:crypto"
 import { PrismaService } from "../../infrastructure/database"
 import { ConfigService } from "@nestjs/config"
 import { JwtService } from "@nestjs/jwt"
-import { unauthenticated } from "../../common/utils/error"
 import { OAuth2Client } from "google-auth-library"
-import { userSummarySelect } from "../user/user.service"
+import { userProfileSelect } from "../user/user.service"
+import { unauthenticated } from "./auth.utils"
 
-export const REFRESH_TOKEN_EXPIRES = 30 * 24 * 60 * 60 * 10000 // 30 days
+export const REFRESH_TOKEN_EXPIRES = 30 * 24 * 60 * 60 * 1000 // 30 days
 export const JWT_ACCESS_EXPIRES = 15 * 60 * 1000 // 15 minutes
 
 @Injectable()
@@ -30,50 +29,39 @@ export class AuthService {
     )
   }
 
-  async registerGuest(): Promise<{
+  async loginWithGoogle(idToken: string): Promise<{
     accessToken: string
     refreshToken: string
     user: UserSummary
   }> {
-    const guestName = this.generateName()
-    const guestAvatarColor = this.generateAvatarColor()
+    const googlePayload = await this.verifyGoogleIdToken(idToken)
 
-    const guest = await this.prisma.user.create({
-      data: {
-        name: guestName,
-        avatarColor: guestAvatarColor,
-        identityType: identityTypes.GUEST,
-        lastSeenAt: new Date(),
-      },
-      select: userSummarySelect,
+    let user = await this.prisma.user.findUnique({
+      where: { googleId: googlePayload.sub },
+      select: userProfileSelect,
     })
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          googleId: googlePayload.sub,
+          email: googlePayload.email,
+          name: googlePayload.name!,
+          avatarUrl: googlePayload.picture,
+          avatarColor: this.generateAvatarColor(),
+        },
+      })
+    }
 
     const accessToken = await this.createAccessToken({
-      sub: guest.id,
-      name: guest.name,
-      email: guest.email,
-      identityType: guest.identityType,
+      sub: user.id,
+      name: user.name,
+      email: user.email,
     })
 
-    const refreshToken = await this.createRefreshToken(guest.id)
+    const refreshToken = await this.createRefreshToken(user.id)
 
-    return { accessToken, refreshToken, user: guest }
-  }
-
-  async createRefreshToken(userId: string): Promise<string> {
-    const rawToken = crypto.randomBytes(40).toString("hex")
-    const tokenHash = this.createHashToken(rawToken)
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES) // 30 days
-
-    await this.prisma.refreshToken.create({
-      data: {
-        tokenHash,
-        userId,
-        expiresAt,
-      },
-    })
-
-    return rawToken
+    return { accessToken, refreshToken, user }
   }
 
   async rotateRefreshToken(rawToken: string): Promise<{
@@ -85,7 +73,7 @@ export class AuthService {
 
     const existingToken = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
-      include: { user: { select: userSummarySelect } },
+      include: { user: { select: userProfileSelect } },
     })
 
     if (!existingToken) {
@@ -111,7 +99,6 @@ export class AuthService {
       sub: existingToken.user.id,
       name: existingToken.user.name,
       email: existingToken.user.email,
-      identityType: existingToken.user.identityType,
     })
 
     return { accessToken, newRefreshToken, user: existingToken.user }
@@ -128,96 +115,25 @@ export class AuthService {
     }
   }
 
-  async updateLastSeen(userId: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { lastSeenAt: new Date() },
-    })
-  }
-
-  async loginWithGoogle(
-    idToken: string,
-    guestUserId?: string | null,
-  ): Promise<{
-    accessToken: string
-    refreshToken: string
-    user: UserSummary
-  }> {
-    const googlePayload = await this.verifyGoogleIdToken(idToken)
-    const now = new Date()
-
-    let user = await this.prisma.user.findUnique({
-      where: { googleId: googlePayload.sub },
-    })
-
-    if (guestUserId) {
-      // Try to upgrade guest user
-      const guestUser = await this.prisma.user.findUnique({
-        where: { id: guestUserId },
-      })
-
-      if (guestUser && guestUser.identityType === identityTypes.GUEST) {
-        user = await this.prisma.user.update({
-          where: { id: guestUserId },
-          data: {
-            identityType: identityTypes.GOOGLE,
-            googleId: googlePayload.sub,
-            email: googlePayload.email,
-            name: googlePayload.name || guestUser.name,
-            avatarUrl: googlePayload.picture || guestUser.avatarUrl,
-            lastSeenAt: new Date(),
-          },
-        })
-      }
-    }
-
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          googleId: googlePayload.sub,
-          email: googlePayload.email,
-          name: googlePayload.name!,
-          avatarUrl: googlePayload.picture,
-          avatarColor: this.generateAvatarColor(),
-          identityType: identityTypes.GOOGLE,
-          lastSeenAt: now,
-        },
-      })
-    } else {
-      user = await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          avatarUrl: googlePayload.picture || user.avatarUrl,
-          lastSeenAt: now,
-        },
-      })
-    }
-
-    const userSummary: UserSummary = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatarUrl: user.avatarUrl,
-      avatarColor: user.avatarColor,
-      identityType: user.identityType,
-      lastSeenAt: user.lastSeenAt,
-    }
-
-    const accessToken = await this.createAccessToken({
-      sub: user.id,
-      name: user.name,
-      email: user.email,
-      identityType: user.identityType,
-    })
-
-    const refreshToken = await this.createRefreshToken(user.id)
-
-    return { accessToken, refreshToken, user: userSummary }
-  }
-
   // Helper
 
-  async createAccessToken(payload: JwtPayload): Promise<string> {
+  private async createRefreshToken(userId: string): Promise<string> {
+    const rawToken = crypto.randomBytes(40).toString("hex")
+    const tokenHash = this.createHashToken(rawToken)
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES) // 30 days
+
+    await this.prisma.refreshToken.create({
+      data: {
+        tokenHash,
+        userId,
+        expiresAt,
+      },
+    })
+
+    return rawToken
+  }
+
+  private async createAccessToken(payload: JwtPayload): Promise<string> {
     const jwtAccessSecret =
       this.configService.getOrThrow<string>("JWT_ACCESS_SECRET")
 
@@ -274,10 +190,6 @@ export class AuthService {
 
   private createHashToken(token: string): string {
     return crypto.createHash("sha256").update(token).digest("hex")
-  }
-
-  private generateName() {
-    return `Guest_${Math.floor(1000 + Math.random() * 9000)}`
   }
 
   private generateAvatarColor() {
