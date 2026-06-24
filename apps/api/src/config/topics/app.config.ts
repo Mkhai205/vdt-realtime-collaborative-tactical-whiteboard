@@ -2,6 +2,7 @@ import { parseStringArray } from "../env.utils"
 import type { RawEnv } from "../env.validation"
 
 export const APP_CONFIG_KEY = {
+  NODE_ENV: "development",
   PORT: 3001,
   CORS_ORIGIN: "http://localhost:3000",
 } as const
@@ -14,6 +15,7 @@ export function validateAppConfig(config: RawEnv) {
   )
 
   return {
+    NODE_ENV: config.NODE_ENV ?? APP_CONFIG_KEY.NODE_ENV,
     PORT: Number(config.PORT ?? APP_CONFIG_KEY.PORT),
     CORS_ORIGIN: corsOrigins,
   }

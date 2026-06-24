@@ -25,7 +25,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {
     this.oauthClient = new OAuth2Client(
-      this.configService.getOrThrow("GOOGLE_CLIENT_ID"),
+      this.configService.get<string>("GOOGLE_CLIENT_ID"),
     )
   }
 
@@ -134,8 +134,7 @@ export class AuthService {
   }
 
   private async createAccessToken(payload: JwtPayload): Promise<string> {
-    const jwtAccessSecret =
-      this.configService.getOrThrow<string>("JWT_ACCESS_SECRET")
+    const jwtAccessSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
 
     return this.jwtService.signAsync(payload, {
       secret: jwtAccessSecret,
@@ -144,8 +143,7 @@ export class AuthService {
   }
 
   async verifyAccessToken(token: string): Promise<JwtPayload> {
-    const jwtAccessSecret =
-      this.configService.getOrThrow<string>("JWT_ACCESS_SECRET")
+    const jwtAccessSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
     const payload = await this.jwtService.verifyAsync(token, {
       secret: jwtAccessSecret,
     })
