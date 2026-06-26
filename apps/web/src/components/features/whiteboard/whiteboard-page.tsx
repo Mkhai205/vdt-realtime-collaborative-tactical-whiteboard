@@ -1,6 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import type { Tool } from "@rctw/shared-contracts"
 import {
@@ -182,7 +183,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         {/* Left: Logo + room info */}
         <div className="flex items-center gap-3 min-w-0">
           {/* Logo mark */}
-          <a href="/" className="flex items-center gap-2 shrink-0 group" aria-label="Back to rooms">
+          <Link href="/" className="flex items-center gap-2 shrink-0 group" aria-label="Back to rooms">
             <div className="size-6 rounded-md bg-foreground flex items-center justify-center transition-opacity group-hover:opacity-70">
               <svg
                 width="12"
@@ -198,7 +199,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
                 <rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor" className="text-background opacity-30" />
               </svg>
             </div>
-          </a>
+          </Link>
 
           <span className="text-border" aria-hidden="true">/</span>
 

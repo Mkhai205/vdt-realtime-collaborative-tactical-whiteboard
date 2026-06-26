@@ -6,7 +6,8 @@ import {
   type BoardSummary,
   type CreateBoardRequest,
   type CreateBoardResponse,
-  type DefaultJoinRole,
+  type BoardVisibility,
+  type BoardLinkAccess,
   type GetBoardMembersResponse,
   type GetBoardResponse,
   type JwtPayload,
@@ -39,8 +40,8 @@ type BoardWithCreator = {
   name: string
   description: string | null
   currentRevision: number
-  isPublic: boolean
-  defaultJoinRole: BoardRole
+  visibility: BoardVisibility
+  linkAccess: BoardLinkAccess
   createdAt: Date
   updatedAt: Date
   createdBy: UserSummary
@@ -60,8 +61,8 @@ function toBoardSummary(board: BoardWithCreator): BoardSummary {
     name: board.name,
     description: board.description,
     currentRevision: board.currentRevision,
-    isPublic: board.isPublic,
-    defaultJoinRole: board.defaultJoinRole as DefaultJoinRole,
+    visibility: board.visibility,
+    linkAccess: board.linkAccess,
     createdBy: board.createdBy,
     createdAt: board.createdAt,
     updatedAt: board.updatedAt,
@@ -93,8 +94,8 @@ export class BoardService {
         data: {
           name: request.name,
           description: request.description ?? null,
-          isPublic: request.isPublic,
-          defaultJoinRole: request.defaultJoinRole,
+          visibility: request.visibility,
+          linkAccess: request.linkAccess,
           createdById: currentUser.sub,
           members: {
             create: {
@@ -167,8 +168,8 @@ export class BoardService {
     const { members, ...boardData } = board
 
     const role = this.resolveAccessibleRole({
-      isPublic: boardData.isPublic,
-      defaultJoinRole: boardData.defaultJoinRole,
+      visibility: boardData.visibility,
+      linkAccess: boardData.linkAccess,
       members,
     })
 
@@ -210,11 +211,11 @@ export class BoardService {
         return { board, role: existingMember.role, memberId: existingMember.id }
       }
 
-      if (!board.isPublic) {
+      if (board.linkAccess === "DISABLED") {
         throw permissionDenied("You do not have access to this board.")
       }
 
-      const role = board.defaultJoinRole
+      const role = board.linkAccess
 
       const upserted = await tx.boardMember.upsert({
         where: {
@@ -367,14 +368,16 @@ export class BoardService {
   // ── Private helpers ───────────────────────────────────────────────────
 
   private resolveAccessibleRole(board: {
-    isPublic: boolean
-    defaultJoinRole: BoardRole
+    visibility: BoardVisibility
+    linkAccess: BoardLinkAccess
     members: Array<{ role: BoardRole }>
   }): BoardRole {
     const memberRole = board.members.at(0)?.role
 
     if (memberRole) return memberRole
-    if (board.isPublic) return board.defaultJoinRole
+    if (board.linkAccess !== "DISABLED") {
+      return board.linkAccess
+    }
 
     throw permissionDenied("You do not have access to this board.")
   }

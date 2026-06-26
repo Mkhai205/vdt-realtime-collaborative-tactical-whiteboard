@@ -208,8 +208,8 @@ export function MemberManagementPage({ roomId }: { roomId: string }) {
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={room?.isPublic ? "secondary" : "outline"}>
-                {room?.isPublic ? "Public" : "Private"}
+              <Badge variant={room?.visibility === "PUBLIC" ? "secondary" : "outline"}>
+                {room?.visibility === "PUBLIC" ? "Public" : "Private"}
               </Badge>
               {currentUser ? (
                 <Badge variant="secondary">{currentUser.role}</Badge>
@@ -227,8 +227,8 @@ export function MemberManagementPage({ roomId }: { roomId: string }) {
             <Metric label="Members" value={memberCount} icon="users" />
             <Metric label="Owners" value={ownerCount} icon="shield" />
             <Metric
-              label="Default"
-              value={room?.defaultJoinRole ?? "EDITOR"}
+              label="Link Access"
+              value={room?.linkAccess ?? "EDITOR"}
               icon="role"
             />
           </div>

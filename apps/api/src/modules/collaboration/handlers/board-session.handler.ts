@@ -70,8 +70,8 @@ export class BoardSessionHandler {
           name: joinResponse.name,
           description: joinResponse.description ?? null,
           currentRevision: objectsResponse.currentRevision,
-          isPublic: joinResponse.isPublic,
-          defaultJoinRole: joinResponse.defaultJoinRole,
+          visibility: joinResponse.visibility,
+          linkAccess: joinResponse.linkAccess,
         },
         currentUser: {
           ...userSummary,

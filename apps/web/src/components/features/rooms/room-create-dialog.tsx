@@ -48,8 +48,8 @@ export function RoomCreateDialog() {
       const response = await createRoom({
         name,
         description: newRoomDescription.trim() || undefined,
-        isPublic: true,
-        defaultJoinRole: "EDITOR",
+        visibility: "PRIVATE",
+        linkAccess: "EDITOR",
       })
       setOpen(false)
       router.push(`/rooms/${response.id}`)

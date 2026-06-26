@@ -235,7 +235,7 @@ function RoomCard({
               {room.name}
             </span>
             <span className="flex items-center gap-1 text-[10px] font-medium rounded-md px-1.5 py-0.5 border shrink-0 text-muted-foreground">
-              {room.isPublic ? (
+              {room.visibility === "PUBLIC" ? (
                 <>
                   <Globe className="size-2.5" aria-hidden="true" />
                   Public

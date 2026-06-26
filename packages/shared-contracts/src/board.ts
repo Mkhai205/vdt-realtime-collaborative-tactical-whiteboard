@@ -17,8 +17,12 @@ export const boardRoleSchema = z.enum(["OWNER", "EDITOR", "VIEWER"])
 export const boardRoles = boardRoleSchema.enum
 export type BoardRole = z.infer<typeof boardRoleSchema>
 
-export const defaultJoinRoleSchema = z.enum(["EDITOR", "VIEWER"])
-export type DefaultJoinRole = z.infer<typeof defaultJoinRoleSchema>
+export const boardVisibilitySchema = z.enum(["PRIVATE", "PUBLIC"])
+export type BoardVisibility = z.infer<typeof boardVisibilitySchema>
+
+export const boardLinkAccessSchema = z.enum(["DISABLED", "VIEWER", "EDITOR"])
+export type BoardLinkAccess = z.infer<typeof boardLinkAccessSchema>
+
 export const memberRoleInputSchema = z.enum(["EDITOR", "VIEWER"])
 export type MemberRoleInput = z.infer<typeof memberRoleInputSchema>
 
@@ -42,8 +46,8 @@ export type UpdateBoardMemberRoleRequest = z.infer<
 export const createBoardRequestSchema = z.object({
   name: z.string().trim().min(1).max(160),
   description: z.string().trim().max(2000).nullable().optional(),
-  isPublic: z.boolean().default(true),
-  defaultJoinRole: defaultJoinRoleSchema.default("EDITOR"),
+  visibility: boardVisibilitySchema.default("PRIVATE"),
+  linkAccess: boardLinkAccessSchema.default("EDITOR"),
 })
 export type CreateBoardRequest = z.infer<typeof createBoardRequestSchema>
 
@@ -60,8 +64,8 @@ export const updateBoardRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(160).optional(),
     description: z.string().trim().max(2000).nullable().optional(),
-    isPublic: z.boolean().optional(),
-    defaultJoinRole: defaultJoinRoleSchema.optional(),
+    visibility: boardVisibilitySchema.optional(),
+    linkAccess: boardLinkAccessSchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one board field is required.",
@@ -75,8 +79,8 @@ export type BoardSummary = {
   name: string
   description?: string | null
   currentRevision: number
-  isPublic: boolean
-  defaultJoinRole: DefaultJoinRole
+  visibility: BoardVisibility
+  linkAccess: BoardLinkAccess
   createdBy: UserSummary
   createdAt: Date
   updatedAt: Date

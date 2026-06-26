@@ -35,8 +35,8 @@ export function RoomCreateForm() {
       const response = await createRoom({
         name,
         description: newRoomDescription.trim() || undefined,
-        isPublic: true,
-        defaultJoinRole: "EDITOR",
+        visibility: "PRIVATE",
+        linkAccess: "EDITOR",
       })
       router.push(`/rooms/${response.id}`)
     } catch (err) {

@@ -14,6 +14,17 @@ enum BoardRole {
   VIEWER
 }
 
+enum BoardVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum BoardLinkAccess {
+  DISABLED
+  VIEWER
+  EDITOR
+}
+
 enum ObjectType {
   RECTANGLE
   CIRCLE
@@ -62,15 +73,15 @@ model RefreshToken {
 }
 
 model Board {
-  id              String    @id @default(uuid()) @db.Uuid
-  name            String    @db.VarChar(160)
-  description     String?   @db.Text
-  createdById     String    @db.Uuid
-  currentRevision Int       @default(0)
-  isPublic        Boolean   @default(true)
-  defaultJoinRole BoardRole @default(EDITOR)
-  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  id              String          @id @default(uuid()) @db.Uuid
+  name            String          @db.VarChar(160)
+  description     String?         @db.Text
+  createdById     String          @db.Uuid
+  currentRevision Int             @default(0)
+  visibility      BoardVisibility @default(PRIVATE)
+  linkAccess      BoardLinkAccess @default(EDITOR)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
 
   createdBy  User             @relation("BoardCreator", fields: [createdById], references: [id])
   members    BoardMember[]
@@ -79,7 +90,7 @@ model Board {
   snapshots  BoardSnapshot[]
 
   @@index([createdById])
-  @@index([isPublic])
+  @@index([visibility])
 }
 
 model BoardMember {

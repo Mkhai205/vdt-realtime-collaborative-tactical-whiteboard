@@ -1,5 +1,9 @@
 import { z } from "zod"
-import { boardRoleSchema, defaultJoinRoleSchema } from "./board.js"
+import {
+  boardRoleSchema,
+  boardVisibilitySchema,
+  boardLinkAccessSchema,
+} from "./board.js"
 import {
   operationAppliedEventSchema,
   toolSchema,
@@ -37,8 +41,8 @@ export const boardStateEventSchema = z.object({
     name: z.string().min(1).max(160),
     description: z.string().nullable().optional(),
     currentRevision: z.number().int().nonnegative(),
-    isPublic: z.boolean(),
-    defaultJoinRole: defaultJoinRoleSchema,
+    visibility: boardVisibilitySchema,
+    linkAccess: boardLinkAccessSchema,
   }),
   currentUser: userSummarySchema.extend({
     role: boardRoleSchema,
