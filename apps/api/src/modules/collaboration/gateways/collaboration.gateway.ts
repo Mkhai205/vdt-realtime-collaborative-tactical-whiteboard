@@ -50,14 +50,7 @@ export class CollaborationGateway
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
   afterInit(server: Server): void {
-    const corsOrigins = (
-      this.configService.get<string>("CORS_ORIGIN") ?? "http://localhost:3000"
-    )
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean)
-
-    server.engine.opts.cors = { origin: corsOrigins, credentials: true }
+    this.logger.log("Collaboration Gateway initialized")
   }
 
   async handleConnection(client: CollaborationSocket): Promise<void> {
