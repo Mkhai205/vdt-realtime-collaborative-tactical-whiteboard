@@ -269,7 +269,8 @@ function renderSelectionOutline(
 ) {
   switch (object.type) {
     case "RECTANGLE":
-    case "TEXT": {
+    case "TEXT":
+    case "ICON": {
       const size = getObjectSize(object)
 
       return (
@@ -310,8 +311,9 @@ function renderSelectionOutline(
         />
       )
     }
-    case "LINE": {
-      const bounds = getLineBounds(object.points)
+    case "LINE":
+    case "PATH": {
+      const bounds = getPathBounds(object.points)
 
       return (
         <Group
@@ -354,6 +356,8 @@ function getObjectSize(object: WhiteboardObject): {
       }
     case "RECTANGLE":
     case "LINE":
+    case "PATH":
+    case "ICON":
       return {
         width: object.width ?? defaultRectangleWidth,
         height: object.height ?? defaultRectangleHeight,
@@ -361,17 +365,34 @@ function getObjectSize(object: WhiteboardObject): {
   }
 }
 
-function getLineBounds(points: WhiteboardObject["points"]): LineBounds {
-  const normalizedPoints =
-    points && points.length >= 4 ? points.slice(0, 4) : defaultLinePoints
-  const x1 = normalizedPoints[0] ?? 0
-  const y1 = normalizedPoints[1] ?? 0
-  const x2 = normalizedPoints[2] ?? defaultRectangleWidth
-  const y2 = normalizedPoints[3] ?? 0
-  const minX = Math.min(x1, x2)
-  const minY = Math.min(y1, y2)
-  const maxX = Math.max(x1, x2)
-  const maxY = Math.max(y1, y2)
+function getPathBounds(points: WhiteboardObject["points"]): LineBounds {
+  if (!points || points.length === 0) {
+    return {
+      x: 0,
+      y: 0,
+      width: defaultRectangleWidth,
+      height: defaultRectangleHeight,
+    }
+  }
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  for (let i = 0; i < points.length; i += 2) {
+    const x = points[i]
+    const y = points[i + 1]
+    if (x !== undefined && y !== undefined) {
+      if (x < minX) minX = x
+      if (y < minY) minY = y
+      if (x > maxX) maxX = x
+      if (y > maxY) maxY = y
+    }
+  }
+
+  if (minX === Infinity || minY === Infinity) {
+    return { x: 0, y: 0, width: 0, height: 0 }
+  }
 
   return {
     x: minX,
@@ -385,8 +406,8 @@ function getSelectionLabelPoint(
   object: WhiteboardObject,
   padding: number,
 ): { x: number; y: number } {
-  if (object.type === "LINE") {
-    const bounds = getLineBounds(object.points)
+  if (object.type === "LINE" || object.type === "PATH") {
+    const bounds = getPathBounds(object.points)
 
     return {
       x: object.x + bounds.x - padding,

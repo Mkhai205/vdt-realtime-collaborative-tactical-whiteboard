@@ -18,18 +18,18 @@ import {
   toValidationSocketError,
   type OperationRejectionContext,
 } from "../collaboration-socket-errors"
-import { BoardObjectsService } from "../../board/board-objects.service"
+import { WhiteboardObjectsService } from "../../whiteboard/whiteboard-objects.service"
 import { PresenceService } from "../presence.service"
-import { BoardHistoryService } from "../../board/board-history.service"
+import { WhiteboardHistoryService } from "../../whiteboard/whiteboard-history.service"
 
 @Injectable()
 export class WhiteboardMutationHandler {
   private readonly logger = new Logger(WhiteboardMutationHandler.name)
 
   constructor(
-    private readonly whiteboardObjectsService: BoardObjectsService,
+    private readonly whiteboardObjectsService: WhiteboardObjectsService,
     private readonly presenceService: PresenceService,
-    private readonly historyService: BoardHistoryService,
+    private readonly historyService: WhiteboardHistoryService,
   ) {}
 
   async handleObjectCreate(
@@ -160,6 +160,25 @@ export class WhiteboardMutationHandler {
           operationRejected(context, {
             reason: "USER_NOT_IN_BOARD",
             message: "Join the board before sending object operations.",
+          }),
+        )
+        return
+      }
+
+      const objectId = (context as any).objectId
+      if (
+        objectId &&
+        this.presenceService.isObjectLockedByOther({
+          socketId: client.id,
+          boardId: context.boardId,
+          objectId,
+        })
+      ) {
+        client.emit(
+          "operation:rejected",
+          operationRejected(context, {
+            reason: "OBJECT_LOCKED",
+            message: "This object is currently being edited by another user.",
           }),
         )
         return

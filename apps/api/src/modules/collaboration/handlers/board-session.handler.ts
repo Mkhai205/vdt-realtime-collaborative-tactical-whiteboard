@@ -15,7 +15,7 @@ import {
   toSocketError,
   toValidationSocketError,
 } from "../collaboration-socket-errors"
-import { BoardObjectsService } from "../../board/board-objects.service"
+import { WhiteboardObjectsService } from "../../whiteboard/whiteboard-objects.service"
 import { PresenceService } from "../presence.service"
 
 @Injectable()
@@ -24,7 +24,7 @@ export class BoardSessionHandler {
 
   constructor(
     private readonly boardService: BoardService,
-    private readonly whiteboardObjectsService: BoardObjectsService,
+    private readonly whiteboardObjectsService: WhiteboardObjectsService,
     private readonly presenceService: PresenceService,
   ) {}
 

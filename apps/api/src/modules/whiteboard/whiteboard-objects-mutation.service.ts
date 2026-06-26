@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import { Prisma, PrismaClient } from "@rctw/database"
 import {
   type ObjectCreateRequest,
@@ -10,7 +10,8 @@ import {
   type UserSummary,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
-import { BoardPermissionService } from "./board-permission.service"
+import { BoardPermissionService } from "../board/board-permission.service"
+import { WhiteboardSnapshotsService } from "./whiteboard-snapshots.service"
 import {
   boardNotFound,
   duplicateOperation,
@@ -18,7 +19,7 @@ import {
   objectNotFound,
   objectVersionConflict,
   permissionDenied,
-} from "./board.utils"
+} from "../board/board.utils"
 import {
   getPreviousValues,
   toCreateObjectData,
@@ -44,10 +45,13 @@ type MutationContext = {
 }
 
 @Injectable()
-export class BoardObjectsMutationService {
+export class WhiteboardObjectsMutationService {
+  private readonly logger = new Logger(WhiteboardObjectsMutationService.name)
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly boardPermissionService: BoardPermissionService,
+    private readonly whiteboardSnapshotsService: WhiteboardSnapshotsService,
   ) {}
 
   async createObject(
@@ -55,7 +59,7 @@ export class BoardObjectsMutationService {
     boardId: string,
     request: ObjectCreateRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.runObjectMutation(async (tx) => {
+    return this.runObjectMutation(boardId, async (tx) => {
       await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
@@ -91,7 +95,7 @@ export class BoardObjectsMutationService {
     objectId: string,
     request: ObjectUpdateRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.runObjectMutation(async (tx) => {
+    return this.runObjectMutation(boardId, async (tx) => {
       await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
@@ -141,7 +145,7 @@ export class BoardObjectsMutationService {
     objectId: string,
     request: ObjectDeleteRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.runObjectMutation(async (tx) => {
+    return this.runObjectMutation(boardId, async (tx) => {
       await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
@@ -190,7 +194,7 @@ export class BoardObjectsMutationService {
     objectId: string,
     request: ObjectRestoreRequest,
   ): Promise<OperationAppliedEvent> {
-    return this.runObjectMutation(async (tx) => {
+    return this.runObjectMutation(boardId, async (tx) => {
       await this.assertCanMutateBoard(tx, currentUser.sub, boardId)
       await this.assertUniqueClientOpId(tx, boardId, request.clientOpId)
 
@@ -242,10 +246,31 @@ export class BoardObjectsMutationService {
   }
 
   private async runObjectMutation<T>(
+    boardId: string,
     mutation: (tx: WhiteboardTransactionClient) => Promise<T>,
   ): Promise<T> {
     try {
-      return await this.prismaService.$transaction((tx) => mutation(tx))
+      const result = await this.prismaService.$transaction((tx) => mutation(tx))
+      const resultObj = result as any
+
+      if (
+        resultObj &&
+        typeof resultObj === "object" &&
+        typeof resultObj.revision === "number"
+      ) {
+        if (resultObj.revision % 100 === 0) {
+          this.whiteboardSnapshotsService
+            .createSnapshot(boardId)
+            .catch((err) => {
+              this.logger.error(
+                `Failed to create snapshot for board ${boardId} at revision ${resultObj.revision}:`,
+                err instanceof Error ? err.stack : String(err),
+              )
+            })
+        }
+      }
+
+      return result
     } catch (error) {
       if (this.isDuplicateClientOperationConstraintError(error)) {
         throw duplicateOperation()

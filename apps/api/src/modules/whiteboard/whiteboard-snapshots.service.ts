@@ -34,7 +34,7 @@ type BoardSnapshotRecord = {
 }
 
 @Injectable()
-export class BoardSnapshotsService {
+export class WhiteboardSnapshotsService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async createSnapshot(boardId: string): Promise<BoardSnapshotResult> {

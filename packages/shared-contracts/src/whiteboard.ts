@@ -1,7 +1,14 @@
 import { z } from "zod"
 import { userSummarySchema } from "./user"
 
-export const objectTypeSchema = z.enum(["RECTANGLE", "CIRCLE", "LINE", "TEXT"])
+export const objectTypeSchema = z.enum([
+  "RECTANGLE",
+  "CIRCLE",
+  "LINE",
+  "TEXT",
+  "PATH",
+  "ICON",
+])
 export const toolSchema = z.enum([
   "SELECT",
   "HAND",
@@ -9,6 +16,8 @@ export const toolSchema = z.enum([
   "CIRCLE",
   "LINE",
   "TEXT",
+  "PATH",
+  "ICON",
 ])
 export const operationTypeSchema = z.enum([
   "OBJECT_CREATE",
@@ -25,6 +34,7 @@ export const operationRejectedReasonSchema = z.enum([
   "OBJECT_VERSION_CONFLICT",
   "INVALID_OPERATION_PAYLOAD",
   "DUPLICATE_OPERATION",
+  "OBJECT_LOCKED",
   "INTERNAL_ERROR",
 ])
 
@@ -40,6 +50,10 @@ export const shapeStyleSchema = z
     color: z.string().optional(),
     arrowStart: z.boolean().optional(),
     arrowEnd: z.boolean().optional(),
+    iconKey: z.string().optional(),
+    assetUrl: z.string().optional(),
+    scale: z.number().positive().optional(),
+    label: z.string().optional(),
   })
   .catchall(z.unknown())
 
@@ -75,7 +89,7 @@ export const objectMutablePatchSchema = z.object({
   y: z.number().optional(),
   width: z.number().positive().optional(),
   height: z.number().positive().optional(),
-  points: linePointsSchema.optional(),
+  points: z.array(z.number()).optional(),
   text: z.string().optional(),
   rotation: z.number().optional(),
   style: shapeStyleSchema.optional(),
@@ -96,7 +110,7 @@ export const objectCreateInputSchema = z
     y: z.number(),
     width: z.number().positive().optional(),
     height: z.number().positive().optional(),
-    points: linePointsSchema.optional(),
+    points: z.array(z.number()).optional(),
     text: z.string().max(5000).optional(),
     rotation: z.number().optional(),
     style: shapeStyleSchema.optional(),
@@ -114,11 +128,43 @@ export const objectCreateInputSchema = z
       })
     }
 
-    if (value.type === "LINE" && !value.points) {
+    if (value.type === "LINE") {
+      if (!value.points) {
+        context.addIssue({
+          code: "custom",
+          message: "Line objects require points.",
+          path: ["points"],
+        })
+      } else if (value.points.length !== 4) {
+        context.addIssue({
+          code: "custom",
+          message: "Line objects require exactly four point coordinates.",
+          path: ["points"],
+        })
+      }
+    }
+
+    if (value.type === "PATH") {
+      if (!value.points) {
+        context.addIssue({
+          code: "custom",
+          message: "Path objects require points.",
+          path: ["points"],
+        })
+      } else if (value.points.length < 4 || value.points.length % 2 !== 0) {
+        context.addIssue({
+          code: "custom",
+          message: "Path objects require at least 4 coordinates (representing 2 points) and an even number of coordinates.",
+          path: ["points"],
+        })
+      }
+    }
+
+    if (value.type === "ICON" && (!value.style || (!value.style.iconKey && !value.style.assetUrl))) {
       context.addIssue({
         code: "custom",
-        message: "Line objects require points.",
-        path: ["points"],
+        message: "Icon objects require iconKey or assetUrl inside style.",
+        path: ["style"],
       })
     }
 

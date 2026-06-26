@@ -150,11 +150,38 @@ export class PresenceService {
     return this.getOnlineUsers(input.boardId)
   }
 
+  isObjectLockedByOther(input: {
+    socketId: string
+    boardId: string
+    objectId: string
+  }): boolean {
+    const sessions = this.boardSessions.get(input.boardId)
+
+    if (!sessions) {
+      return false
+    }
+
+    for (const [sId, session] of sessions.entries()) {
+      if (
+        sId !== input.socketId &&
+        session.activeEditingObjectIds.has(input.objectId)
+      ) {
+        return true
+      }
+    }
+
+    return false
+  }
+
   startEditing(input: {
     socketId: string
     boardId: string
     objectId: string
   }): boolean {
+    if (this.isObjectLockedByOther(input)) {
+      return false
+    }
+
     const session = this.boardSessions.get(input.boardId)?.get(input.socketId)
 
     if (!session) {

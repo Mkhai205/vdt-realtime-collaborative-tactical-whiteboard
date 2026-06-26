@@ -4,7 +4,7 @@ import { useCallback, type RefCallback } from "react"
 import type { WhiteboardObject } from "@rctw/shared-contracts"
 import type Konva from "konva"
 import type { KonvaEventObject } from "konva/lib/Node"
-import { Arrow, Ellipse, Rect, Text } from "react-konva"
+import { Arrow, Ellipse, Rect, Text, Line, Group } from "react-konva"
 import {
   defaultRectangleWidth,
   defaultRectangleHeight,
@@ -175,6 +175,62 @@ export function WhiteboardShapeRenderer({
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
+      )
+    case "PATH":
+      return (
+        <Line
+          ref={setNodeRef}
+          x={object.x}
+          y={object.y}
+          points={object.points ?? []}
+          rotation={object.rotation}
+          stroke={object.style.stroke ?? defaultColors.primary}
+          strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
+          opacity={object.style.opacity ?? 1}
+          tension={0.5}
+          lineCap="round"
+          lineJoin="round"
+          draggable={draggable}
+          onPointerDown={handlePointerDown}
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+        />
+      )
+    case "ICON":
+      return (
+        <Group
+          ref={setNodeRef}
+          x={object.x}
+          y={object.y}
+          rotation={object.rotation}
+          draggable={draggable}
+          onPointerDown={handlePointerDown}
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+        >
+          <Rect
+            x={0}
+            y={0}
+            width={object.width ?? defaultRectangleWidth}
+            height={object.height ?? defaultRectangleHeight}
+            fill={object.style.fill ?? withAlpha(defaultColors.primary, 0.14)}
+            stroke={object.style.stroke ?? defaultColors.primary}
+            strokeWidth={object.style.strokeWidth ?? defaultStrokeWidth}
+            opacity={object.style.opacity ?? 1}
+          />
+          {object.style.label && (
+            <Text
+              x={0}
+              y={(object.height ?? defaultRectangleHeight) + 4}
+              text={object.style.label}
+              fill={defaultColors.foreground}
+              fontSize={14}
+              fontFamily="sans-serif"
+            />
+          )}
+        </Group>
       )
   }
 }

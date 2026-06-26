@@ -6,6 +6,7 @@ import { DatabaseModule } from "./infrastructure/database"
 import { MailModule } from "./infrastructure/mail"
 import { AuthModule } from "./modules/auth/auth.module"
 import { BoardModule } from "./modules/board/board.module"
+import { WhiteboardModule } from "./modules/whiteboard/whiteboard.module"
 import { CollaborationModule } from "./modules/collaboration/collaboration.module"
 import { UserModule } from "./modules/user/user.module"
 
@@ -21,6 +22,7 @@ import { UserModule } from "./modules/user/user.module"
     MailModule,
     AuthModule,
     BoardModule,
+    WhiteboardModule,
     CollaborationModule,
     UserModule,
   ],

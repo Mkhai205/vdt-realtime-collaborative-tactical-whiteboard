@@ -19,6 +19,8 @@ enum ObjectType {
   CIRCLE
   LINE
   TEXT
+  PATH
+  ICON
 }
 
 enum OperationType {

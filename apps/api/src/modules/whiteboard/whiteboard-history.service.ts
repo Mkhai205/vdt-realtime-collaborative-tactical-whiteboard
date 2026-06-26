@@ -4,11 +4,13 @@ import {
   type UndoRedoOperation,
   type JwtPayload,
 } from "@rctw/shared-contracts"
-import { BoardObjectsService } from "./board-objects.service"
+import { WhiteboardObjectsService } from "./whiteboard-objects.service"
 
 @Injectable()
-export class BoardHistoryService {
-  constructor(private readonly whiteboardObjectsService: BoardObjectsService) {}
+export class WhiteboardHistoryService {
+  constructor(
+    private readonly whiteboardObjectsService: WhiteboardObjectsService,
+  ) {}
 
   processUndoRedoOperation(
     currentUser: JwtPayload,

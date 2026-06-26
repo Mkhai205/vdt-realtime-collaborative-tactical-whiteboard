@@ -94,6 +94,7 @@ export function getObjectDimensions(object: WhiteboardObject): {
         height: object.height ?? defaultTextHeight,
       }
     case "RECTANGLE":
+    case "ICON":
       return {
         width: object.width ?? defaultRectangleWidth,
         height: object.height ?? defaultRectangleHeight,
@@ -103,6 +104,28 @@ export function getObjectDimensions(object: WhiteboardObject): {
       return {
         width: Math.abs(points[2] - points[0]),
         height: Math.abs(points[3] - points[1]),
+      }
+    }
+    case "PATH": {
+      const points = object.points ?? []
+      if (points.length === 0) return { width: 0, height: 0 }
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (let i = 0; i < points.length; i += 2) {
+        const x = points[i]
+        const y = points[i + 1]
+        if (x !== undefined && y !== undefined) {
+          if (x < minX) minX = x
+          if (y < minY) minY = y
+          if (x > maxX) maxX = x
+          if (y > maxY) maxY = y
+        }
+      }
+      return {
+        width: minX === Infinity ? 0 : maxX - minX,
+        height: minY === Infinity ? 0 : maxY - minY,
       }
     }
   }
@@ -125,6 +148,8 @@ export function getStoredObjectSize(object: WhiteboardObject): {
       }
     case "RECTANGLE":
     case "LINE":
+    case "PATH":
+    case "ICON":
       return {
         width: object.width ?? defaultRectangleWidth,
         height: object.height ?? defaultRectangleHeight,
@@ -258,6 +283,30 @@ export function buildTransformPatch(
         rotation,
       }
     }
+    case "PATH": {
+      const pathNode = node as Konva.Line
+      const points = pathNode.points()
+      const scaleX = pathNode.scaleX()
+      const scaleY = pathNode.scaleY()
+      return {
+        x: roundCanvasValue(pathNode.x()),
+        y: roundCanvasValue(pathNode.y()),
+        points: points.map((p, idx) =>
+          roundCanvasValue(p * (idx % 2 === 0 ? scaleX : scaleY)),
+        ),
+        rotation,
+      }
+    }
+    case "ICON": {
+      const iconNode = node as Konva.Group
+      return {
+        x: roundCanvasValue(iconNode.x()),
+        y: roundCanvasValue(iconNode.y()),
+        width: toStoredDimension(iconNode.width() * iconNode.scaleX()),
+        height: toStoredDimension(iconNode.height() * iconNode.scaleY()),
+        rotation,
+      }
+    }
     case "TEXT": {
       const textNode = node as Konva.Text
       return {
@@ -308,6 +357,23 @@ export function applyCommittedPatchToNode(
       if (patch.points) {
         arrowNode.points(patch.points)
       }
+      return
+    }
+    case "PATH": {
+      const pathNode = node as Konva.Line
+      pathNode.x(patch.x ?? pathNode.x())
+      pathNode.y(patch.y ?? pathNode.y())
+      if (patch.points) {
+        pathNode.points(patch.points)
+      }
+      return
+    }
+    case "ICON": {
+      const iconNode = node as Konva.Group
+      iconNode.x(patch.x ?? iconNode.x())
+      iconNode.y(patch.y ?? iconNode.y())
+      iconNode.width(patch.width ?? iconNode.width())
+      iconNode.height(patch.height ?? iconNode.height())
       return
     }
     case "TEXT": {

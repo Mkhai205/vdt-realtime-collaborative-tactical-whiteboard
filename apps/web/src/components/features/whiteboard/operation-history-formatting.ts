@@ -30,6 +30,10 @@ export function formatObjectType(
       return "Line"
     case "TEXT":
       return "Text"
+    case "PATH":
+      return "Path"
+    case "ICON":
+      return "Icon"
     default:
       return "Unknown object"
   }

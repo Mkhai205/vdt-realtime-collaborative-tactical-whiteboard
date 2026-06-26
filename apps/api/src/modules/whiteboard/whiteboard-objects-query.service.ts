@@ -7,8 +7,8 @@ import {
   type JwtPayload,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
-import { BoardPermissionService } from "./board-permission.service"
-import { boardNotFound } from "./board.utils"
+import { BoardPermissionService } from "../board/board-permission.service"
+import { boardNotFound } from "../board/board.utils"
 import {
   toOperationSummary,
   toWhiteboardObject,
@@ -19,7 +19,7 @@ import { toOperationReplayEvent } from "./mappers/board-operation-replay.mapper"
 const maxOperationReplayCount = 100
 
 @Injectable()
-export class BoardObjectsQueryService {
+export class WhiteboardObjectsQueryService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly boardPermissionService: BoardPermissionService,

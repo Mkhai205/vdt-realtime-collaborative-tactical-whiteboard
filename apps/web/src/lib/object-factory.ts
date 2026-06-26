@@ -210,9 +210,24 @@ export function createObjectForTool(
         },
       })
       return
+    case "ICON":
+      createLocalObject({
+        type: "ICON",
+        x: point.x - defaultRectangleWidth / 2,
+        y: point.y - defaultRectangleHeight / 2,
+        width: defaultRectangleWidth,
+        height: defaultRectangleHeight,
+        style: {
+          iconKey: "default-marker",
+          label: "Marker",
+          opacity: 1,
+        },
+      })
+      return
     case "SELECT":
     case "HAND":
     case "LINE":
+    case "PATH":
       return
   }
 }

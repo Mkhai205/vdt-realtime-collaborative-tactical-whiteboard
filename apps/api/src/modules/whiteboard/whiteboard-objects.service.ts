@@ -11,14 +11,14 @@ import {
   type SyncResponse,
   type JwtPayload,
 } from "@rctw/shared-contracts"
-import { BoardObjectsMutationService } from "./board-objects-mutation.service"
-import { BoardObjectsQueryService } from "./board-objects-query.service"
+import { WhiteboardObjectsMutationService } from "./whiteboard-objects-mutation.service"
+import { WhiteboardObjectsQueryService } from "./whiteboard-objects-query.service"
 
 @Injectable()
-export class BoardObjectsService {
+export class WhiteboardObjectsService {
   constructor(
-    private readonly queryService: BoardObjectsQueryService,
-    private readonly mutationService: BoardObjectsMutationService,
+    private readonly queryService: WhiteboardObjectsQueryService,
+    private readonly mutationService: WhiteboardObjectsMutationService,
   ) {}
 
   async getBoardObjects(

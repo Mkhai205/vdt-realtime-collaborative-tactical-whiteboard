@@ -29,31 +29,14 @@ import {
   type UpdateBoardMemberRoleRequest,
   type UpdateBoardRequest,
   type UpdateBoardResponse,
-  getBoardOperationsQuerySchema,
-  type GetBoardOperationsResponse,
-  type GetBoardOperationsQuery,
-  whiteboardObjectParamsSchema,
-  objectCreateRequestSchema,
-  type ObjectCreateRequest,
-  OperationAppliedEvent,
-  type ObjectUpdateRequest,
-  objectUpdateRequestSchema,
-  type WhiteboardObjectParams,
-  type ObjectDeleteRequest,
-  objectDeleteRequestSchema,
-  GetBoardObjectsResponse,
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../common/decorators/current-user.decorator"
 import { ZodBody, ZodParam, ZodQuery } from "../../common/pipes"
 import { BoardService } from "./board.service"
-import { BoardObjectsService } from "./board-objects.service"
 
 @Controller("boards")
 export class BoardController {
-  constructor(
-    private readonly boardService: BoardService,
-    private readonly boardObjectsService: BoardObjectsService,
-  ) {}
+  constructor(private readonly boardService: BoardService) {}
 
   @Post()
   async createBoard(
@@ -125,19 +108,6 @@ export class BoardController {
     return { member }
   }
 
-  @Get(":boardId/operations")
-  async getBoardOperations(
-    @CurrentUser() currentUser: JwtPayload,
-    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
-    @ZodQuery(getBoardOperationsQuerySchema) query: GetBoardOperationsQuery,
-  ): Promise<GetBoardOperationsResponse> {
-    return this.boardObjectsService.getBoardOperations(
-      currentUser,
-      params.boardId,
-      query,
-    )
-  }
-
   @Patch(":boardId")
   async updateBoard(
     @CurrentUser() currentUser: JwtPayload,
@@ -145,57 +115,6 @@ export class BoardController {
     @ZodBody(updateBoardRequestSchema) request: UpdateBoardRequest,
   ): Promise<UpdateBoardResponse> {
     return this.boardService.updateBoard(currentUser, params.boardId, request)
-  }
-
-  @Get(":boardId/objects")
-  async getBoardObjects(
-    @CurrentUser() currentUser: JwtPayload,
-    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
-  ): Promise<GetBoardObjectsResponse> {
-    return this.boardObjectsService.getBoardObjects(currentUser, params.boardId)
-  }
-
-  @Post(":boardId/objects")
-  async createObject(
-    @CurrentUser() currentUser: JwtPayload,
-    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
-    @ZodBody(objectCreateRequestSchema) request: ObjectCreateRequest,
-  ): Promise<OperationAppliedEvent> {
-    return this.boardObjectsService.createObject(
-      currentUser,
-      params.boardId,
-      request,
-    )
-  }
-
-  @Patch(":boardId/objects/:objectId")
-  async updateObject(
-    @CurrentUser() currentUser: JwtPayload,
-    @ZodParam(whiteboardObjectParamsSchema)
-    params: WhiteboardObjectParams,
-    @ZodBody(objectUpdateRequestSchema) request: ObjectUpdateRequest,
-  ): Promise<OperationAppliedEvent> {
-    return this.boardObjectsService.updateObject(
-      currentUser,
-      params.boardId,
-      params.objectId,
-      request,
-    )
-  }
-
-  @Delete(":boardId/objects/:objectId")
-  async deleteObject(
-    @CurrentUser() currentUser: JwtPayload,
-    @ZodParam(whiteboardObjectParamsSchema)
-    params: WhiteboardObjectParams,
-    @ZodBody(objectDeleteRequestSchema) request: ObjectDeleteRequest,
-  ): Promise<OperationAppliedEvent> {
-    return this.boardObjectsService.deleteObject(
-      currentUser,
-      params.boardId,
-      params.objectId,
-      request,
-    )
   }
 
   @Delete(":boardId")

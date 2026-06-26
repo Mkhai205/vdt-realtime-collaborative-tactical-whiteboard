@@ -12,6 +12,7 @@ export const apiErrorCodeSchema = z.enum([
   "DUPLICATE_OPERATION",
   "INVALID_OPERATION_PAYLOAD",
   "MEMBER_NOT_FOUND",
+  "OBJECT_LOCKED",
   "INTERNAL_ERROR",
 ])
 export const apiErrorCodes = apiErrorCodeSchema.enum
