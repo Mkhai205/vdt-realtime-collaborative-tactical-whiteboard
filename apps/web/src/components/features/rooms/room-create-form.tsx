@@ -38,7 +38,7 @@ export function RoomCreateForm() {
         isPublic: true,
         defaultJoinRole: "EDITOR",
       })
-      router.push(`/rooms/${response.board.id}`)
+      router.push(`/rooms/${response.id}`)
     } catch (err) {
       setCreateRoomError(getApiErrorMessage(err))
       setIsCreatingRoom(false)

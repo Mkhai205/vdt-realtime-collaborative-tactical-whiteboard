@@ -44,7 +44,7 @@ import {
 } from "@/lib/room-api"
 
 type LoadState = "loading" | "ready" | "error"
-type CurrentUserWithRole = GetRoomResponse["currentUser"]
+type CurrentUserWithRole = GetRoomResponse["memberBoardStatus"]
 
 const memberRoleOptions: MemberRoleInput[] = ["EDITOR", "VIEWER"]
 const joinedAtFormatter = new Intl.DateTimeFormat(undefined, {
@@ -91,9 +91,9 @@ export function MemberManagementPage({ roomId }: { roomId: string }) {
           return
         }
 
-        setRoom(roomResponse.board)
-        setCurrentUser(roomResponse.currentUser)
-        setMembers(membersResponse.members)
+        setRoom(roomResponse)
+        setCurrentUser(roomResponse.memberBoardStatus)
+        setMembers(membersResponse)
         setLoadState("ready")
       } catch (loadError) {
         if (!isCurrent) {
@@ -413,15 +413,20 @@ function upsertMember(
   member: RoomMemberSummary
 ): RoomMemberSummary[] {
   return [...members.filter((item) => item.id !== member.id), member].sort(
-    (left, right) => left.joinedAt.localeCompare(right.joinedAt)
+    (left, right) => {
+      const leftTime = left.joinedAt ? new Date(left.joinedAt).getTime() : 0
+      const rightTime = right.joinedAt ? new Date(right.joinedAt).getTime() : 0
+      return leftTime - rightTime
+    }
   )
 }
 
-function formatJoinedAt(value: string): string {
+function formatJoinedAt(value: Date | string | undefined): string {
+  if (!value) return ""
   const timestamp = new Date(value)
 
   if (Number.isNaN(timestamp.getTime())) {
-    return value
+    return String(value)
   }
 
   return joinedAtFormatter.format(timestamp)

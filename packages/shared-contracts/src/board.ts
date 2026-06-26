@@ -32,7 +32,9 @@ export const boardMemberIdParamsSchema = boardIdParamsSchema.extend({
 })
 export type BoardMemberIdParams = z.infer<typeof boardMemberIdParamsSchema>
 
-export const updateBoardMemberRoleRequestSchema = boardRoleSchema
+export const updateBoardMemberRoleRequestSchema = z.object({
+  role: boardRoleSchema,
+})
 export type UpdateBoardMemberRoleRequest = z.infer<
   typeof updateBoardMemberRoleRequestSchema
 >
@@ -81,6 +83,7 @@ export type BoardSummary = {
 }
 
 export type BoardMemberSummary = {
+  id: string
   role: BoardRole
   joinedAt?: Date
   user: UserSummary
@@ -92,4 +95,8 @@ export type CreateBoardResponse = BoardSummary
 export type ListBoardsResponse = PaginatedResponse<BoardSummary>
 export type GetBoardResponse = BoardSummary & {
   memberBoardStatus: BoardMemberSummary
+}
+
+export type BoardMemberMutationResponse = {
+  member: BoardMemberSummary
 }

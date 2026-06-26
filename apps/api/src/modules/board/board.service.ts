@@ -70,6 +70,7 @@ function toBoardSummary(board: BoardWithCreator): BoardSummary {
 
 function toBoardMemberSummary(member: BoardMemberWithUser): BoardMemberSummary {
   return {
+    id: member.id,
     role: member.role,
     joinedAt: member.joinedAt,
     user: member.user,
@@ -153,7 +154,7 @@ export class BoardService {
         ...boardWithCreatorInclude,
         members: {
           where: { userId: currentUser.sub, removedAt: null },
-          select: { role: true, joinedAt: true },
+          select: { id: true, role: true, joinedAt: true },
           take: 1,
         },
       },
@@ -174,6 +175,7 @@ export class BoardService {
     return {
       ...toBoardSummary(boardData),
       memberBoardStatus: {
+        id: members.at(0)?.id ?? "",
         role,
         joinedAt: members.at(0)?.joinedAt,
         user: boardData.createdBy,
@@ -205,7 +207,7 @@ export class BoardService {
       const existingMember = board.members.at(0)
 
       if (existingMember && existingMember.removedAt === null) {
-        return { board, role: existingMember.role }
+        return { board, role: existingMember.role, memberId: existingMember.id }
       }
 
       if (!board.isPublic) {
@@ -214,7 +216,7 @@ export class BoardService {
 
       const role = board.defaultJoinRole
 
-      await tx.boardMember.upsert({
+      const upserted = await tx.boardMember.upsert({
         where: {
           boardId_userId: {
             boardId,
@@ -225,12 +227,13 @@ export class BoardService {
         update: { role, joinedAt: new Date(), removedAt: null },
       })
 
-      return { board, role }
+      return { board, role, memberId: upserted.id }
     })
 
     return {
       ...toBoardSummary(joined.board),
       memberBoardStatus: {
+        id: joined.memberId,
         role: joined.role,
         user: joined.board.createdBy,
       },
@@ -329,7 +332,7 @@ export class BoardService {
 
       return tx.boardMember.update({
         where: { id: memberId },
-        data: { role: request },
+        data: { role: request.role },
         include: { user: { select: userSummarySelect } },
       })
     })

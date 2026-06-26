@@ -2,7 +2,7 @@ import {
   type AddBoardMemberRequest as AddRoomMemberRequest,
   type GetBoardMembersResponse as GetRoomMembersResponse,
   type GetBoardResponse as GetRoomResponse,
-  type JoinBoardResponse as JoinRoomResponse,
+  type GetBoardResponse as JoinRoomResponse,
   type BoardMemberMutationResponse as RoomMemberMutationResponse,
   type UpdateBoardMemberRoleRequest as UpdateRoomMemberRoleRequest,
   type CreateBoardRequest as CreateRoomRequest,

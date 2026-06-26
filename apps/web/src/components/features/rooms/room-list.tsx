@@ -46,7 +46,7 @@ export function RoomList() {
       try {
         const response = await listRooms()
         if (isCurrent) {
-          setRooms(response.boards)
+          setRooms(response.items)
         }
       } catch (err) {
         if (isCurrent) {

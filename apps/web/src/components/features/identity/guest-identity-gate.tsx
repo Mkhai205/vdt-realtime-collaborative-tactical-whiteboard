@@ -103,8 +103,8 @@ export function GuestIdentityGate() {
               Set up your session
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Identify yourself to join or create a whiteboard room. Google
-              sign-in upgrades your session with authenticated identity.
+              Sign in to join or create a whiteboard room. Collaborative
+              features are synced across your authenticated session.
             </p>
           </div>
 
@@ -114,8 +114,8 @@ export function GuestIdentityGate() {
           {/* Footer */}
           <div className="mt-auto border-t pt-6">
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Your identity is stored locally in this browser. It will be reused
-              across sessions for realtime presence.
+              Your identity is stored securely. Realtime collaborative sessions
+              use your authenticated account details.
             </p>
           </div>
         </aside>
@@ -181,7 +181,7 @@ export function GuestIdentityGate() {
                     Your rooms will appear here
                   </h2>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Set up your identity on the left to access whiteboard rooms
+                    Sign in on the left to access whiteboard rooms
                     and start collaborating.
                   </p>
                 </div>

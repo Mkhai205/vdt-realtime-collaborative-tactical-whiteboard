@@ -50,8 +50,8 @@ export class UserService {
     return this.prisma.user.update({
       where: { id: userId },
       data: {
-        name: data.name ?? undefined,
-        avatarColor: data.avatarColor ?? undefined,
+        name: data.name,
+        avatarColor: data.avatarColor,
       },
       select: userSummarySelect,
     })

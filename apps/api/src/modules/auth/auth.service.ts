@@ -57,6 +57,8 @@ export class AuthService {
       sub: user.id,
       name: user.name,
       email: user.email,
+      avatarUrl: user.avatarUrl,
+      avatarColor: user.avatarColor,
     })
 
     const refreshToken = await this.createRefreshToken(user.id)
@@ -99,6 +101,8 @@ export class AuthService {
       sub: existingToken.user.id,
       name: existingToken.user.name,
       email: existingToken.user.email,
+      avatarUrl: existingToken.user.avatarUrl,
+      avatarColor: existingToken.user.avatarColor,
     })
 
     return { accessToken, newRefreshToken, user: existingToken.user }
@@ -115,7 +119,35 @@ export class AuthService {
     }
   }
 
-  // Helper
+  // --- Helper ---
+
+  getBearerToken(authorizationHeader: string): string {
+    const [type, token] = authorizationHeader.split(" ")
+
+    if (type !== "Bearer" || !token) {
+      throw unauthenticated("Invalid authorization header format.")
+    }
+
+    return token
+  }
+
+  async verifyAccessToken(token: string): Promise<JwtPayload> {
+    const jwtAccessSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
+    const payload = await this.jwtService.verifyAsync(token, {
+      secret: jwtAccessSecret,
+    })
+
+    return payload
+  }
+
+  async createAccessToken(payload: JwtPayload): Promise<string> {
+    const jwtAccessSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
+
+    return this.jwtService.signAsync(payload, {
+      secret: jwtAccessSecret,
+      expiresIn: JWT_ACCESS_EXPIRES,
+    })
+  }
 
   private async createRefreshToken(userId: string): Promise<string> {
     const rawToken = crypto.randomBytes(40).toString("hex")
@@ -131,34 +163,6 @@ export class AuthService {
     })
 
     return rawToken
-  }
-
-  private async createAccessToken(payload: JwtPayload): Promise<string> {
-    const jwtAccessSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
-
-    return this.jwtService.signAsync(payload, {
-      secret: jwtAccessSecret,
-      expiresIn: JWT_ACCESS_EXPIRES,
-    })
-  }
-
-  async verifyAccessToken(token: string): Promise<JwtPayload> {
-    const jwtAccessSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
-    const payload = await this.jwtService.verifyAsync(token, {
-      secret: jwtAccessSecret,
-    })
-
-    return payload
-  }
-
-  getBearerToken(authorizationHeader: string): string {
-    const [type, token] = authorizationHeader.split(" ")
-
-    if (type !== "Bearer" || !token) {
-      throw unauthenticated("Invalid authorization header format.")
-    }
-
-    return token
   }
 
   private async verifyGoogleIdToken(idToken: string): Promise<{

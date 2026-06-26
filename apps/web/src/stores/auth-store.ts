@@ -33,7 +33,6 @@ export interface AuthState {
   setAccessToken: (token: string) => void
   clearAuth: () => void
   initializeAuth: () => Promise<void>
-  registerGuest: (name: string) => Promise<void>
   updateProfile: (request: UpdateProfileRequest) => Promise<void>
   logout: () => Promise<void>
   loginWithGoogle: (idToken: string) => Promise<void>
@@ -56,10 +55,6 @@ export const useAuthStore = create<AuthState>((set) => ({
           email: decoded.email,
           avatarUrl: decoded.avatarUrl,
           avatarColor: decoded.avatarColor,
-          identityType: decoded.identityType,
-          lastSeenAt: decoded.lastSeenAt
-            ? new Date(decoded.lastSeenAt)
-            : undefined,
         },
       })
     } else {
@@ -89,10 +84,6 @@ export const useAuthStore = create<AuthState>((set) => ({
             email: decoded.email,
             avatarUrl: decoded.avatarUrl,
             avatarColor: decoded.avatarColor,
-            identityType: decoded.identityType,
-            lastSeenAt: decoded.lastSeenAt
-              ? new Date(decoded.lastSeenAt)
-              : undefined,
           },
         })
       } else {
@@ -105,46 +96,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  registerGuest: async (name: string) => {
-    set({ isLoading: true })
-    try {
-      const response = await apiClient.post<{
-        accessToken: string
-        user: UserSummary
-      }>("/auth/guest", {
-        name,
-      })
-      const { accessToken } = response.data
-      const decoded = decodeJwt(accessToken)
-      if (decoded) {
-        set({
-          accessToken,
-          user: {
-            id: decoded.id || decoded.sub,
-            name: decoded.name,
-            email: decoded.email,
-            avatarUrl: decoded.avatarUrl,
-            avatarColor: decoded.avatarColor,
-            identityType: decoded.identityType,
-            lastSeenAt: decoded.lastSeenAt
-              ? new Date(decoded.lastSeenAt)
-              : undefined,
-          },
-        })
-      }
-    } catch (err) {
-      set({ accessToken: null, user: null })
-      throw err
-    } finally {
-      set({ isLoading: false })
-    }
-  },
-
   updateProfile: async (request: UpdateProfileRequest) => {
     set({ isLoading: true })
     try {
-      const updatedUser = await apiUpdateProfile(request)
-      set({ user: updatedUser })
+      const response = await apiUpdateProfile(request)
+      set({ user: response.user })
+      // Sync access token from update profile response
+      const { setAccessToken } = useAuthStore.getState()
+      setAccessToken(response.accessToken)
     } catch (err) {
       throw err
     } finally {
@@ -183,10 +142,6 @@ export const useAuthStore = create<AuthState>((set) => ({
             email: decoded.email,
             avatarUrl: decoded.avatarUrl,
             avatarColor: decoded.avatarColor,
-            identityType: decoded.identityType,
-            lastSeenAt: decoded.lastSeenAt
-              ? new Date(decoded.lastSeenAt)
-              : undefined,
           },
         })
       }

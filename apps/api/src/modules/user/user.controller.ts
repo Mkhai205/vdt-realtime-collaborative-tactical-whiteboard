@@ -1,20 +1,25 @@
 import { Controller, Get, Patch } from "@nestjs/common"
 import {
-  type UserSummary,
+  updateProfileRequestSchema,
   type UpdateProfileRequest,
   type JwtPayload,
-  updateProfileRequestSchema,
+  type UserResponse,
+  type UpdateProfileResponse,
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../common/decorators/current-user.decorator"
 import { ZodBody } from "../../common/pipes/zod-validation.pipe"
 import { UserService } from "./user.service"
+import { AuthService } from "../auth/auth.service"
 
 @Controller("users")
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Get("me")
-  async getMe(@CurrentUser() currentUser: JwtPayload): Promise<UserSummary> {
+  async getMe(@CurrentUser() currentUser: JwtPayload): Promise<UserResponse> {
     return this.userService.getProfile(currentUser.sub)
   }
 
@@ -22,7 +27,9 @@ export class UserController {
   async updateProfile(
     @CurrentUser() currentUser: JwtPayload,
     @ZodBody(updateProfileRequestSchema) body: UpdateProfileRequest,
-  ): Promise<UserSummary> {
-    return this.userService.updateProfile(currentUser.sub, body)
+  ): Promise<UpdateProfileResponse> {
+    const user = await this.userService.updateProfile(currentUser.sub, body)
+    const accessToken = await this.authService.createAccessToken(currentUser)
+    return { user, accessToken }
   }
 }

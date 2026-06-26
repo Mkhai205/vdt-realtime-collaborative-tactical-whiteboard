@@ -12,16 +12,7 @@ export const updateProfileRequestSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one profile field is required.",
   })
-
 export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>
-
-export type UserSummary = {
-  id: string
-  name: string
-  email?: string | null
-  avatarUrl?: string | null
-  avatarColor?: string | null
-}
 
 export const userSummarySchema = z.object({
   id: z.uuid(),
@@ -30,3 +21,19 @@ export const userSummarySchema = z.object({
   avatarUrl: z.url().nullable().optional(),
   avatarColor: colorSchema.nullable().optional(),
 })
+export type UserSummary = {
+  id: string
+  name: string
+  email?: string | null
+  avatarUrl?: string | null
+  avatarColor?: string | null
+}
+
+// --- Response Types ---
+
+export type UserResponse = UserSummary
+
+export type UpdateProfileResponse = {
+  user: UserSummary
+  accessToken: string
+}

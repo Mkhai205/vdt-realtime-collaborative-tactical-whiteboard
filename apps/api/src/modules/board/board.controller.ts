@@ -19,7 +19,7 @@ import {
   type AddBoardMemberRequest,
   type BoardIdParams,
   type BoardMemberIdParams,
-  type BoardMemberSummary,
+  type BoardMemberMutationResponse,
   type CreateBoardRequest,
   type CreateBoardResponse,
   type GetBoardMembersResponse,
@@ -100,12 +100,13 @@ export class BoardController {
     @CurrentUser() currentUser: JwtPayload,
     @ZodParam(boardIdParamsSchema) params: BoardIdParams,
     @ZodBody(addBoardMemberRequestSchema) request: AddBoardMemberRequest,
-  ): Promise<BoardMemberSummary> {
-    return this.boardService.addBoardMember(
+  ): Promise<BoardMemberMutationResponse> {
+    const member = await this.boardService.addBoardMember(
       currentUser,
       params.boardId,
       request,
     )
+    return { member }
   }
 
   @Patch(":boardId/members/:memberId")
@@ -114,13 +115,14 @@ export class BoardController {
     @ZodParam(boardMemberIdParamsSchema) params: BoardMemberIdParams,
     @ZodBody(updateBoardMemberRoleRequestSchema)
     request: UpdateBoardMemberRoleRequest,
-  ): Promise<BoardMemberSummary> {
-    return this.boardService.updateBoardMemberRole(
+  ): Promise<BoardMemberMutationResponse> {
+    const member = await this.boardService.updateBoardMemberRole(
       currentUser,
       params.boardId,
       params.memberId,
       request,
     )
+    return { member }
   }
 
   @Get(":boardId/operations")

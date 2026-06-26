@@ -5,6 +5,8 @@ export type JwtPayload = {
   sub: string
   name: string
   email: string | null
+  avatarUrl?: string | null
+  avatarColor?: string | null
 }
 
 export const loginGoogleSchema = z.object({
@@ -12,7 +14,7 @@ export const loginGoogleSchema = z.object({
 })
 export type LoginGoogleRequest = z.infer<typeof loginGoogleSchema>
 
-// --- Response ---
+// --- Response Types ---
 export type LoginResponse = {
   accessToken: string
   user: UserSummary
