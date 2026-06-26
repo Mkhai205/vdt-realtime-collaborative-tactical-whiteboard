@@ -243,6 +243,8 @@ function IconRenderer({
   handleDragMove,
   handleDragEnd,
 }: IconRendererProps) {
+  const { iconKey, assetUrl, label } = object.style
+
   const [prevAssetUrl, setPrevAssetUrl] = useState<string | undefined>(assetUrl)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [imageStatus, setImageStatus] = useState<"loading" | "loaded" | "failed">(
@@ -257,15 +259,14 @@ function IconRenderer({
 
   const width = object.width ?? defaultRectangleWidth
   const height = object.height ?? defaultRectangleHeight
-  const { iconKey, assetUrl: currentAssetUrl, label } = object.style
 
   useEffect(() => {
-    if (!currentAssetUrl) {
+    if (!assetUrl) {
       return
     }
 
     const img = new window.Image()
-    img.src = currentAssetUrl
+    img.src = assetUrl
 
     let active = true
 
@@ -290,7 +291,7 @@ function IconRenderer({
       img.removeEventListener("load", handleLoad)
       img.removeEventListener("error", handleError)
     }
-  }, [currentAssetUrl])
+  }, [assetUrl])
 
   let graphicElement = null
 
