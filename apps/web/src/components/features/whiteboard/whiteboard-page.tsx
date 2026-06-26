@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import type { Tool } from "@rctw/shared-contracts"
 import {
   CircleIcon,
@@ -24,6 +24,7 @@ import {
   XIcon,
   ClipboardCopyIcon,
   ChevronRightIcon,
+  SmileIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -72,6 +73,7 @@ const toolbarItems = [
   { value: "CIRCLE", label: "Circle", icon: CircleIcon, shortcut: "C" },
   { value: "LINE", label: "Line", icon: MoveRightIcon, shortcut: "L" },
   { value: "TEXT", label: "Text", icon: TypeIcon, shortcut: "T" },
+  { value: "ICON", label: "Icon", icon: SmileIcon, shortcut: "I" },
   { value: "HAND", label: "Pan", icon: HandIcon, shortcut: "H" },
 ] as const satisfies ReadonlyArray<{
   value: Tool
@@ -99,8 +101,6 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
     mutationError,
     toasts,
     viewport,
-    stageSize,
-    currentTool,
   } = useWhiteboardStore(useShallow(selectPageState))
 
   const {
@@ -177,14 +177,17 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-
       {/* ── Slim top header ─────────────────────────────────── */}
-      <header className="flex h-11 shrink-0 items-center justify-between gap-4 border-b bg-card/80 backdrop-blur-sm px-4">
+      <header className="flex h-11 shrink-0 items-center justify-between gap-4 border-b bg-card/80 px-4 backdrop-blur-sm">
         {/* Left: Logo + room info */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
           {/* Logo mark */}
-          <Link href="/" className="flex items-center gap-2 shrink-0 group" aria-label="Back to rooms">
-            <div className="size-6 rounded-md bg-foreground flex items-center justify-center transition-opacity group-hover:opacity-70">
+          <Link
+            href="/"
+            className="group flex shrink-0 items-center gap-2"
+            aria-label="Back to rooms"
+          >
+            <div className="flex size-6 items-center justify-center rounded-md bg-foreground transition-opacity group-hover:opacity-70">
               <svg
                 width="12"
                 height="12"
@@ -193,22 +196,56 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
                 xmlns="http://www.w3.org/2000/svg"
                 aria-hidden="true"
               >
-                <rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" className="text-background" />
-                <rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor" className="text-background opacity-70" />
-                <rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor" className="text-background opacity-50" />
-                <rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor" className="text-background opacity-30" />
+                <rect
+                  x="1"
+                  y="1"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  fill="currentColor"
+                  className="text-background"
+                />
+                <rect
+                  x="8"
+                  y="1"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  fill="currentColor"
+                  className="text-background opacity-70"
+                />
+                <rect
+                  x="1"
+                  y="8"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  fill="currentColor"
+                  className="text-background opacity-50"
+                />
+                <rect
+                  x="8"
+                  y="8"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  fill="currentColor"
+                  className="text-background opacity-30"
+                />
               </svg>
             </div>
           </Link>
 
-          <span className="text-border" aria-hidden="true">/</span>
+          <span className="text-border" aria-hidden="true">
+            /
+          </span>
 
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-medium text-foreground truncate">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-medium text-foreground">
               {room?.name ?? "Loading…"}
             </span>
             {currentUser?.role && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-border text-muted-foreground shrink-0">
+              <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 {currentUser.role}
               </span>
             )}
@@ -221,12 +258,12 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
-                "size-1.5 rounded-full shrink-0",
+                "size-1.5 shrink-0 rounded-full",
                 socketError
                   ? "bg-destructive"
                   : isConnected
-                    ? "bg-emerald-500 presence-pulse"
-                    : "bg-amber-400 presence-pulse"
+                    ? "presence-pulse bg-emerald-500"
+                    : "presence-pulse bg-amber-400",
               )}
               aria-hidden="true"
             />
@@ -239,19 +276,27 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
             </span>
           </div>
 
-          <span className="text-border hidden md:block" aria-hidden="true">·</span>
-          <span className="hidden md:block font-mono">Rev {currentRevision}</span>
-          <span className="text-border hidden md:block" aria-hidden="true">·</span>
-          <span className="hidden md:block">{Math.round(viewport.scale * 100)}%</span>
+          <span className="hidden text-border md:block" aria-hidden="true">
+            ·
+          </span>
+          <span className="hidden font-mono md:block">
+            Rev {currentRevision}
+          </span>
+          <span className="hidden text-border md:block" aria-hidden="true">
+            ·
+          </span>
+          <span className="hidden md:block">
+            {Math.round(viewport.scale * 100)}%
+          </span>
         </div>
 
         {/* Right: Presence + panel toggle */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           {/* Presence avatars (compact) */}
           {onlineUsers.length > 0 && (
             <button
               type="button"
-              className="flex items-center -space-x-1.5 hover:opacity-80 transition-opacity"
+              className="flex items-center -space-x-1.5 transition-opacity hover:opacity-80"
               onClick={() => {
                 setRightPanelOpen(true)
                 setRightPanelTab("users")
@@ -263,7 +308,7 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
                 <PresenceAvatar key={user.id} user={user} />
               ))}
               {onlineUsers.length > 4 && (
-                <span className="size-6 rounded-full border-2 border-card bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">
+                <span className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[9px] font-semibold text-muted-foreground">
                   +{onlineUsers.length - 4}
                 </span>
               )}
@@ -299,11 +344,10 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
       </header>
 
       {/* ── Main content area ────────────────────────────────── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Canvas area */}
         <main
-          className="relative flex-1 min-w-0 overflow-hidden canvas-dot-grid bg-background"
+          className="canvas-dot-grid relative min-w-0 flex-1 overflow-hidden bg-background"
           aria-label="Whiteboard canvas"
         >
           <WhiteboardStage />
@@ -315,24 +359,22 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
           <ZoomControls />
 
           {/* Loading overlay */}
-          {loadState === "loading" && (
-            <StatusOverlay message="Joining room…" />
-          )}
+          {loadState === "loading" && <StatusOverlay message="Joining room…" />}
 
           {/* Error overlay */}
           {loadState === "error" && (
-            <StatusOverlay message={socketError ?? "Socket connection failed."} />
+            <StatusOverlay
+              message={socketError ?? "Socket connection failed."}
+            />
           )}
 
           {/* Inline errors (when already loaded) */}
           {((socketError && hasLoadedRoom) || mutationError) && (
-            <div className="absolute top-[72px] left-1/2 -translate-x-1/2 flex max-w-md flex-col gap-2 z-20">
+            <div className="absolute top-18 left-1/2 z-20 flex max-w-md -translate-x-1/2 flex-col gap-2">
               {socketError && hasLoadedRoom && (
                 <StatusMessage message={socketError} />
               )}
-              {mutationError && (
-                <StatusMessage message={mutationError} />
-              )}
+              {mutationError && <StatusMessage message={mutationError} />}
             </div>
           )}
 
@@ -343,12 +385,11 @@ export function WhiteboardPage({ roomId }: { roomId: string }) {
         {/* ── Right panel (collapsible) ─────────────────────── */}
         <aside
           className={cn(
-            "flex flex-col border-l bg-card overflow-hidden transition-all duration-200 ease-out shrink-0",
-            rightPanelOpen ? "w-72 panel-slide-in" : "w-0"
+            "flex shrink-0 flex-col overflow-hidden border-l bg-card transition-all duration-200 ease-out",
+            rightPanelOpen ? "panel-slide-in w-72" : "w-0",
           )}
           aria-label="Room details panel"
           aria-hidden={!rightPanelOpen}
-
         >
           {rightPanelOpen && (
             <RightPanel
@@ -370,8 +411,12 @@ function FloatingToolbar() {
   const { currentTool, selectedObjectId, undoCount, redoCount, role } =
     useWhiteboardStore(useShallow(selectToolbarState))
 
-  const { deleteSelectedObject, undoLastOperation, redoLastOperation, setTool } =
-    useWhiteboardStore(useShallow(selectPageActions))
+  const {
+    deleteSelectedObject,
+    undoLastOperation,
+    redoLastOperation,
+    setTool,
+  } = useWhiteboardStore(useShallow(selectPageActions))
 
   const canEdit = canEditRoom(role)
   const canDelete = canEdit && Boolean(selectedObjectId)
@@ -380,7 +425,7 @@ function FloatingToolbar() {
 
   return (
     <div
-      className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 rounded-xl bg-card shadow-toolbar px-1.5 py-1.5 toolbar-float-in"
+      className="shadow-toolbar toolbar-float-in absolute top-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl bg-card px-1.5 py-1.5"
       role="toolbar"
       aria-label="Whiteboard tools"
     >
@@ -401,19 +446,22 @@ function FloatingToolbar() {
                 aria-pressed={isActive}
                 className={cn(
                   "flex size-8 items-center justify-center rounded-lg transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  "disabled:opacity-30 disabled:pointer-events-none",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  "disabled:pointer-events-none disabled:opacity-30",
                   isActive
                     ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <Icon className="size-4" aria-hidden="true" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs flex items-center gap-2">
+            <TooltipContent
+              side="bottom"
+              className="flex items-center gap-2 text-xs"
+            >
               {item.label}
-              <kbd className="font-mono text-[10px] bg-muted px-1 py-0.5 rounded border border-border">
+              <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
                 {item.shortcut}
               </kbd>
             </TooltipContent>
@@ -422,7 +470,7 @@ function FloatingToolbar() {
       })}
 
       {/* Divider */}
-      <span className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+      <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
       {/* Action buttons */}
       <Tooltip>
@@ -434,17 +482,22 @@ function FloatingToolbar() {
             aria-label="Undo"
             className={cn(
               "flex size-8 items-center justify-center rounded-lg transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              "disabled:opacity-30 disabled:pointer-events-none",
-              "text-muted-foreground hover:bg-muted hover:text-foreground"
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+              "disabled:pointer-events-none disabled:opacity-30",
+              "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             <Undo2Icon className="size-4" aria-hidden="true" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs flex items-center gap-2">
+        <TooltipContent
+          side="bottom"
+          className="flex items-center gap-2 text-xs"
+        >
           Undo
-          <kbd className="font-mono text-[10px] bg-muted px-1 py-0.5 rounded border border-border">⌘Z</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            ⌘Z
+          </kbd>
         </TooltipContent>
       </Tooltip>
 
@@ -457,22 +510,27 @@ function FloatingToolbar() {
             aria-label="Redo"
             className={cn(
               "flex size-8 items-center justify-center rounded-lg transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              "disabled:opacity-30 disabled:pointer-events-none",
-              "text-muted-foreground hover:bg-muted hover:text-foreground"
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+              "disabled:pointer-events-none disabled:opacity-30",
+              "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             <Redo2Icon className="size-4" aria-hidden="true" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs flex items-center gap-2">
+        <TooltipContent
+          side="bottom"
+          className="flex items-center gap-2 text-xs"
+        >
           Redo
-          <kbd className="font-mono text-[10px] bg-muted px-1 py-0.5 rounded border border-border">⌘Y</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            ⌘Y
+          </kbd>
         </TooltipContent>
       </Tooltip>
 
       {/* Divider */}
-      <span className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+      <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
       {/* Delete */}
       <Tooltip>
@@ -484,17 +542,22 @@ function FloatingToolbar() {
             aria-label="Delete selected"
             className={cn(
               "flex size-8 items-center justify-center rounded-lg transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              "disabled:opacity-30 disabled:pointer-events-none",
-              "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+              "disabled:pointer-events-none disabled:opacity-30",
+              "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
             )}
           >
             <Trash2Icon className="size-4" aria-hidden="true" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs flex items-center gap-2">
+        <TooltipContent
+          side="bottom"
+          className="flex items-center gap-2 text-xs"
+        >
           Delete
-          <kbd className="font-mono text-[10px] bg-muted px-1 py-0.5 rounded border border-border">Del</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            Del
+          </kbd>
         </TooltipContent>
       </Tooltip>
     </div>
@@ -521,9 +584,9 @@ function RightPanel({
   ]
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Panel tab bar */}
-      <div className="flex items-center gap-0.5 px-2 pt-2 pb-1 border-b shrink-0">
+      <div className="flex shrink-0 items-center gap-0.5 border-b px-2 pt-2 pb-1">
         {tabs.map((tab) => {
           const Icon = tab.icon
           return (
@@ -532,11 +595,11 @@ function RightPanel({
               type="button"
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 h-7 rounded-md text-xs font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 activeTab === tab.id
                   ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
               aria-selected={activeTab === tab.id}
               role="tab"
@@ -549,7 +612,7 @@ function RightPanel({
       </div>
 
       {/* Panel content */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {activeTab === "details" && <ObjectDetailPanel />}
         {activeTab === "users" && <OnlineUsersPanel />}
         {activeTab === "history" && (
@@ -574,7 +637,7 @@ function ZoomControls() {
 
   return (
     <div
-      className="absolute left-4 bottom-4 flex items-center gap-1 rounded-lg bg-card/95 shadow-toolbar backdrop-blur px-1.5 py-1.5"
+      className="shadow-toolbar absolute bottom-4 left-4 flex items-center gap-1 rounded-lg bg-card/95 px-1.5 py-1.5 backdrop-blur"
       aria-label="Zoom controls"
     >
       <Tooltip>
@@ -587,13 +650,15 @@ function ZoomControls() {
             className={cn(
               "flex size-6 items-center justify-center rounded-md transition-colors",
               "text-muted-foreground hover:bg-muted hover:text-foreground",
-              "disabled:opacity-30 disabled:pointer-events-none"
+              "disabled:pointer-events-none disabled:opacity-30",
             )}
           >
             <MinusIcon className="size-3.5" aria-hidden="true" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">Zoom out</TooltipContent>
+        <TooltipContent side="top" className="text-xs">
+          Zoom out
+        </TooltipContent>
       </Tooltip>
 
       <span className="min-w-10 text-center font-mono text-xs text-muted-foreground select-none">
@@ -610,13 +675,15 @@ function ZoomControls() {
             className={cn(
               "flex size-6 items-center justify-center rounded-md transition-colors",
               "text-muted-foreground hover:bg-muted hover:text-foreground",
-              "disabled:opacity-30 disabled:pointer-events-none"
+              "disabled:pointer-events-none disabled:opacity-30",
             )}
           >
             <PlusIcon className="size-3.5" aria-hidden="true" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">Zoom in</TooltipContent>
+        <TooltipContent side="top" className="text-xs">
+          Zoom in
+        </TooltipContent>
       </Tooltip>
     </div>
   )
@@ -624,19 +691,24 @@ function ZoomControls() {
 
 /* ─── Presence Avatar ───────────────────────────────────────── */
 
-function PresenceAvatar({ user }: { user: { name: string; avatarColor?: string | null } }) {
-  const initials = user.name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase() || "U"
+function PresenceAvatar({
+  user,
+}: {
+  user: { name: string; avatarColor?: string | null }
+}) {
+  const initials =
+    user.name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase() || "U"
 
   return (
     <span
-      className="size-6 rounded-full border-2 border-card flex items-center justify-center text-[9px] font-bold uppercase shrink-0"
+      className="flex size-6 shrink-0 items-center justify-center rounded-full border-2 border-card text-[9px] font-bold uppercase"
       style={{
         backgroundColor: user.avatarColor ?? "#6B6B65",
         color: "#FFFFFF",
@@ -671,7 +743,7 @@ function CopyRoomLinkButton({ roomId }: { roomId: string }) {
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 px-2.5 gap-1.5 text-xs"
+          className="h-7 gap-1.5 px-2.5 text-xs"
           onClick={handleCopy}
           aria-label="Copy room link"
         >
@@ -697,7 +769,10 @@ function WhiteboardToastViewport({
 }) {
   useEffect(() => {
     const timeouts = toasts.map((toast) => {
-      const delay = Math.max(0, toast.createdAt + toastAutoDismissMs - Date.now())
+      const delay = Math.max(
+        0,
+        toast.createdAt + toastAutoDismissMs - Date.now(),
+      )
       return window.setTimeout(() => onDismiss(toast.id), delay)
     })
 
@@ -710,7 +785,7 @@ function WhiteboardToastViewport({
 
   return (
     <div
-      className="pointer-events-none absolute bottom-4 right-4 z-20 flex w-[min(22rem,calc(100%-2rem))] flex-col gap-2"
+      className="pointer-events-none absolute right-4 bottom-4 z-20 flex w-[min(22rem,calc(100%-2rem))] flex-col gap-2"
       aria-live="polite"
       aria-atomic="false"
     >
@@ -721,7 +796,7 @@ function WhiteboardToastViewport({
             "pointer-events-auto flex min-h-11 items-start gap-3 rounded-xl border px-3 py-2.5 text-xs shadow-lg backdrop-blur-sm",
             toast.variant === "error"
               ? "border-destructive/30 bg-card/95 text-destructive"
-              : "border-emerald-300/40 bg-emerald-50/95 text-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-200 dark:border-emerald-800/40"
+              : "border-emerald-300/40 bg-emerald-50/95 text-emerald-900 dark:border-emerald-800/40 dark:bg-emerald-950/90 dark:text-emerald-200",
           )}
         >
           <p className="min-w-0 flex-1 leading-relaxed">{toast.message}</p>
@@ -753,8 +828,11 @@ function StatusMessage({ message }: { message: string }) {
 function StatusOverlay({ message }: { message: string }) {
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/60 backdrop-blur-sm">
-      <div className="flex items-center gap-3 rounded-xl border bg-card px-5 py-3 shadow-sm text-sm text-muted-foreground">
-        <span className="size-2 rounded-full bg-muted-foreground/50 presence-pulse" aria-hidden="true" />
+      <div className="flex items-center gap-3 rounded-xl border bg-card px-5 py-3 text-sm text-muted-foreground shadow-sm">
+        <span
+          className="presence-pulse size-2 rounded-full bg-muted-foreground/50"
+          aria-hidden="true"
+        />
         {message}
       </div>
     </div>
@@ -763,14 +841,25 @@ function StatusOverlay({ message }: { message: string }) {
 
 function formatConnectionStatus(status: string): string {
   switch (status) {
-    case "connecting": return "Connecting"
-    case "connected": return "Live"
-    case "reconnecting": return "Reconnecting"
-    case "disconnected": return "Offline"
-    default: return "Idle"
+    case "connecting":
+      return "Connecting"
+    case "connected":
+      return "Live"
+    case "reconnecting":
+      return "Reconnecting"
+    case "disconnected":
+      return "Offline"
+    default:
+      return "Idle"
   }
 }
 
 function isEditTool(tool: Tool): boolean {
-  return tool === "RECTANGLE" || tool === "CIRCLE" || tool === "LINE" || tool === "TEXT"
+  return (
+    tool === "RECTANGLE" ||
+    tool === "CIRCLE" ||
+    tool === "LINE" ||
+    tool === "TEXT" ||
+    tool === "ICON"
+  )
 }

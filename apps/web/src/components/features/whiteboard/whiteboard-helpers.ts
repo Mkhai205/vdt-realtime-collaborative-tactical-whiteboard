@@ -372,8 +372,35 @@ export function applyCommittedPatchToNode(
       const iconNode = node as Konva.Group
       iconNode.x(patch.x ?? iconNode.x())
       iconNode.y(patch.y ?? iconNode.y())
-      iconNode.width(patch.width ?? iconNode.width())
-      iconNode.height(patch.height ?? iconNode.height())
+
+      const width = patch.width ?? iconNode.width()
+      const height = patch.height ?? iconNode.height()
+      iconNode.width(width)
+      iconNode.height(height)
+
+      const rect = iconNode.findOne("Rect") as Konva.Rect | undefined
+      if (rect) {
+        rect.width(width)
+        rect.height(height)
+      }
+
+      const path = iconNode.findOne("Path") as Konva.Path | undefined
+      if (path) {
+        path.scaleX(width / 24)
+        path.scaleY(height / 24)
+      }
+
+      const image = iconNode.findOne("Image") as Konva.Image | undefined
+      if (image) {
+        image.width(width)
+        image.height(height)
+      }
+
+      const text = iconNode.findOne("Text") as Konva.Text | undefined
+      if (text) {
+        text.y(height + 4)
+        text.width(width)
+      }
       return
     }
     case "TEXT": {
