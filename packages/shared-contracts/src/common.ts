@@ -1,27 +1,21 @@
 import { z } from "zod"
 
-export const apiErrorCodeSchema = z.enum([
-  "UNAUTHENTICATED",
-  "USER_NOT_FOUND",
-  "PERMISSION_DENIED",
-  "VALIDATION_ERROR",
-  "BOARD_NOT_FOUND",
-  "OBJECT_NOT_FOUND",
-  "OBJECT_ALREADY_DELETED",
-  "OBJECT_VERSION_CONFLICT",
-  "DUPLICATE_OPERATION",
-  "INVALID_OPERATION_PAYLOAD",
-  "MEMBER_NOT_FOUND",
-  "OBJECT_LOCKED",
-  "INTERNAL_ERROR",
-])
-export const apiErrorCodes = apiErrorCodeSchema.enum
+export const ErrorCodes = {
+  UNAUTHENTICATED: "UNAUTHENTICATED",
+  USER_NOT_FOUND: "USER_NOT_FOUND",
+  PERMISSION_DENIED: "PERMISSION_DENIED",
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+  BOARD_NOT_FOUND: "BOARD_NOT_FOUND",
+  OBJECT_NOT_FOUND: "OBJECT_NOT_FOUND",
+  OBJECT_ALREADY_DELETED: "OBJECT_ALREADY_DELETED",
+  OBJECT_VERSION_CONFLICT: "OBJECT_VERSION_CONFLICT",
+  DUPLICATE_OPERATION: "DUPLICATE_OPERATION",
+  INVALID_OPERATION_PAYLOAD: "INVALID_OPERATION_PAYLOAD",
+  MEMBER_NOT_FOUND: "MEMBER_NOT_FOUND",
+  OBJECT_LOCKED: "OBJECT_LOCKED",
+} as const
 
-export const apiErrorSchema = z.object({
-  code: apiErrorCodeSchema,
-  message: z.string(),
-  details: z.unknown().optional(),
-})
+export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes]
 
 export const PaginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -39,5 +33,17 @@ export type PaginatedResponse<T> = {
   }
 }
 
-export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>
-export type ApiError = z.infer<typeof apiErrorSchema>
+export interface ValidationError {
+  field: string
+  message: string
+}
+
+export interface ErrorResponse {
+  success: false
+  statusCode: number
+  code: string
+  message: string
+  errors?: ValidationError[]
+  timestamp: string
+  path: string
+}

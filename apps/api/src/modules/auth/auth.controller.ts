@@ -8,9 +8,9 @@ import {
 } from "@rctw/shared-contracts"
 import { AuthService, REFRESH_TOKEN_EXPIRES } from "./auth.service"
 import { Public } from "../../common/decorators/public.decorator"
-import { unauthenticated } from "./auth.utils"
 import { ConfigService } from "@nestjs/config"
 import { ZodBody } from "../../common/pipes"
+import { AppException } from "../../common/exceptions"
 
 const refreshCookieName = "rctw_refresh_token"
 
@@ -71,7 +71,7 @@ export class AuthController {
   private getRefreshTokenFromCookie(request: Request): string {
     const token = request.cookies?.[refreshCookieName] as string | undefined
     if (!token) {
-      throw unauthenticated("Missing refresh token.")
+      throw AppException.unauthenticated("Refresh token is missing in cookies")
     }
     return token
   }

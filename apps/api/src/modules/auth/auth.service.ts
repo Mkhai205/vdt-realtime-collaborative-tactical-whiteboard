@@ -10,7 +10,7 @@ import { ConfigService } from "@nestjs/config"
 import { JwtService } from "@nestjs/jwt"
 import { OAuth2Client } from "google-auth-library"
 import { userProfileSelect } from "../user/user.service"
-import { unauthenticated } from "./auth.utils"
+import { AppException } from "../../common/exceptions"
 
 export const REFRESH_TOKEN_EXPIRES = 30 * 24 * 60 * 60 * 1000 // 30 days
 export const JWT_ACCESS_EXPIRES = 15 * 60 * 1000 // 15 minutes
@@ -79,7 +79,7 @@ export class AuthService {
     })
 
     if (!existingToken) {
-      throw unauthenticated("Invalid refresh token.")
+      throw AppException.unauthenticated("Invalid refresh token.")
     }
 
     if (existingToken.expiresAt < new Date() || existingToken.revokedAt) {
@@ -87,7 +87,9 @@ export class AuthService {
       await this.prisma.refreshToken.deleteMany({
         where: { userId: existingToken.userId },
       })
-      throw unauthenticated("Refresh token has expired or been revoked.")
+      throw AppException.unauthenticated(
+        "Refresh token has expired or been revoked.",
+      )
     }
 
     // Delete/rotate the old one
@@ -125,7 +127,7 @@ export class AuthService {
     const [type, token] = authorizationHeader.split(" ")
 
     if (type !== "Bearer" || !token) {
-      throw unauthenticated("Invalid authorization header format.")
+      throw AppException.unauthenticated("Invalid authorization header format.")
     }
 
     return token
@@ -177,7 +179,7 @@ export class AuthService {
       })
       const payload = ticket.getPayload()
       if (!payload) {
-        throw unauthenticated("Invalid Google ID token payload.")
+        throw AppException.unauthenticated("Invalid Google ID token payload.")
       }
       return {
         sub: payload.sub,
@@ -186,7 +188,9 @@ export class AuthService {
         picture: payload.picture,
       }
     } catch (e: any) {
-      throw unauthenticated(`Google token verification failed: ${e.message}`)
+      throw AppException.unauthenticated(
+        `Google token verification failed: ${e.message}`,
+      )
     }
   }
 

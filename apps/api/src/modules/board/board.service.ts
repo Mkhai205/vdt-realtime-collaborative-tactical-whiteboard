@@ -22,12 +22,7 @@ import {
 import { PrismaService } from "../../infrastructure/database"
 import { BoardPermissionService } from "./board-permission.service"
 import { userSummarySelect } from "../user/user.service"
-import {
-  boardNotFound,
-  memberNotFound,
-  permissionDenied,
-  validationError,
-} from "./board.utils"
+import { AppException } from "../../common/exceptions"
 
 const boardWithCreatorInclude = {
   createdBy: {
@@ -162,7 +157,7 @@ export class BoardService {
     })
 
     if (!board) {
-      throw boardNotFound()
+      throw AppException.boardNotFound()
     }
 
     const { members, ...boardData } = board
@@ -202,7 +197,7 @@ export class BoardService {
       })
 
       if (!board) {
-        throw boardNotFound()
+        throw AppException.boardNotFound()
       }
 
       const existingMember = board.members.at(0)
@@ -212,7 +207,9 @@ export class BoardService {
       }
 
       if (board.linkAccess === "DISABLED") {
-        throw permissionDenied("You do not have access to this board.")
+        throw AppException.permissionDenied(
+          "You do not have access to this board.",
+        )
       }
 
       const role = board.linkAccess
@@ -273,7 +270,7 @@ export class BoardService {
       })
 
       if (!targetUser) {
-        throw memberNotFound()
+        throw AppException.memberNotFound()
       }
 
       const existingMember = await tx.boardMember.findUnique({
@@ -284,7 +281,9 @@ export class BoardService {
       })
 
       if (existingMember?.role === "OWNER") {
-        throw validationError("Owner membership cannot be modified.")
+        throw AppException.validationError(
+          "Owner membership cannot be modified.",
+        )
       }
 
       if (existingMember) {
@@ -324,11 +323,13 @@ export class BoardService {
       })
 
       if (!existingMember) {
-        throw memberNotFound()
+        throw AppException.memberNotFound()
       }
 
       if (existingMember.role === boardRoles.OWNER) {
-        throw validationError("Owner membership cannot be modified.")
+        throw AppException.validationError(
+          "Owner membership cannot be modified.",
+        )
       }
 
       return tx.boardMember.update({
@@ -379,6 +380,6 @@ export class BoardService {
       return board.linkAccess
     }
 
-    throw permissionDenied("You do not have access to this board.")
+    throw AppException.permissionDenied("You do not have access to this board.")
   }
 }

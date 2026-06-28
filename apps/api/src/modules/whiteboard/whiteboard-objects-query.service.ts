@@ -8,13 +8,13 @@ import {
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 import { BoardPermissionService } from "../board/board-permission.service"
-import { boardNotFound } from "../board/board.utils"
 import {
   toOperationSummary,
   toWhiteboardObject,
   type WhiteboardObjectRecord,
 } from "./mappers/board-object-response.mapper"
 import { toOperationReplayEvent } from "./mappers/board-operation-replay.mapper"
+import { AppException } from "../../common/exceptions"
 
 const maxOperationReplayCount = 100
 
@@ -40,7 +40,7 @@ export class WhiteboardObjectsQueryService {
     })
 
     if (!board) {
-      throw boardNotFound()
+      throw AppException.boardNotFound()
     }
 
     const objects = await this.getActiveBoardObjects(boardId)
@@ -111,7 +111,7 @@ export class WhiteboardObjectsQueryService {
     })
 
     if (!board) {
-      throw boardNotFound()
+      throw AppException.boardNotFound()
     }
 
     const currentRevision = board.currentRevision

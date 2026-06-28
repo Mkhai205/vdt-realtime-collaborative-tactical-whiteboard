@@ -1,12 +1,9 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from "@nestjs/common"
+import { Injectable, InternalServerErrorException } from "@nestjs/common"
 import { Prisma, type PrismaClient } from "@rctw/database"
-import { apiErrorCodes, type WhiteboardObject } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
 import { toWhiteboardObject } from "./mappers/board-object-response.mapper"
+import { WhiteboardObject } from "@rctw/shared-contracts"
+import { AppException } from "../../common/exceptions"
 
 type BoardSnapshotTransactionClient = Pick<
   PrismaClient,
@@ -60,7 +57,7 @@ export class WhiteboardSnapshotsService {
     })
 
     if (!board) {
-      throw this.boardNotFound()
+      throw AppException.boardNotFound()
     }
 
     const revision = board.currentRevision
@@ -151,13 +148,6 @@ export class WhiteboardSnapshotsService {
 
   private toIsoString(value: Date | string): string {
     return value instanceof Date ? value.toISOString() : value
-  }
-
-  private boardNotFound(message = "Board not found.") {
-    return new NotFoundException({
-      code: apiErrorCodes.BOARD_NOT_FOUND,
-      message,
-    })
   }
 
   private snapshotCreationFailed() {

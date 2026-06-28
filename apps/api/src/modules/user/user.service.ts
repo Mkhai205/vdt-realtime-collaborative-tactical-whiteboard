@@ -4,7 +4,7 @@ import {
   type UpdateProfileRequest,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
-import { userNotFound } from "../auth/auth.utils"
+import { AppException } from "../../common/exceptions"
 
 export const userSummarySelect = {
   id: true,
@@ -29,7 +29,7 @@ export class UserService {
     })
 
     if (!user) {
-      throw userNotFound()
+      throw AppException.userNotFound()
     }
 
     return user
@@ -44,7 +44,7 @@ export class UserService {
     })
 
     if (!user) {
-      throw userNotFound()
+      throw AppException.userNotFound()
     }
 
     return this.prisma.user.update({

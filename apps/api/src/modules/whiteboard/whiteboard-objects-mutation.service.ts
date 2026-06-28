@@ -13,14 +13,6 @@ import { PrismaService } from "../../infrastructure/database"
 import { BoardPermissionService } from "../board/board-permission.service"
 import { WhiteboardSnapshotsService } from "./whiteboard-snapshots.service"
 import {
-  boardNotFound,
-  duplicateOperation,
-  objectAlreadyDeleted,
-  objectNotFound,
-  objectVersionConflict,
-  permissionDenied,
-} from "../board/board.utils"
-import {
   getPreviousValues,
   toCreateObjectData,
   toJsonValue,
@@ -31,6 +23,7 @@ import {
   toWhiteboardObject,
   type WhiteboardObjectRecord,
 } from "./mappers/board-object-response.mapper"
+import { AppException } from "../../common/exceptions"
 
 type WhiteboardTransactionClient = Pick<
   PrismaClient,
@@ -205,10 +198,7 @@ export class WhiteboardObjectsMutationService {
       )
 
       if (!currentObject.deletedAt) {
-        throw objectVersionConflict(
-          toWhiteboardObject(currentObject),
-          await this.getCurrentBoardRevision(tx, boardId),
-        )
+        throw AppException.objectVersionConflict()
       }
 
       const previousObject = toWhiteboardObject(currentObject)
@@ -273,7 +263,7 @@ export class WhiteboardObjectsMutationService {
       return result
     } catch (error) {
       if (this.isDuplicateClientOperationConstraintError(error)) {
-        throw duplicateOperation()
+        throw AppException.duplicateOperation()
       }
       throw error
     }
@@ -296,17 +286,17 @@ export class WhiteboardObjectsMutationService {
     })
 
     if (!board) {
-      throw boardNotFound()
+      throw AppException.boardNotFound()
     }
 
     const role = board.members.at(0)?.role
 
     if (!role) {
-      throw permissionDenied("You must join this board first.")
+      throw AppException.permissionDenied("You must join this board first.")
     }
 
     if (!this.boardPermissionService.canEdit(role)) {
-      throw permissionDenied(
+      throw AppException.permissionDenied(
         "Only board owners and editors can edit this board.",
       )
     }
@@ -325,7 +315,7 @@ export class WhiteboardObjectsMutationService {
     })
 
     if (existingOperation) {
-      throw duplicateOperation()
+      throw AppException.duplicateOperation()
     }
   }
 
@@ -338,8 +328,8 @@ export class WhiteboardObjectsMutationService {
       where: { id: objectId, boardId },
     })
 
-    if (!object) throw objectNotFound()
-    if (object.deletedAt) throw objectAlreadyDeleted()
+    if (!object) throw AppException.objectNotFound()
+    if (object.deletedAt) throw AppException.objectAlreadyDeleted()
 
     return object
   }
@@ -353,7 +343,7 @@ export class WhiteboardObjectsMutationService {
       where: { id: objectId, boardId },
     })
 
-    if (!object) throw objectNotFound()
+    if (!object) throw AppException.objectNotFound()
 
     return object
   }
@@ -386,7 +376,7 @@ export class WhiteboardObjectsMutationService {
       where: { id: objectId, boardId },
     })
 
-    if (!object) throw objectNotFound()
+    if (!object) throw AppException.objectNotFound()
 
     return object
   }
@@ -419,7 +409,7 @@ export class WhiteboardObjectsMutationService {
       where: { id: objectId, boardId },
     })
 
-    if (!object) throw objectNotFound()
+    if (!object) throw AppException.objectNotFound()
 
     return object
   }
@@ -433,13 +423,10 @@ export class WhiteboardObjectsMutationService {
       where: { id: objectId, boardId },
     })
 
-    if (!object) throw objectNotFound()
-    if (object.deletedAt) throw objectAlreadyDeleted()
+    if (!object) throw AppException.objectNotFound()
+    if (object.deletedAt) throw AppException.objectAlreadyDeleted()
 
-    throw objectVersionConflict(
-      toWhiteboardObject(object),
-      await this.getCurrentBoardRevision(tx, boardId),
-    )
+    throw AppException.objectVersionConflict()
   }
 
   private async rejectRestoreConditionalMutationMiss(
@@ -451,12 +438,9 @@ export class WhiteboardObjectsMutationService {
       where: { id: objectId, boardId },
     })
 
-    if (!object) throw objectNotFound()
+    if (!object) throw AppException.objectNotFound()
 
-    throw objectVersionConflict(
-      toWhiteboardObject(object),
-      await this.getCurrentBoardRevision(tx, boardId),
-    )
+    throw AppException.objectVersionConflict()
   }
 
   private async getCurrentBoardRevision(

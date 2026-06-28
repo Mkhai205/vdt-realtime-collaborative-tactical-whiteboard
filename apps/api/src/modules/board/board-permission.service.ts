@@ -1,10 +1,7 @@
 import { Injectable } from "@nestjs/common"
 import { boardRoles, type BoardRole } from "@rctw/shared-contracts"
-import {
-  BoardNotFoundException,
-  PermissionDeniedException,
-} from "../../common/exceptions"
 import { PrismaService } from "../../infrastructure/database"
+import { AppException } from "../../common/exceptions"
 
 @Injectable()
 export class BoardPermissionService {
@@ -25,7 +22,7 @@ export class BoardPermissionService {
     message = "Only board owners and editors can edit this board.",
   ): void {
     if (!this.canEdit(role)) {
-      throw new PermissionDeniedException(message)
+      throw AppException.permissionDenied(message)
     }
   }
 
@@ -34,7 +31,7 @@ export class BoardPermissionService {
     message = "Only the board owner can perform this action.",
   ): void {
     if (!this.canManage(role)) {
-      throw new PermissionDeniedException(message)
+      throw AppException.permissionDenied(message)
     }
   }
 
@@ -50,11 +47,13 @@ export class BoardPermissionService {
     const { boardExists, role } = await this.findMembership(userId, boardId)
 
     if (!boardExists) {
-      throw new BoardNotFoundException()
+      throw AppException.boardNotFound(boardId)
     }
 
     if (!role) {
-      throw new PermissionDeniedException("You must join this board first.")
+      throw AppException.permissionDenied(
+        `User ${userId} is not a member of board ${boardId}.`,
+      )
     }
 
     return role

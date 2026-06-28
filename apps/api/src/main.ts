@@ -1,7 +1,7 @@
 import { NestFactory } from "@nestjs/core"
 import cookieParser from "cookie-parser"
 import { AppModule } from "./app.module"
-import { ApiExceptionFilter } from "./common/filters"
+import { HttpExceptionFilter, WsExceptionFilter } from "./common/filters"
 import { ConfigService } from "@nestjs/config"
 import { Logger } from "@nestjs/common"
 import { LoggingInterceptor } from "./common/interceptors"
@@ -24,7 +24,7 @@ async function bootstrap() {
     origin: corsOrigins,
   })
 
-  app.useGlobalFilters(new ApiExceptionFilter())
+  app.useGlobalFilters(new HttpExceptionFilter(), new WsExceptionFilter())
 
   app.useGlobalInterceptors(new LoggingInterceptor())
 
