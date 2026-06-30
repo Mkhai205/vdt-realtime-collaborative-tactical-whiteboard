@@ -1,9 +1,5 @@
 import { z } from "zod"
-import {
-  boardRoleSchema,
-  boardVisibilitySchema,
-  boardLinkAccessSchema,
-} from "./board.js"
+import { boardVisibilitySchema, effectiveBoardRoleSchema } from "./board.js"
 import {
   operationAppliedEventSchema,
   toolSchema,
@@ -29,7 +25,7 @@ export const syncRequestSchema = z.object({
 })
 
 export const onlineUserSchema = userSummarySchema.extend({
-  role: boardRoleSchema,
+  effectiveRole: effectiveBoardRoleSchema,
   status: z.literal("ONLINE"),
   selectedObjectId: z.uuid().nullable().optional(),
   connectedAt: z.string(),
@@ -42,10 +38,9 @@ export const boardStateEventSchema = z.object({
     description: z.string().nullable().optional(),
     currentRevision: z.number().int().nonnegative(),
     visibility: boardVisibilitySchema,
-    linkAccess: boardLinkAccessSchema,
   }),
   currentUser: userSummarySchema.extend({
-    role: boardRoleSchema,
+    effectiveRole: effectiveBoardRoleSchema,
   }),
   objects: z.array(whiteboardObjectSchema),
   onlineUsers: z.array(onlineUserSchema),

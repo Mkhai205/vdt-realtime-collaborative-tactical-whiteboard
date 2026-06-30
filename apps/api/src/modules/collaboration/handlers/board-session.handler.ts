@@ -45,7 +45,7 @@ export class BoardSessionHandler {
       const currentUser = client.data.currentUser as JwtPayload
       const userSummary = toUserSummary(currentUser)
 
-      const joinResponse = await this.boardService.joinBoard(
+      const joinResponse = await this.boardService.getBoard(
         currentUser,
         boardId,
       )
@@ -61,7 +61,7 @@ export class BoardSessionHandler {
         socketId: client.id,
         boardId,
         user: userSummary,
-        role: joinResponse.memberBoardStatus.role,
+        effectiveRole: joinResponse.effectiveRole,
       })
 
       const boardState: BoardStateEvent = {
@@ -71,11 +71,10 @@ export class BoardSessionHandler {
           description: joinResponse.description ?? null,
           currentRevision: objectsResponse.currentRevision,
           visibility: joinResponse.visibility,
-          linkAccess: joinResponse.linkAccess,
         },
         currentUser: {
           ...userSummary,
-          role: joinResponse.memberBoardStatus.role,
+          effectiveRole: joinResponse.effectiveRole,
         },
         objects: objectsResponse.objects,
         onlineUsers,
@@ -134,7 +133,7 @@ export class BoardSessionHandler {
         boardId,
       )
 
-      const joinResponse = await this.boardService.joinBoard(
+      const joinResponse = await this.boardService.getBoard(
         currentUser,
         boardId,
       )
@@ -146,7 +145,7 @@ export class BoardSessionHandler {
           socketId: client.id,
           boardId,
           user: userSummary,
-          role: joinResponse.memberBoardStatus.role,
+          effectiveRole: joinResponse.effectiveRole,
         })
       }
 

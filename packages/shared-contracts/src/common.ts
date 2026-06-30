@@ -13,6 +13,7 @@ export const ErrorCodes = {
   INVALID_OPERATION_PAYLOAD: "INVALID_OPERATION_PAYLOAD",
   MEMBER_NOT_FOUND: "MEMBER_NOT_FOUND",
   OBJECT_LOCKED: "OBJECT_LOCKED",
+  CONFLICT: "CONFLICT",
 } as const
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes]
@@ -33,17 +34,12 @@ export type PaginatedResponse<T> = {
   }
 }
 
-export interface ValidationError {
-  field: string
-  message: string
-}
-
 export interface ErrorResponse {
   success: false
   statusCode: number
   code: string
   message: string
-  errors?: ValidationError[]
+  errors?: string[]
   timestamp: string
   path: string
 }

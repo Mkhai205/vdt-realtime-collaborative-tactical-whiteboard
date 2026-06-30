@@ -1,12 +1,12 @@
 import { HttpException, HttpStatus } from "@nestjs/common"
-import { ErrorCode, ErrorCodes, ValidationError } from "@rctw/shared-contracts"
+import { type ErrorCode, ErrorCodes } from "@rctw/shared-contracts"
 
 export class AppException extends HttpException {
   constructor(
     statusCode: number,
     code: ErrorCode,
     message: string,
-    errors?: ValidationError[],
+    errors?: string[],
   ) {
     super(
       {
@@ -42,10 +42,7 @@ export class AppException extends HttpException {
     )
   }
 
-  static validationError(
-    message = "Validation error",
-    errors?: ValidationError[],
-  ) {
+  static validationError(message = "Validation error", errors?: string[]) {
     return new AppException(
       HttpStatus.BAD_REQUEST,
       ErrorCodes.VALIDATION_ERROR,
@@ -116,5 +113,9 @@ export class AppException extends HttpException {
       ErrorCodes.OBJECT_LOCKED,
       message,
     )
+  }
+
+  static conflict(message = "Conflict") {
+    return new AppException(HttpStatus.CONFLICT, ErrorCodes.CONFLICT, message)
   }
 }

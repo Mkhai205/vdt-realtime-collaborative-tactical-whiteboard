@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  Body,
-  Injectable,
-  Param,
-  PipeTransform,
-  Query,
-} from "@nestjs/common"
-import { z } from "zod"
+import { Body, Injectable, Param, PipeTransform, Query } from "@nestjs/common"
+import { AppException } from "../exceptions"
+import z from "zod"
 
 export type ZodSchemaLike = {
   safeParse: (value: unknown) =>
@@ -35,11 +29,7 @@ export class ZodSchemaValidationPipe<
     const result = this.schema.safeParse(value)
 
     if (!result.success) {
-      throw new BadRequestException({
-        code: "VALIDATION_ERROR",
-        message: "Invalid request payload.",
-        details: z.treeifyError(result.error),
-      })
+      throw AppException.validationError()
     }
 
     return result.data

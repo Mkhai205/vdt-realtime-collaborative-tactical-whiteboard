@@ -29,10 +29,7 @@ export class WhiteboardObjectsQueryService {
     currentUser: JwtPayload,
     boardId: string,
   ): Promise<GetBoardObjectsResponse> {
-    await this.boardPermissionService.assertBoardMember(
-      currentUser.sub,
-      boardId,
-    )
+    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
 
     const board = await this.prismaService.board.findFirst({
       where: { id: boardId },
@@ -57,10 +54,7 @@ export class WhiteboardObjectsQueryService {
     boardId: string,
     query: Partial<GetBoardOperationsQuery> = {},
   ): Promise<GetBoardOperationsResponse> {
-    await this.boardPermissionService.assertBoardMember(
-      currentUser.sub,
-      boardId,
-    )
+    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
 
     const operations = await this.prismaService.boardOperation.findMany({
       where: { boardId },
@@ -100,10 +94,7 @@ export class WhiteboardObjectsQueryService {
     boardId: string,
     lastSeenRevision: number,
   ): Promise<SyncResponse> {
-    await this.boardPermissionService.assertBoardMember(
-      currentUser.sub,
-      boardId,
-    )
+    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
 
     const board = await this.prismaService.board.findFirst({
       where: { id: boardId },

@@ -13,22 +13,26 @@ import {
   boardMemberIdParamsSchema,
   createBoardRequestSchema,
   listBoardsQuerySchema,
+  updateBoardInfoRequestSchema,
   updateBoardMemberRoleRequestSchema,
-  updateBoardRequestSchema,
-  type JwtPayload,
+  updateBoardSettingsRequestSchema,
   type AddBoardMemberRequest,
+  type AddBoardMemberResponse,
   type BoardIdParams,
   type BoardMemberIdParams,
-  type BoardMemberMutationResponse,
   type CreateBoardRequest,
   type CreateBoardResponse,
   type GetBoardMembersResponse,
   type GetBoardResponse,
+  type JwtPayload,
   type ListBoardsQuery,
   type ListBoardsResponse,
+  type UpdateBoardInfoRequest,
+  type UpdateBoardInfoResponse,
   type UpdateBoardMemberRoleRequest,
-  type UpdateBoardRequest,
-  type UpdateBoardResponse,
+  type UpdateBoardMemberRoleResponse,
+  type UpdateBoardSettingsRequest,
+  type UpdateBoardSettingsResponse,
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../common/decorators/current-user.decorator"
 import { ZodBody, ZodParam, ZodQuery } from "../../common/pipes"
@@ -38,12 +42,14 @@ import { BoardService } from "./board.service"
 export class BoardController {
   constructor(private readonly boardService: BoardService) {}
 
+  // ─── Board CRUD ──────────────────────────────────────────────────────────
+
   @Post()
   async createBoard(
     @CurrentUser() currentUser: JwtPayload,
-    @ZodBody(createBoardRequestSchema) request: CreateBoardRequest,
+    @ZodBody(createBoardRequestSchema) body: CreateBoardRequest,
   ): Promise<CreateBoardResponse> {
-    return this.boardService.createBoard(currentUser, request)
+    return this.boardService.createBoard(currentUser, body)
   }
 
   @Get()
@@ -62,13 +68,38 @@ export class BoardController {
     return this.boardService.getBoard(currentUser, params.boardId)
   }
 
-  @Post(":boardId/join")
-  async joinBoard(
+  @Patch(":boardId")
+  async updateBoardInfo(
     @CurrentUser() currentUser: JwtPayload,
     @ZodParam(boardIdParamsSchema) params: BoardIdParams,
-  ): Promise<GetBoardResponse> {
-    return this.boardService.joinBoard(currentUser, params.boardId)
+    @ZodBody(updateBoardInfoRequestSchema) body: UpdateBoardInfoRequest,
+  ): Promise<UpdateBoardInfoResponse> {
+    return this.boardService.updateBoardInfo(currentUser, params.boardId, body)
   }
+
+  @Patch(":boardId/settings")
+  async updateBoardSettings(
+    @CurrentUser() currentUser: JwtPayload,
+    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
+    @ZodBody(updateBoardSettingsRequestSchema) body: UpdateBoardSettingsRequest,
+  ): Promise<UpdateBoardSettingsResponse> {
+    return this.boardService.updateBoardSettings(
+      currentUser,
+      params.boardId,
+      body,
+    )
+  }
+
+  @Delete(":boardId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteBoard(
+    @CurrentUser() currentUser: JwtPayload,
+    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
+  ): Promise<void> {
+    await this.boardService.deleteBoard(currentUser, params.boardId)
+  }
+
+  // ─── Member management ───────────────────────────────────────────────────
 
   @Get(":boardId/members")
   async getBoardMembers(
@@ -82,14 +113,9 @@ export class BoardController {
   async addBoardMember(
     @CurrentUser() currentUser: JwtPayload,
     @ZodParam(boardIdParamsSchema) params: BoardIdParams,
-    @ZodBody(addBoardMemberRequestSchema) request: AddBoardMemberRequest,
-  ): Promise<BoardMemberMutationResponse> {
-    const member = await this.boardService.addBoardMember(
-      currentUser,
-      params.boardId,
-      request,
-    )
-    return { member }
+    @ZodBody(addBoardMemberRequestSchema) body: AddBoardMemberRequest,
+  ): Promise<AddBoardMemberResponse> {
+    return this.boardService.addBoardMember(currentUser, params.boardId, body)
   }
 
   @Patch(":boardId/members/:memberId")
@@ -97,32 +123,26 @@ export class BoardController {
     @CurrentUser() currentUser: JwtPayload,
     @ZodParam(boardMemberIdParamsSchema) params: BoardMemberIdParams,
     @ZodBody(updateBoardMemberRoleRequestSchema)
-    request: UpdateBoardMemberRoleRequest,
-  ): Promise<BoardMemberMutationResponse> {
-    const member = await this.boardService.updateBoardMemberRole(
+    body: UpdateBoardMemberRoleRequest,
+  ): Promise<UpdateBoardMemberRoleResponse> {
+    return this.boardService.updateBoardMemberRole(
       currentUser,
       params.boardId,
       params.memberId,
-      request,
+      body,
     )
-    return { member }
   }
 
-  @Patch(":boardId")
-  async updateBoard(
-    @CurrentUser() currentUser: JwtPayload,
-    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
-    @ZodBody(updateBoardRequestSchema) request: UpdateBoardRequest,
-  ): Promise<UpdateBoardResponse> {
-    return this.boardService.updateBoard(currentUser, params.boardId, request)
-  }
-
-  @Delete(":boardId")
+  @Delete(":boardId/members/:memberId")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteBoard(
+  async removeBoardMember(
     @CurrentUser() currentUser: JwtPayload,
-    @ZodParam(boardIdParamsSchema) params: BoardIdParams,
+    @ZodParam(boardMemberIdParamsSchema) params: BoardMemberIdParams,
   ): Promise<void> {
-    await this.boardService.deleteBoard(currentUser, params.boardId)
+    await this.boardService.removeBoardMember(
+      currentUser,
+      params.boardId,
+      params.memberId,
+    )
   }
 }

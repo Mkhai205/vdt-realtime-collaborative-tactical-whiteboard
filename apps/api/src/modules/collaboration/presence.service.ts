@@ -1,5 +1,9 @@
 import { Injectable } from "@nestjs/common"
-import type { BoardRole, OnlineUser, UserSummary } from "@rctw/shared-contracts"
+import type {
+  EffectiveBoardRole,
+  OnlineUser,
+  UserSummary,
+} from "@rctw/shared-contracts"
 
 type PresenceSession = OnlineUser & {
   socketId: string
@@ -36,7 +40,7 @@ export class PresenceService {
     socketId: string
     boardId: string
     user: UserSummary
-    role: BoardRole
+    effectiveRole: EffectiveBoardRole
   }): OnlineUser[] {
     const connectedAt = new Date().toISOString()
     const board = this.getOrCreateBoard(input.boardId)
@@ -44,7 +48,7 @@ export class PresenceService {
     board.set(input.socketId, {
       ...input.user,
       socketId: input.socketId,
-      role: input.role,
+      effectiveRole: input.effectiveRole,
       status: "ONLINE",
       selectedObjectId: null,
       selectedObjectUpdatedAt: 0,
@@ -129,8 +133,11 @@ export class PresenceService {
     return this.socketBoards.get(socketId)?.has(boardId) ?? false
   }
 
-  getSocketBoardRole(socketId: string, boardId: string): BoardRole | null {
-    return this.boardSessions.get(boardId)?.get(socketId)?.role ?? null
+  getSocketBoardRole(
+    socketId: string,
+    boardId: string,
+  ): EffectiveBoardRole | null {
+    return this.boardSessions.get(boardId)?.get(socketId)?.effectiveRole ?? null
   }
 
   updateSelectedObject(input: {
@@ -266,7 +273,7 @@ export class PresenceService {
       name: session.name,
       avatarUrl: session.avatarUrl,
       avatarColor: session.avatarColor,
-      role: session.role,
+      effectiveRole: session.effectiveRole,
       status: session.status,
       selectedObjectId: latestSelectionSession.selectedObjectId,
       connectedAt: session.connectedAt,

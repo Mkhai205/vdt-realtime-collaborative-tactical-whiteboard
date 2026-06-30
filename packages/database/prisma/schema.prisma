@@ -19,10 +19,10 @@ enum BoardVisibility {
   PUBLIC
 }
 
-enum BoardLinkAccess {
-  DISABLED
-  VIEWER
-  EDITOR
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum ObjectType {
@@ -51,12 +51,13 @@ model User {
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
-  createdBoards  Board[]          @relation("BoardCreator")
-  memberships    BoardMember[]
-  operations     BoardOperation[]
-  objectsCreated BoardObject[]    @relation("ObjectCreator")
-  objectsUpdated BoardObject[]    @relation("ObjectUpdater")
-  refreshTokens  RefreshToken[]
+  createdBoards     Board[]            @relation("BoardCreator")
+  memberships       BoardMember[]
+  operations        BoardOperation[]
+  objectsCreated    BoardObject[]      @relation("ObjectCreator")
+  objectsUpdated    BoardObject[]      @relation("ObjectUpdater")
+  refreshTokens     RefreshToken[]
+  boardJoinRequests BoardJoinRequest[]
 }
 
 model RefreshToken {
@@ -79,27 +80,26 @@ model Board {
   createdById     String          @db.Uuid
   currentRevision Int             @default(0)
   visibility      BoardVisibility @default(PRIVATE)
-  linkAccess      BoardLinkAccess @default(EDITOR)
   createdAt       DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
 
-  createdBy  User             @relation("BoardCreator", fields: [createdById], references: [id])
-  members    BoardMember[]
-  objects    BoardObject[]
-  operations BoardOperation[]
-  snapshots  BoardSnapshot[]
+  createdBy         User               @relation("BoardCreator", fields: [createdById], references: [id])
+  members           BoardMember[]
+  objects           BoardObject[]
+  operations        BoardOperation[]
+  snapshots         BoardSnapshot[]
+  boardJoinRequests BoardJoinRequest[]
 
   @@index([createdById])
   @@index([visibility])
 }
 
 model BoardMember {
-  id        String    @id @default(uuid()) @db.Uuid
-  boardId   String    @db.Uuid
-  userId    String    @db.Uuid
-  role      BoardRole
-  joinedAt  DateTime  @default(now()) @db.Timestamptz(6)
-  removedAt DateTime? @db.Timestamptz(6)
+  id       String    @id @default(uuid()) @db.Uuid
+  boardId  String    @db.Uuid
+  userId   String    @db.Uuid
+  role     BoardRole
+  joinedAt DateTime  @default(now()) @db.Timestamptz(6)
 
   board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id])
@@ -107,6 +107,24 @@ model BoardMember {
   @@unique([boardId, userId])
   @@index([boardId, role])
   @@index([userId])
+}
+
+model BoardJoinRequest {
+  id String @id @default(uuid()) @db.Uuid
+
+  boardId String @db.Uuid
+  userId  String @db.Uuid
+
+  status JoinRequestStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([boardId, userId])
+  @@index([boardId])
 }
 
 model BoardObject {
@@ -175,4 +193,5 @@ model BoardSnapshot {
   board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
   @@unique([boardId, revision])
+  @@index([boardId, createdAt])
 }

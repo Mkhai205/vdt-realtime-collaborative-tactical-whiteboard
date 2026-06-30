@@ -278,7 +278,7 @@ export class WhiteboardObjectsMutationService {
       where: { id: boardId },
       select: {
         members: {
-          where: { userId, removedAt: null },
+          where: { userId },
           select: { role: true },
           take: 1,
         },

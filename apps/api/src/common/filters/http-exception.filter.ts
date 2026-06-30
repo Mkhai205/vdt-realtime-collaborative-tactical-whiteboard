@@ -1,11 +1,9 @@
 import {
   ArgumentsHost,
   Catch,
-  ConflictException,
   ExceptionFilter,
   HttpException,
   Logger,
-  NotFoundException,
 } from "@nestjs/common"
 
 import { Request, Response } from "express"
@@ -48,10 +46,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case "P2002":
-          throw new ConflictException()
+          exception = AppException.duplicateOperation("Resource already exists")
+          break
 
         case "P2025":
-          throw new NotFoundException()
+          exception = AppException.boardNotFound("Resource not found")
+          break
       }
     }
 
