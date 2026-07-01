@@ -123,16 +123,6 @@ export class AuthService {
 
   // --- Helper ---
 
-  getBearerToken(authorizationHeader: string): string {
-    const [type, token] = authorizationHeader.split(" ")
-
-    if (type !== "Bearer" || !token) {
-      throw AppException.unauthenticated("Invalid authorization header format.")
-    }
-
-    return token
-  }
-
   async verifyAccessToken(token: string): Promise<JwtPayload> {
     const jwtAccessSecret = this.configService.get<string>("JWT_ACCESS_SECRET")
     const payload = await this.jwtService.verifyAsync(token, {

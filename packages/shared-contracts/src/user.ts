@@ -17,14 +17,12 @@ export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>
 export const userSummarySchema = z.object({
   id: z.uuid(),
   name: nameSchema,
-  email: emailSchema.nullable().optional(),
   avatarUrl: z.url().nullable().optional(),
   avatarColor: colorSchema.nullable().optional(),
 })
 export type UserSummary = {
   id: string
   name: string
-  email?: string | null
   avatarUrl?: string | null
   avatarColor?: string | null
 }

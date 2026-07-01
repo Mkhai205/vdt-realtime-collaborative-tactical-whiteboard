@@ -15,12 +15,11 @@ export const ErrorCodes = {
   OBJECT_LOCKED: "OBJECT_LOCKED",
   CONFLICT: "CONFLICT",
 } as const
-
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes]
 
 export const PaginationQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
 })
 
 export type PaginationQuery = z.infer<typeof PaginationQuerySchema>

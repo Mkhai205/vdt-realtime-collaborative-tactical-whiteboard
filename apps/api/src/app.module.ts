@@ -6,9 +6,10 @@ import { DatabaseModule } from "./infrastructure/database"
 import { MailModule } from "./infrastructure/mail"
 import { AuthModule } from "./modules/auth/auth.module"
 import { BoardModule } from "./modules/board/board.module"
-import { WhiteboardModule } from "./modules/whiteboard/whiteboard.module"
-import { CollaborationModule } from "./modules/collaboration/collaboration.module"
 import { UserModule } from "./modules/user/user.module"
+import { RealtimeModule } from "./modules/realtime/realtime.module"
+import { EventBrokerModule } from "./infrastructure/event-broker/event-broker.module"
+import { RedisModule } from "./infrastructure/redis/redis.module"
 
 @Module({
   imports: [
@@ -20,10 +21,11 @@ import { UserModule } from "./modules/user/user.module"
     }),
     DatabaseModule,
     MailModule,
+    EventBrokerModule,
+    RedisModule,
     AuthModule,
     BoardModule,
-    WhiteboardModule,
-    CollaborationModule,
+    RealtimeModule,
     UserModule,
   ],
   controllers: [],

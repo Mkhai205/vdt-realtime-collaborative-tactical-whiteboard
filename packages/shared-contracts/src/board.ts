@@ -2,7 +2,7 @@ import { z } from "zod"
 import { PaginatedResponse, PaginationQuerySchema } from "./common"
 import { emailSchema, nameSchema, UserSummary } from "./user"
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+// --- Enums ---
 
 export const avatarPalette = [
   "#3B82F6",
@@ -32,24 +32,52 @@ export const boardVisibilitySchema = z.enum(["PRIVATE", "PUBLIC"])
 export type BoardVisibility = z.infer<typeof boardVisibilitySchema>
 export const boardVisibility = boardVisibilitySchema.enum
 
-// ─── Params / Query schemas ───────────────────────────────────────────────────
+export const objectTypeSchema = z.enum([
+  "RECTANGLE",
+  "CIRCLE",
+  "LINE",
+  "TEXT",
+  "PATH",
+  "ICON",
+])
+export type ObjectType = z.infer<typeof objectTypeSchema>
+export const objectTypes = objectTypeSchema.enum
 
-export const boardIdParamsSchema = z.object({
-  boardId: z.uuid(),
-})
-export type BoardIdParams = z.infer<typeof boardIdParamsSchema>
+export const toolSchema = z.enum([
+  "SELECT",
+  "HAND",
+  "RECTANGLE",
+  "CIRCLE",
+  "LINE",
+  "TEXT",
+  "PATH",
+  "ICON",
+])
+export type Tool = z.infer<typeof toolSchema>
+export const tools = toolSchema.enum
 
-export const boardMemberIdParamsSchema = boardIdParamsSchema.extend({
-  memberId: z.uuid(),
-})
-export type BoardMemberIdParams = z.infer<typeof boardMemberIdParamsSchema>
+export const operationTypeSchema = z.enum([
+  "OBJECT_CREATE",
+  "OBJECT_UPDATE",
+  "OBJECT_DELETE",
+  "OBJECT_RESTORE",
+])
+export type OperationType = z.infer<typeof operationTypeSchema>
+export const operationTypes = operationTypeSchema.enum
+
+// --- Query schemas ---
 
 export const listBoardsQuerySchema = PaginationQuerySchema.extend({
   search: z.string().trim().max(100).optional(),
 })
 export type ListBoardsQuery = z.infer<typeof listBoardsQuerySchema>
 
-// ─── Request schemas ──────────────────────────────────────────────────────────
+export const boardOperationsQuerySchema = PaginationQuerySchema.extend({
+  fromRevision: z.coerce.number().int().nonnegative().optional(),
+})
+export type BoardOperationsQuery = z.infer<typeof boardOperationsQuerySchema>
+
+// --- Request schemas---
 
 export const createBoardRequestSchema = z.object({
   name: nameSchema,
@@ -70,13 +98,9 @@ export type UpdateBoardInfoRequest = z.infer<
   typeof updateBoardInfoRequestSchema
 >
 
-export const updateBoardSettingsRequestSchema = z
-  .object({
-    visibility: boardVisibilitySchema,
-  })
-  .refine((v) => Object.keys(v).length > 0, {
-    message: "At least one field (visibility or linkAccess) is required.",
-  })
+export const updateBoardSettingsRequestSchema = z.object({
+  visibility: boardVisibilitySchema,
+})
 export type UpdateBoardSettingsRequest = z.infer<
   typeof updateBoardSettingsRequestSchema
 >
@@ -94,7 +118,33 @@ export type UpdateBoardMemberRoleRequest = z.infer<
   typeof updateBoardMemberRoleRequestSchema
 >
 
-// ─── Response types ───────────────────────────────────────────────────────────
+export const respondJoinRequestSchema = z.object({
+  action: z.enum(["APPROVE", "REJECT"]),
+})
+export type RespondJoinRequest = z.infer<typeof respondJoinRequestSchema>
+
+// --- Response types ---
+
+export const shapeStyleSchema = z
+  .object({
+    fill: z.string().optional(),
+    stroke: z.string().optional(),
+    strokeWidth: z.number().nonnegative().optional(),
+    opacity: z.number().min(0).max(1).optional(),
+    fontSize: z.number().positive().optional(),
+    fontFamily: z.string().optional(),
+    fontWeight: z.enum(["normal", "bold"]).optional(),
+    color: z.string().optional(),
+    arrowStart: z.boolean().optional(),
+    arrowEnd: z.boolean().optional(),
+    iconKey: z.string().optional(),
+    assetUrl: z.string().optional(),
+    scale: z.number().positive().optional(),
+    label: z.string().optional(),
+  })
+  .catchall(z.unknown())
+export type ShapeStyle = z.infer<typeof shapeStyleSchema>
+
 
 export type BoardSummary = {
   id: string
@@ -103,23 +153,63 @@ export type BoardSummary = {
   visibility: BoardVisibility
   currentRevision: number
   createdBy: UserSummary
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
 }
 export type BoardMemberSummary = {
   id: string
   role: BoardRole
-  joinedAt: Date
+  joinedAt: string
   user: UserSummary
 }
 
-export type CreateBoardResponse = BoardSummary
+export type BoardObjectDto = {
+  id: string
+  boardId: string
+  type: ObjectType
+  x: number
+  y: number
+  width?: number | null
+  height?: number | null
+  points?: unknown | null
+  text?: string | null
+  rotation: number
+  style: ShapeStyle
+  zIndex: number
+  version: number
+  createdById: string
+  updatedById: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type BoardOperationDto = {
+  id: string
+  clientOpId: string
+  boardId: string
+  revision: number
+  actorId: string
+  objectId?: string | null
+  type: OperationType
+  baseObjectVersion?: number | null
+  payload: unknown
+  createdAt: string
+}
+
+export type BoardResponse = BoardSummary
 export type ListBoardsResponse = PaginatedResponse<BoardSummary>
-export type GetBoardResponse = BoardSummary & {
+export type BoardDetailResponse = BoardSummary & {
   effectiveRole: EffectiveBoardRole
 }
-export type UpdateBoardInfoResponse = BoardSummary
-export type UpdateBoardSettingsResponse = BoardSummary
-export type GetBoardMembersResponse = BoardMemberSummary[]
-export type AddBoardMemberResponse = BoardMemberSummary
-export type UpdateBoardMemberRoleResponse = BoardMemberSummary
+export type BoardMemberResponse = BoardMemberSummary
+export type ListBoardMembersResponse = BoardMemberSummary[]
+
+export type BoardObjectsResponse = {
+  revision: number
+  objects: BoardObjectDto[]
+}
+export type BoardOperationsResponse = {
+  latestRevision: number
+  hasMore: boolean
+  operations: BoardOperationDto[]
+}

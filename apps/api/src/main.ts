@@ -5,15 +5,12 @@ import { HttpExceptionFilter, WsExceptionFilter } from "./common/filters"
 import { ConfigService } from "@nestjs/config"
 import { Logger } from "@nestjs/common"
 import { LoggingInterceptor } from "./common/interceptors"
-import { SocketIoAdapter } from "./common/adapters/socket-io.adapter"
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   app.use(cookieParser())
   const configService = app.get(ConfigService)
   const logger = new Logger("Bootstrap")
-
-  app.useWebSocketAdapter(new SocketIoAdapter(app))
 
   const globalPrefix = "api/v1"
   app.setGlobalPrefix(globalPrefix)

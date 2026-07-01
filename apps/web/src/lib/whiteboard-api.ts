@@ -1,6 +1,6 @@
 import {
-  type GetRoomOperationsResponse,
-  type GetRoomObjectsResponse,
+  type GetBoardOperationsResponse,
+  type GetBoardObjectsResponse,
   type ObjectCreateRequest,
   type ObjectDeleteRequest,
   type ObjectUpdateRequest,
@@ -10,10 +10,10 @@ import { apiClient } from "@/lib/api-client"
 import { getApiErrorMessage } from "@/lib/api-error-utils"
 
 export async function getRoomObjects(
-  roomId: string
-): Promise<GetRoomObjectsResponse> {
-  const response = await apiClient.get<GetRoomObjectsResponse>(
-    `/rooms/${roomId}/objects`
+  roomId: string,
+): Promise<GetBoardObjectsResponse> {
+  const response = await apiClient.get<GetBoardObjectsResponse>(
+    `/rooms/${roomId}/objects`,
   )
 
   return response.data
@@ -22,8 +22,8 @@ export async function getRoomObjects(
 export async function getRoomOperations(
   roomId: string,
   limit = 50,
-): Promise<GetRoomOperationsResponse> {
-  const response = await apiClient.get<GetRoomOperationsResponse>(
+): Promise<GetBoardOperationsResponse> {
+  const response = await apiClient.get<GetBoardOperationsResponse>(
     `/rooms/${roomId}/operations`,
     {
       params: {
@@ -37,11 +37,11 @@ export async function getRoomOperations(
 
 export async function createWhiteboardObject(
   roomId: string,
-  request: ObjectCreateRequest
+  request: ObjectCreateRequest,
 ): Promise<OperationAppliedEvent> {
   const response = await apiClient.post<OperationAppliedEvent>(
     `/rooms/${roomId}/objects`,
-    request
+    request,
   )
 
   return response.data
@@ -50,11 +50,11 @@ export async function createWhiteboardObject(
 export async function updateWhiteboardObject(
   roomId: string,
   objectId: string,
-  request: ObjectUpdateRequest
+  request: ObjectUpdateRequest,
 ): Promise<OperationAppliedEvent> {
   const response = await apiClient.patch<OperationAppliedEvent>(
     `/rooms/${roomId}/objects/${objectId}`,
-    request
+    request,
   )
 
   return response.data
@@ -63,13 +63,13 @@ export async function updateWhiteboardObject(
 export async function deleteWhiteboardObject(
   roomId: string,
   objectId: string,
-  request: ObjectDeleteRequest
+  request: ObjectDeleteRequest,
 ): Promise<OperationAppliedEvent> {
   const response = await apiClient.delete<OperationAppliedEvent>(
     `/rooms/${roomId}/objects/${objectId}`,
     {
       data: request,
-    }
+    },
   )
 
   return response.data

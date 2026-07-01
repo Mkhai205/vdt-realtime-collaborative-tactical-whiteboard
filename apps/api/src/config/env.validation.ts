@@ -3,6 +3,7 @@ import {
   validateAuthConfig,
   validateDatabaseConfig,
   validateMailConfig,
+  validateRedisConfig,
 } from "./topics"
 
 export type RawEnv = Record<string, unknown>
@@ -14,5 +15,6 @@ export function validateEnv(config: RawEnv) {
     ...validateAuthConfig(config),
     ...validateDatabaseConfig(config),
     ...validateMailConfig(config),
+    ...validateRedisConfig(config),
   }
 }
