@@ -34,6 +34,9 @@ interface UIState {
 
   /** World-space pointer position where the current draw operation started */
   drawingStartPoint: DrawingStartPoint | null
+
+  /** ID of the user whose cursor we are currently following (null = none) */
+  followingUserId: string | null
 }
 
 interface UIActions {
@@ -56,6 +59,8 @@ interface UIActions {
 
   setIsDrawing: (drawing: boolean) => void
   setDrawingStartPoint: (point: DrawingStartPoint | null) => void
+
+  setFollowingUserId: (id: string | null) => void
 }
 
 type UIStore = UIState & UIActions
@@ -76,6 +81,7 @@ export const useUIStore = create<UIStore>()((set) => ({
   viewport: VIEWPORT_DEFAULT,
   isDrawing: false,
   drawingStartPoint: null,
+  followingUserId: null,
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -137,4 +143,6 @@ export const useUIStore = create<UIStore>()((set) => ({
   setIsDrawing: (drawing) => set({ isDrawing: drawing }),
 
   setDrawingStartPoint: (point) => set({ drawingStartPoint: point }),
+
+  setFollowingUserId: (followingUserId) => set({ followingUserId }),
 }))

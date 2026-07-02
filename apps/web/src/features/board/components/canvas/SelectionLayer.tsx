@@ -109,6 +109,7 @@ export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLa
       <Transformer
         ref={transformerRef}
         {...TRANSFORMER_CONFIG}
+        onTransformStart={transform.onTransformStart}
         onTransformEnd={transform.onTransformEnd}
       />
 

@@ -31,7 +31,10 @@ export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
   const { selectedIds, setSelectedIds, addToSelection, clearSelection } =
     useUIStore()
 
-  const { onDragStart, onDragEnd } = useDragMove(mutations.updateObject)
+  const { onDragStart, onDragEnd } = useDragMove(
+    mutations.updateObject,
+    mutations.setObjectEditingState,
+  )
 
   // ── Sort objects by zIndex once per render ────────────────────────────────
 
@@ -84,11 +87,12 @@ export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
           key={obj.id}
           object={obj}
           isSelected={selectedIds.has(obj.id)}
-          isEditedByOther={editingStates.has(obj.id)}
+          editingUser={editingStates.get(obj.id)?.user}
           onSelect={handleSelect}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
           onTextChange={handleTextChange}
+          setObjectEditingState={mutations.setObjectEditingState}
         />
       ))}
     </Layer>

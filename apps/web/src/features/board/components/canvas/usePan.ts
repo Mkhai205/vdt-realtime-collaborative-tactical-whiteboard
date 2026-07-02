@@ -93,6 +93,10 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
         y: viewportRef.current.y + dy,
       })
 
+      if (useUIStore.getState().followingUserId) {
+        useUIStore.getState().setFollowingUserId(null)
+      }
+
       // Suppress propagation to other handlers while panning
       e.cancelBubble = true
     },

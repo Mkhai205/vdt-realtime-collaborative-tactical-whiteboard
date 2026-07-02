@@ -34,6 +34,7 @@ export type UseDragMoveReturn = {
  */
 export function useDragMove(
   updateObject: (objectId: string, patch: { x: number; y: number }) => void,
+  setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void,
 ): UseDragMoveReturn {
   const originalPositionsRef = useRef<OriginalPositions>(new Map())
 
@@ -47,6 +48,9 @@ export function useDragMove(
     const dragged = objects.get(id)
     if (dragged) {
       originals.set(id, { x: dragged.x, y: dragged.y })
+      if (setObjectEditingState) {
+        setObjectEditingState(id, "STARTED")
+      }
     }
 
     // Record all other selected objects too
@@ -56,12 +60,15 @@ export function useDragMove(
         const obj = objects.get(selId)
         if (obj) {
           originals.set(selId, { x: obj.x, y: obj.y })
+          if (setObjectEditingState) {
+            setObjectEditingState(selId, "STARTED")
+          }
         }
       }
     }
 
     originalPositionsRef.current = originals
-  }, [])
+  }, [setObjectEditingState])
 
   const onDragEnd = useCallback(
     (id: string, newX: number, newY: number) => {
@@ -80,6 +87,9 @@ export function useDragMove(
         if (!orig) {
           // Fallback — just update the single object
           updateObject(id, { x: newX, y: newY })
+          if (setObjectEditingState) {
+            setObjectEditingState(id, "ENDED")
+          }
           return
         }
 
@@ -99,15 +109,22 @@ export function useDragMove(
               updateObject(selId, { x: selOrig.x + dx, y: selOrig.y + dy })
             }
           }
+
+          if (setObjectEditingState) {
+            setObjectEditingState(selId, "ENDED")
+          }
         }
       } else {
         // Single object drag
         updateObject(id, { x: newX, y: newY })
+        if (setObjectEditingState) {
+          setObjectEditingState(id, "ENDED")
+        }
       }
 
       originalPositionsRef.current = new Map()
     },
-    [updateObject],
+    [updateObject, setObjectEditingState],
   )
 
   return { onDragStart, onDragEnd }

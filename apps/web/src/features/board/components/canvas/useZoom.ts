@@ -40,6 +40,10 @@ export function useZoom({ stageRef }: UseZoomOptions): UseZoomReturn {
       const stage = stageRef.current
       if (!stage) return
 
+      if (useUIStore.getState().followingUserId) {
+        useUIStore.getState().setFollowingUserId(null)
+      }
+
       const { x: stageX, y: stageY, scale: oldScale } = viewportRef.current
 
       // ── Ctrl / Cmd: zoom ───────────────────────────────────────────────

@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { Image as KonvaImage, Group, Rect, Text } from "react-konva"
-import type { BoardObjectDto } from "@rctw/shared-contracts"
+import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
+import { EditingBadge } from "./EditingBadge"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface IconObjectProps {
   object: BoardObjectDto
   isSelected: boolean
-  isEditedByOther: boolean
+  editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
@@ -125,7 +126,7 @@ function useIconImage(
 export function IconObject({
   object,
   isSelected,
-  isEditedByOther,
+  editingUser,
   onSelect,
   onDragStart,
   onDragEnd,
@@ -138,6 +139,11 @@ export function IconObject({
   const iconSize = Math.min(w, h)
 
   const img = useIconImage(s.iconKey || "Circle", s.fill, iconSize)
+
+  const isEditedByOther = !!editingUser
+  const borderStroke = editingUser?.avatarColor || EDIT_LOCK_STROKE
+  const borderFill = editingUser?.avatarColor ? `${editingUser.avatarColor}14` : "rgba(59,130,246,0.08)"
+  const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
 
   return (
     <Group
@@ -191,17 +197,25 @@ export function IconObject({
 
       {/* Edit-lock border */}
       {isEditedByOther && (
-        <Rect
-          width={w}
-          height={h}
-          stroke={EDIT_LOCK_STROKE}
-          strokeWidth={2}
-          fill="transparent"
-          dash={[6, 4]}
-          cornerRadius={4}
-          listening={false}
-          perfectDrawEnabled={false}
-        />
+        <>
+          <Rect
+            width={w}
+            height={h}
+            stroke={borderStroke}
+            strokeWidth={2}
+            fill={borderFill}
+            dash={[6, 4]}
+            cornerRadius={4}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+          <EditingBadge
+            x={Math.max(0, w - badgeWidth)}
+            y={-20}
+            name={editingUser.name}
+            color={borderStroke}
+          />
+        </>
       )}
     </Group>
   )

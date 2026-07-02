@@ -1,23 +1,23 @@
-"use client"
-
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Text, Group, Rect } from "react-konva"
 import type Konva from "konva"
-import type { BoardObjectDto } from "@rctw/shared-contracts"
+import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
 import { useUIStore } from "@/stores/ui.store"
+import { EditingBadge } from "./EditingBadge"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface TextObjectProps {
   object: BoardObjectDto
   isSelected: boolean
-  isEditedByOther: boolean
+  editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
   /** Called when user finishes editing to persist the new text */
   onTextChange: (id: string, text: string) => void
+  setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void
 }
 
 const SELECTION_STROKE = "#6366f1"
@@ -41,11 +41,12 @@ const PADDING = 6
 export function TextObject({
   object,
   isSelected,
-  isEditedByOther,
+  editingUser,
   onSelect,
   onDragStart,
   onDragEnd,
   onTextChange,
+  setObjectEditingState,
 }: TextObjectProps) {
   const s = resolveStyle("TEXT", object.style)
   const { viewport } = useUIStore()
@@ -60,6 +61,10 @@ export function TextObject({
   const w = object.width ?? MIN_WIDTH
   const h = object.height ?? MIN_HEIGHT
 
+  const isEditedByOther = !!editingUser
+  const borderStroke = editingUser?.avatarColor || "#3b82f6"
+  const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
+
   // ── Enter edit mode ────────────────────────────────────────────────────────
 
   const enterEdit = useCallback(() => {
@@ -68,20 +73,27 @@ export function TextObject({
     // This is a callback (not an effect), so setState here is fine.
     setEditValue(object.text ?? "")
     setIsEditing(true)
-  }, [isEditedByOther, object.text])
+    if (setObjectEditingState) {
+      setObjectEditingState(object.id, "STARTED")
+    }
+  }, [isEditedByOther, object.text, object.id, setObjectEditingState])
 
   // ── Commit or cancel edit ──────────────────────────────────────────────────
 
   const commitEdit = useCallback(() => {
     setIsEditing(false)
     onTextChange(object.id, editValue)
-  }, [object.id, editValue, onTextChange])
+    if (setObjectEditingState) {
+      setObjectEditingState(object.id, "ENDED")
+    }
+  }, [object.id, editValue, onTextChange, setObjectEditingState])
 
   const cancelEdit = useCallback(() => {
     setIsEditing(false)
-    // No need to reset editValue here — it will be re-initialised next time
-    // enterEdit is called.
-  }, [])
+    if (setObjectEditingState) {
+      setObjectEditingState(object.id, "ENDED")
+    }
+  }, [object.id, setObjectEditingState])
 
   // ── Position textarea over the Konva Text node ─────────────────────────────
 
@@ -179,7 +191,7 @@ export function TextObject({
         <Rect
           width={w}
           height={h}
-          stroke={isEditedByOther ? "#3b82f6" : SELECTION_STROKE}
+          stroke={isEditedByOther ? borderStroke : SELECTION_STROKE}
           strokeWidth={2}
           fill="transparent"
           dash={isEditedByOther ? [6, 4] : undefined}
@@ -205,6 +217,16 @@ export function TextObject({
         listening={false}
         perfectDrawEnabled={false}
       />
+
+      {/* Editing-by-other badge */}
+      {isEditedByOther && (
+        <EditingBadge
+          x={Math.max(0, w - badgeWidth)}
+          y={-20}
+          name={editingUser.name}
+          color={borderStroke}
+        />
+      )}
     </Group>
   )
 }

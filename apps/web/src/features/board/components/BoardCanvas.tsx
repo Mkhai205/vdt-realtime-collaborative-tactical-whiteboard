@@ -11,6 +11,8 @@ import { useViewport } from "./canvas/useViewport"
 import { useBoardSocket } from "../hooks/useBoardSocket"
 import { useObjectMutations } from "../hooks/useObjectMutations"
 import { ConnectionStatus } from "./canvas/ConnectionStatus"
+import { PresenceBar } from "@/features/presence/components/PresenceBar"
+import { CursorOverlay } from "@/features/cursor/components/CursorOverlay"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -95,10 +97,22 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       {/* ── Connection status indicator ─── */}
       <ConnectionStatus status={connectionStatus} />
 
-      {/* ── Placeholder slots for future plans ─── */}
-      {/* <BoardHeader />       Plan 07 */}
-      {/* <PresenceBar />       Plan 09 */}
-      {/* <CursorOverlay />     Plan 08 */}
+      {/* ── Top-right: presence bar ─── */}
+      <div
+        id="board-presence-container"
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          pointerEvents: "auto",
+        }}
+      >
+        <PresenceBar />
+      </div>
+
+      {/* ── Remote Cursor Overlay ─── */}
+      <CursorOverlay boardId={boardId} />
     </div>
   )
 }

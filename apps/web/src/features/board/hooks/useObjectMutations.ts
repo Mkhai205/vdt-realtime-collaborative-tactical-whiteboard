@@ -127,7 +127,28 @@ export function useObjectMutations(boardId: string) {
     socket.emit(ClientEvents.OPERATION_REDO, { boardId })
   }, [boardId])
 
-  return { createObject, updateObject, deleteObject, undo, redo }
+  const setObjectEditingState = useCallback(
+    (objectId: string, status: "STARTED" | "ENDED") => {
+      const socket = getSocket()
+      if (socket.connected) {
+        socket.emit(ClientEvents.OBJECT_EDITING, {
+          boardId,
+          objectId,
+          status,
+        })
+      }
+    },
+    [boardId],
+  )
+
+  return {
+    createObject,
+    updateObject,
+    deleteObject,
+    undo,
+    redo,
+    setObjectEditingState,
+  }
 }
 
 export type UseObjectMutationsReturn = ReturnType<typeof useObjectMutations>

@@ -1,15 +1,14 @@
-"use client"
-
 import { Arrow, Group } from "react-konva"
-import type { BoardObjectDto } from "@rctw/shared-contracts"
+import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle, safePoints } from "./shapeDefaults"
+import { EditingBadge } from "./EditingBadge"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface LineObjectProps {
   object: BoardObjectDto
   isSelected: boolean
-  isEditedByOther: boolean
+  editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
 }
 
@@ -31,7 +30,7 @@ const EDIT_LOCK_STROKE = "#3b82f6"
 export function LineObject({
   object,
   isSelected,
-  isEditedByOther,
+  editingUser,
   onSelect,
 }: LineObjectProps) {
   const s = resolveStyle("LINE", object.style)
@@ -40,15 +39,25 @@ export function LineObject({
   // Fallback: draw a short horizontal line so the object is always visible
   const points = pts.length >= 4 ? pts : [0, 0, 100, 0]
 
+  const isEditedByOther = !!editingUser
+  const borderStroke = editingUser?.avatarColor || EDIT_LOCK_STROKE
+  const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
+
   const strokeColor = isSelected
     ? SELECTION_STROKE
     : isEditedByOther
-      ? EDIT_LOCK_STROKE
+      ? borderStroke
       : s.stroke
 
   const strokeWidth = isSelected
     ? Math.max(s.strokeWidth, 2)
     : s.strokeWidth
+
+  // Find bounds of the points to place editing badge
+  const xCoords = points.filter((_, idx) => idx % 2 === 0)
+  const yCoords = points.filter((_, idx) => idx % 2 === 1)
+  const maxX = Math.max(...xCoords)
+  const minY = Math.min(...yCoords)
 
   return (
     <Group id={object.id}>
@@ -84,6 +93,16 @@ export function LineObject({
         perfectDrawEnabled={false}
         shadowEnabled={false}
       />
+
+      {/* Editing-by-other badge */}
+      {isEditedByOther && (
+        <EditingBadge
+          x={maxX - badgeWidth}
+          y={minY - 20}
+          name={editingUser.name}
+          color={borderStroke}
+        />
+      )}
     </Group>
   )
 }

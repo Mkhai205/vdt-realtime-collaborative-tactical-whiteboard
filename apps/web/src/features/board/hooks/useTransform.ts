@@ -2,11 +2,12 @@ import { useCallback } from "react"
 import type Konva from "konva"
 import type { KonvaEventObject } from "konva/lib/Node"
 import { useBoardStore } from "@/stores/board.store"
+import { useUIStore } from "@/stores/ui.store"
 
 // ─── Hook ───────────────────────────────────────────────────────────────────────
 
 /**
- * Handles Konva Transformer `transformend` events.
+ * Handles Konva Transformer `transformstart` and `transformend` events.
  *
  * When Konva scales a node via resize handles it modifies `scaleX/scaleY`
  * rather than `width/height`. This hook converts scale back into real
@@ -27,7 +28,20 @@ export function useTransform(
       rotation?: number
     },
   ) => void,
+  setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void,
 ) {
+  const onTransformStart = useCallback(
+    (_e: KonvaEventObject<Event>) => {
+      const { selectedIds } = useUIStore.getState()
+      if (setObjectEditingState) {
+        for (const id of selectedIds) {
+          setObjectEditingState(id, "STARTED")
+        }
+      }
+    },
+    [setObjectEditingState],
+  )
+
   const onTransformEnd = useCallback(
     (e: KonvaEventObject<Event>) => {
       const node = e.target as Konva.Node
@@ -80,11 +94,19 @@ export function useTransform(
         height: newHeight,
         rotation,
       })
+
+      // Emit ENDED status for all currently selected objects
+      const { selectedIds } = useUIStore.getState()
+      if (setObjectEditingState) {
+        for (const selId of selectedIds) {
+          setObjectEditingState(selId, "ENDED")
+        }
+      }
     },
-    [updateObject],
+    [updateObject, setObjectEditingState],
   )
 
-  return { onTransformEnd }
+  return { onTransformStart, onTransformEnd }
 }
 
 export type UseTransformReturn = ReturnType<typeof useTransform>

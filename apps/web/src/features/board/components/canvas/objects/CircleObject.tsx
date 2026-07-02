@@ -1,15 +1,14 @@
-"use client"
-
 import { Ellipse, Group } from "react-konva"
-import type { BoardObjectDto } from "@rctw/shared-contracts"
+import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
+import { EditingBadge } from "./EditingBadge"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface CircleObjectProps {
   object: BoardObjectDto
   isSelected: boolean
-  isEditedByOther: boolean
+  editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
@@ -31,7 +30,7 @@ const EDIT_LOCK_FILL = "rgba(59,130,246,0.08)"
 export function CircleObject({
   object,
   isSelected,
-  isEditedByOther,
+  editingUser,
   onSelect,
   onDragStart,
   onDragEnd,
@@ -44,6 +43,11 @@ export function CircleObject({
 
   // Suppress unused — kept for future hover/focus states
   void isSelected
+
+  const isEditedByOther = !!editingUser
+  const borderStroke = editingUser?.avatarColor || EDIT_LOCK_STROKE
+  const borderFill = editingUser?.avatarColor ? `${editingUser.avatarColor}14` : EDIT_LOCK_FILL
+  const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
 
   return (
     <Group
@@ -74,16 +78,24 @@ export function CircleObject({
       />
 
       {isEditedByOther && (
-        <Ellipse
-          radiusX={rx}
-          radiusY={ry}
-          fill={EDIT_LOCK_FILL}
-          stroke={EDIT_LOCK_STROKE}
-          strokeWidth={2}
-          dash={[6, 4]}
-          listening={false}
-          perfectDrawEnabled={false}
-        />
+        <>
+          <Ellipse
+            radiusX={rx}
+            radiusY={ry}
+            fill={borderFill}
+            stroke={borderStroke}
+            strokeWidth={2}
+            dash={[6, 4]}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+          <EditingBadge
+            x={rx - badgeWidth}
+            y={-ry - 20}
+            name={editingUser.name}
+            color={borderStroke}
+          />
+        </>
       )}
     </Group>
   )

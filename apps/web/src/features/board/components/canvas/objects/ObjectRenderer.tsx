@@ -1,6 +1,4 @@
-"use client"
-
-import type { BoardObjectDto } from "@rctw/shared-contracts"
+import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { RectangleObject } from "./RectangleObject"
 import { CircleObject } from "./CircleObject"
 import { LineObject } from "./LineObject"
@@ -13,12 +11,13 @@ import { IconObject } from "./IconObject"
 interface ObjectRendererProps {
   object: BoardObjectDto
   isSelected: boolean
-  /** True if this object is currently being edited by another user */
-  isEditedByOther: boolean
+  /** The user who is currently editing this object, if any */
+  editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
   onTextChange: (id: string, text: string) => void
+  setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -32,11 +31,12 @@ interface ObjectRendererProps {
 export function ObjectRenderer({
   object,
   isSelected,
-  isEditedByOther,
+  editingUser,
   onSelect,
   onDragStart,
   onDragEnd,
   onTextChange,
+  setObjectEditingState,
 }: ObjectRendererProps) {
   switch (object.type) {
     case "RECTANGLE":
@@ -44,7 +44,7 @@ export function ObjectRenderer({
         <RectangleObject
           object={object}
           isSelected={isSelected}
-          isEditedByOther={isEditedByOther}
+          editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
@@ -56,7 +56,7 @@ export function ObjectRenderer({
         <CircleObject
           object={object}
           isSelected={isSelected}
-          isEditedByOther={isEditedByOther}
+          editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
@@ -68,7 +68,7 @@ export function ObjectRenderer({
         <LineObject
           object={object}
           isSelected={isSelected}
-          isEditedByOther={isEditedByOther}
+          editingUser={editingUser}
           onSelect={onSelect}
         />
       )
@@ -78,11 +78,12 @@ export function ObjectRenderer({
         <TextObject
           object={object}
           isSelected={isSelected}
-          isEditedByOther={isEditedByOther}
+          editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
           onTextChange={onTextChange}
+          setObjectEditingState={setObjectEditingState}
         />
       )
 
@@ -91,7 +92,7 @@ export function ObjectRenderer({
         <PathObject
           object={object}
           isSelected={isSelected}
-          isEditedByOther={isEditedByOther}
+          editingUser={editingUser}
           onSelect={onSelect}
         />
       )
@@ -101,7 +102,7 @@ export function ObjectRenderer({
         <IconObject
           object={object}
           isSelected={isSelected}
-          isEditedByOther={isEditedByOther}
+          editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
