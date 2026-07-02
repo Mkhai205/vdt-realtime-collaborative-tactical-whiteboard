@@ -5,7 +5,6 @@ import {
   Patch,
   Param,
   ParseUUIDPipe,
-  Body,
 } from "@nestjs/common"
 import {
   respondJoinRequestSchema,

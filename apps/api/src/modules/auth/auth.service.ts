@@ -46,7 +46,7 @@ export class AuthService {
         data: {
           googleId: googlePayload.sub,
           email: googlePayload.email,
-          name: googlePayload.name!,
+          name: googlePayload.name,
           avatarUrl: googlePayload.picture,
           avatarColor: this.generateAvatarColor(),
         },
@@ -159,8 +159,8 @@ export class AuthService {
 
   private async verifyGoogleIdToken(idToken: string): Promise<{
     sub: string
-    email?: string
-    name?: string
+    email: string
+    name: string
     picture?: string
   }> {
     try {
@@ -173,8 +173,8 @@ export class AuthService {
       }
       return {
         sub: payload.sub,
-        email: payload.email,
-        name: payload.name,
+        email: payload.email!,
+        name: payload.name!,
         picture: payload.picture,
       }
     } catch (e: any) {

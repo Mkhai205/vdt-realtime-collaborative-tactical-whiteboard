@@ -29,7 +29,9 @@ export type UserSummary = {
 
 // --- Response Types ---
 
-export type UserResponse = UserSummary
+export type UserResponse = UserSummary & {
+  email: string
+}
 
 export type UpdateProfileResponse = {
   user: UserSummary

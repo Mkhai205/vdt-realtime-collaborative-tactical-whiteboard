@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { Socket } from "socket.io"
 import {
   type JwtPayload,
@@ -12,8 +12,6 @@ import { AppException } from "../../../common/exceptions"
 
 @Injectable()
 export class SelectionHandler {
-  private readonly logger = new Logger(SelectionHandler.name)
-
   constructor(private readonly presenceService: PresenceService) {}
 
   /**

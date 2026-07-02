@@ -43,7 +43,7 @@ enum OperationType {
 
 model User {
   id          String   @id @default(uuid()) @db.Uuid
-  email       String?  @unique
+  email       String   @unique
   googleId    String?  @unique
   name        String   @db.VarChar(120)
   avatarUrl   String?  @db.Text
@@ -137,7 +137,7 @@ model BoardJoinLink {
   role      BoardRole @default(EDITOR)
   createdAt DateTime  @default(now()) @db.Timestamptz(6)
 
-  board     Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([boardId])
@@ -161,7 +161,6 @@ model BoardInvitation {
   @@index([boardId])
   @@index([invitedById])
 }
-
 
 model BoardObject {
   id          String     @id @default(uuid()) @db.Uuid

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { PrismaService } from "../../../infrastructure/database"
 import { BoardPermissionService } from "./board-permission.service"
@@ -31,6 +31,7 @@ type BoardInvitationRecord = Prisma.BoardInvitationGetPayload<{
 @Injectable()
 export class BoardInvitationService {
   private readonly frontendUrl: string
+  private readonly logger = new Logger(BoardInvitationService.name)
 
   constructor(
     private readonly prisma: PrismaService,
@@ -128,7 +129,10 @@ export class BoardInvitationService {
       )
     } catch (mailError) {
       // Ghi log lỗi gửi mail nhưng vẫn trả về lời mời đã tạo trong DB
-      console.error(`Failed to send invitation email to ${email}:`, mailError)
+      this.logger.error(
+        `Failed to send invitation email to ${email}:`,
+        mailError,
+      )
     }
 
     return this.toInvitationResponse(invitation)

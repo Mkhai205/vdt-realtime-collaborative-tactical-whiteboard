@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import {
-  type UserSummary,
+  type UserResponse,
   type UpdateProfileRequest,
 } from "@rctw/shared-contracts"
 import { PrismaService } from "../../infrastructure/database"
@@ -22,7 +22,7 @@ export const userProfileSelect = {
 export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getProfile(userId: string): Promise<UserSummary> {
+  async getProfile(userId: string): Promise<UserResponse> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: userProfileSelect,
@@ -38,7 +38,7 @@ export class UserService {
   async updateProfile(
     userId: string,
     data: UpdateProfileRequest,
-  ): Promise<UserSummary> {
+  ): Promise<UserResponse> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     })
@@ -53,7 +53,7 @@ export class UserService {
         name: data.name,
         avatarColor: data.avatarColor,
       },
-      select: userSummarySelect,
+      select: userProfileSelect,
     })
   }
 }

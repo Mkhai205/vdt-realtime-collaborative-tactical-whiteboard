@@ -1,4 +1,4 @@
-import { Body, Injectable, Param, PipeTransform, Query } from "@nestjs/common"
+import { Body, Injectable, PipeTransform, Query } from "@nestjs/common"
 import { AppException } from "../exceptions"
 import z from "zod"
 
