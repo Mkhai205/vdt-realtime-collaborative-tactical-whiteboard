@@ -39,7 +39,6 @@ export function GoogleLoginButton() {
         size="large"
         shape="rectangular"
         width="320"
-        useOneTap
       />
     </div>
   )

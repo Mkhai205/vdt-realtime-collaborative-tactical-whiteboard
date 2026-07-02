@@ -113,13 +113,16 @@ apiClient.interceptors.response.use(
     } catch (refreshError) {
       flushRefreshQueue(refreshError, null)
 
-      // Refresh failed → log out and redirect
+      // Refresh failed → log out and clear cookies
       useAuthStore.getState().clearAuth()
 
       toast.error("Session expired. Please log in again.")
 
-      if (typeof window !== "undefined") {
-        window.location.href = "/login"
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        // Yield to the event loop to ensure cookie clearance is flushed before navigating
+        setTimeout(() => {
+          window.location.href = "/login"
+        }, 100)
       }
 
       return Promise.reject(refreshError)
