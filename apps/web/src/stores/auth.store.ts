@@ -46,13 +46,21 @@ export const useAuthStore = create<AuthStore>()(
       isLoading: true,
 
       // ── Actions ──
-      setAuth: (user, accessToken) =>
-        set({ user, accessToken, isLoading: false }),
+      setAuth: (user, accessToken) => {
+        if (typeof window !== "undefined") {
+          document.cookie = "rctw_logged_in=true; path=/; max-age=2592000; SameSite=Lax"
+        }
+        set({ user, accessToken, isLoading: false })
+      },
 
       setAccessToken: (accessToken) => set({ accessToken }),
 
-      clearAuth: () =>
-        set({ user: null, accessToken: null, isLoading: false }),
+      clearAuth: () => {
+        if (typeof window !== "undefined") {
+          document.cookie = "rctw_logged_in=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
+        }
+        set({ user: null, accessToken: null, isLoading: false })
+      },
 
       setIsLoading: (isLoading) => set({ isLoading }),
     }),
