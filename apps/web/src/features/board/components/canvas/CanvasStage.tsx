@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Stage, Layer } from "react-konva"
+import { Stage } from "react-konva"
 import { useUIStore } from "@/stores/ui.store"
 import { CanvasBackground } from "./CanvasBackground"
 import { ObjectsLayer } from "./ObjectsLayer"
@@ -16,10 +16,14 @@ import { useLassoSelect } from "@/features/board/hooks/useLassoSelect"
 import { useTransform } from "@/features/board/hooks/useTransform"
 import { useKeyboardActions } from "@/features/board/hooks/useKeyboardActions"
 
+import { type UseObjectMutationsReturn } from "@/features/board/hooks/useObjectMutations"
+import { useCursorEmit } from "@/features/board/hooks/useCursorEmit"
+
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface CanvasStageProps {
   boardId: string
+  mutations: UseObjectMutationsReturn
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -38,10 +42,7 @@ interface CanvasStageProps {
  *      [2] Selection         (Transformer + lasso rect)
  *      [3] UI                (drawing preview)
  */
-export function CanvasStage({ boardId }: CanvasStageProps) {
-  // Suppress unused boardId until Plan 08 socket wiring
-  void boardId
-
+export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
   // ── Stage dimensions ──────────────────────────────────────────────────────
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -71,17 +72,27 @@ export function CanvasStage({ boardId }: CanvasStageProps) {
   const { stageRef } = viewportHook
   const { viewport, activeTool } = useUIStore()
 
+  // Realtime Sync & mutations hooks
+  const cursorEmit = useCursorEmit(boardId)
+
   const zoom = useZoom({ stageRef })
   const pan = usePan({ stageRef })
-  const shapeCreation = useShapeCreation(stageRef)
+  const shapeCreation = useShapeCreation(stageRef, mutations.createObject)
   const lassoSelect = useLassoSelect(stageRef)
-  const transform = useTransform()
+  const transform = useTransform(mutations.updateObject)
 
-  const events = useCanvasEvents({ stageRef, pan, zoom, shapeCreation, lassoSelect })
+  const events = useCanvasEvents({
+    stageRef,
+    pan,
+    zoom,
+    shapeCreation,
+    lassoSelect,
+    cursorEmit,
+  })
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
 
-  useKeyboardActions()
+  useKeyboardActions(mutations)
 
   // ── Spacebar → pan override ───────────────────────────────────────────────
 
@@ -162,7 +173,7 @@ export function CanvasStage({ boardId }: CanvasStageProps) {
         />
 
         {/* Layer 1 — Board objects (sorted by zIndex) */}
-        <ObjectsLayer />
+        <ObjectsLayer mutations={mutations} />
 
         {/* Layer 2 — Selection handles (Transformer + lasso) */}
         <SelectionLayer

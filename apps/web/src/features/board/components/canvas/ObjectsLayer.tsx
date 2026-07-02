@@ -5,9 +5,14 @@ import { Layer } from "react-konva"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
 import { useDragMove } from "@/features/board/hooks/useDragMove"
+import type { UseObjectMutationsReturn } from "@/features/board/hooks/useObjectMutations"
 import { ObjectRenderer } from "./objects/ObjectRenderer"
 
 // ─── Component ─────────────────────────────────────────────────────────────────
+
+interface ObjectsLayerProps {
+  mutations: UseObjectMutationsReturn
+}
 
 /**
  * Konva Layer containing all board objects, sorted by `zIndex` (ascending).
@@ -20,13 +25,13 @@ import { ObjectRenderer } from "./objects/ObjectRenderer"
  * SelectionLayer; individual shapes no longer draw their own selection border.
  * The `isSelected` prop is still forwarded for text object focus border.
  */
-export function ObjectsLayer() {
+export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
   const objects = useBoardStore((s) => s.objects)
   const editingStates = useBoardStore((s) => s.editingStates)
   const { selectedIds, setSelectedIds, addToSelection, clearSelection } =
     useUIStore()
 
-  const { onDragStart, onDragEnd } = useDragMove()
+  const { onDragStart, onDragEnd } = useDragMove(mutations.updateObject)
 
   // ── Sort objects by zIndex once per render ────────────────────────────────
 
@@ -65,12 +70,9 @@ export function ObjectsLayer() {
 
   const handleTextChange = useCallback(
     (id: string, text: string) => {
-      // Optimistic text update — socket emit wired in Plan 08
-      const obj = objects.get(id)
-      if (!obj) return
-      useBoardStore.getState().upsertObject({ ...obj, text })
+      mutations.updateObject(id, { text })
     },
-    [objects],
+    [mutations],
   )
 
   // ── Render ────────────────────────────────────────────────────────────────

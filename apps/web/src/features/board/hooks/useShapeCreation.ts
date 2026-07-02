@@ -1,6 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef } from "react"
 import type Konva from "konva"
-import type { BoardObjectDto, ObjectType } from "@rctw/shared-contracts"
+import type {
+  BoardObjectDto,
+  ObjectType,
+  ObjectCreatePayload,
+} from "@rctw/shared-contracts"
 import { useUIStore } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
 import { DEFAULT_STYLES } from "../components/canvas/objects/shapeDefaults"
@@ -45,10 +50,6 @@ export const sharedPreviewRef: React.MutableRefObject<PreviewShape | null> = {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function newId(): string {
-  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-}
-
 function getWorldPos(stage: Konva.Stage): { x: number; y: number } | null {
   const pos = stage.getPointerPosition()
   if (!pos) return null
@@ -83,46 +84,6 @@ function buildPreview(
   }
 }
 
-function commitShape(
-  type: ObjectType,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  points: number[] | undefined,
-) {
-  const id = newId()
-  const now = new Date().toISOString()
-  const style = { ...DEFAULT_STYLES[type] }
-
-  const obj: BoardObjectDto = {
-    id,
-    boardId: "",
-    type,
-    x,
-    y,
-    width: width || undefined,
-    height: height || undefined,
-    points: points ?? null,
-    text: type === "TEXT" ? "Text" : null,
-    rotation: 0,
-    style,
-    zIndex: useBoardStore.getState().objects.size,
-    version: 1,
-    createdById: "",
-    updatedById: null,
-    createdAt: now,
-    updatedAt: now,
-  }
-
-  useBoardStore.getState().upsertObject(obj)
-  useUIStore.getState().setSelectedIds(new Set([id]))
-  // After creating any shape (except PATH mid-stroke), switch back to SELECT
-  if (type !== "PATH") {
-    useUIStore.getState().setActiveTool("SELECT")
-  }
-}
-
 // ─── Hook ───────────────────────────────────────────────────────────────────────
 
 const DRAW_TOOLS = new Set<string>([
@@ -146,6 +107,7 @@ const DRAW_TOOLS = new Set<string>([
  */
 export function useShapeCreation(
   stageRef: React.RefObject<Konva.Stage | null>,
+  createObject: (payload: ObjectCreatePayload) => void,
 ): UseShapeCreationReturn {
   const { activeTool } = useUIStore()
 
@@ -161,6 +123,40 @@ export function useShapeCreation(
   const startPointRef = useRef<{ x: number; y: number } | null>(null)
   const pathPointsRef = useRef<number[]>([])
   const previewRef = useRef<PreviewShape | null>(null)
+
+  const commitShape = useCallback(
+    (
+      type: ObjectType,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      points: number[] | undefined,
+    ) => {
+      const style = { ...DEFAULT_STYLES[type] }
+
+      const payload = {
+        type,
+        x,
+        y,
+        width: width || undefined,
+        height: height || undefined,
+        points: points ?? undefined,
+        text: type === "TEXT" ? "Text" : undefined,
+        rotation: 0,
+        style,
+        zIndex: useBoardStore.getState().objects.size,
+      }
+
+      createObject(payload)
+
+      // After creating any shape (except PATH mid-stroke), switch back to SELECT
+      if (type !== "PATH") {
+        useUIStore.getState().setActiveTool("SELECT")
+      }
+    },
+    [createObject],
+  )
 
   // ── Mouse down ─────────────────────────────────────────────────────────────
 
@@ -205,7 +201,7 @@ export function useShapeCreation(
       ])
       sharedPreviewRef.current = previewRef.current
     },
-    [stageRef],
+    [stageRef, commitShape],
   )
 
   // ── Mouse move ─────────────────────────────────────────────────────────────
@@ -307,7 +303,7 @@ export function useShapeCreation(
 
       startPointRef.current = null
     },
-    [stageRef],
+    [stageRef, commitShape],
   )
 
   return {

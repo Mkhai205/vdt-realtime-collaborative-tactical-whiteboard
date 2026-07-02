@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef } from "react"
 import type Konva from "konva"
 import { useUIStore } from "@/stores/ui.store"
@@ -5,6 +6,7 @@ import type { UsePanReturn } from "./usePan"
 import type { UseZoomReturn } from "./useZoom"
 import type { UseShapeCreationReturn } from "@/features/board/hooks/useShapeCreation"
 import type { UseLassoSelectReturn } from "@/features/board/hooks/useLassoSelect"
+import type { UseCursorEmitReturn } from "@/features/board/hooks/useCursorEmit"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,7 @@ export type UseCanvasEventsOptions = {
   zoom: UseZoomReturn
   shapeCreation: UseShapeCreationReturn
   lassoSelect: UseLassoSelectReturn
+  cursorEmit: UseCursorEmitReturn
 }
 
 export type UseCanvasEventsReturn = {
@@ -27,7 +30,14 @@ export type UseCanvasEventsReturn = {
 // ─── Tool routing constants ─────────────────────────────────────────────────────
 
 const PAN_TOOLS = new Set(["SELECT", "HAND"])
-const DRAW_TOOLS = new Set(["RECTANGLE", "CIRCLE", "LINE", "TEXT", "PATH", "ICON"])
+const DRAW_TOOLS = new Set([
+  "RECTANGLE",
+  "CIRCLE",
+  "LINE",
+  "TEXT",
+  "PATH",
+  "ICON",
+])
 
 // Suppress unused-var; PAN_TOOLS will be used for future cursor-override checks
 void PAN_TOOLS
@@ -47,6 +57,7 @@ export function useCanvasEvents({
   zoom,
   shapeCreation,
   lassoSelect,
+  cursorEmit,
 }: UseCanvasEventsOptions): UseCanvasEventsReturn {
   const { activeTool } = useUIStore()
   const activeToolRef = useRef(activeTool)
@@ -98,6 +109,11 @@ export function useCanvasEvents({
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null
 
+        const stage = stageRef.current
+        if (stage) {
+          cursorEmit.onCursorMove(stage)
+        }
+
         if (pan.getIsPanning()) {
           pan.handlePanMove(e)
           return
@@ -115,7 +131,7 @@ export function useCanvasEvents({
         }
       })
     },
-    [pan, shapeCreation, lassoSelect],
+    [pan, shapeCreation, lassoSelect, cursorEmit, stageRef],
   )
 
   // ── Mouse up ───────────────────────────────────────────────────────────────

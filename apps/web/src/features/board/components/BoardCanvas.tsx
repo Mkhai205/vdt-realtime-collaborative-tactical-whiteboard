@@ -8,6 +8,10 @@ import { StylePanel } from "./toolbar/StylePanel"
 import { SelectionBadge } from "./canvas/SelectionBadge"
 import { useViewport } from "./canvas/useViewport"
 
+import { useBoardSocket } from "../hooks/useBoardSocket"
+import { useObjectMutations } from "../hooks/useObjectMutations"
+import { ConnectionStatus } from "./canvas/ConnectionStatus"
+
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface BoardCanvasProps {
@@ -35,6 +39,10 @@ interface BoardCanvasProps {
 export function BoardCanvas({ boardId }: BoardCanvasProps) {
   const viewport = useViewport()
 
+  // Realtime Sync & mutations hooks
+  const { connectionStatus } = useBoardSocket(boardId)
+  const mutations = useObjectMutations(boardId)
+
   return (
     <div
       id="board-canvas-root"
@@ -42,7 +50,7 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}
     >
       {/* ── Canvas (absolute, full screen) ─── */}
-      <CanvasStage boardId={boardId} />
+      <CanvasStage boardId={boardId} mutations={mutations} />
 
       {/* ── Left: floating toolbar + style panel ─── */}
       <div
@@ -82,7 +90,10 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       <ZoomIndicator />
 
       {/* ── Selection count badge (shown when 2+ objects selected) ─── */}
-      <SelectionBadge />
+      <SelectionBadge mutations={mutations} />
+
+      {/* ── Connection status indicator ─── */}
+      <ConnectionStatus status={connectionStatus} />
 
       {/* ── Placeholder slots for future plans ─── */}
       {/* <BoardHeader />       Plan 07 */}

@@ -16,7 +16,18 @@ import { useBoardStore } from "@/stores/board.store"
  * - CIRCLE: Konva stores ellipse at center, so x/y must be adjusted by radius.
  * - LINE/PATH: points-aware resize is deferred; only x/y/rotation updated.
  */
-export function useTransform() {
+export function useTransform(
+  updateObject: (
+    objectId: string,
+    patch: {
+      x?: number
+      y?: number
+      width?: number | null
+      height?: number | null
+      rotation?: number
+    },
+  ) => void,
+) {
   const onTransformEnd = useCallback(
     (e: KonvaEventObject<Event>) => {
       const node = e.target as Konva.Node
@@ -62,8 +73,7 @@ export function useTransform() {
       }
 
       // Optimistic update — socket emit wired in Plan 08
-      useBoardStore.getState().upsertObject({
-        ...obj,
+      updateObject(id, {
         x: newX,
         y: newY,
         width: newWidth,
@@ -71,7 +81,7 @@ export function useTransform() {
         rotation,
       })
     },
-    [],
+    [updateObject],
   )
 
   return { onTransformEnd }

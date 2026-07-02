@@ -1,5 +1,4 @@
 import { useCallback, useRef } from "react"
-import type Konva from "konva"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
 
@@ -33,7 +32,9 @@ export type UseDragMoveReturn = {
  * Note: Konva fires onDragEnd after the node is already moved, so newX/newY
  * are the node's final position in world space.
  */
-export function useDragMove(): UseDragMoveReturn {
+export function useDragMove(
+  updateObject: (objectId: string, patch: { x: number; y: number }) => void,
+): UseDragMoveReturn {
   const originalPositionsRef = useRef<OriginalPositions>(new Map())
 
   const onDragStart = useCallback((id: string) => {
@@ -62,49 +63,52 @@ export function useDragMove(): UseDragMoveReturn {
     originalPositionsRef.current = originals
   }, [])
 
-  const onDragEnd = useCallback((id: string, newX: number, newY: number) => {
-    const { objects, upsertObject } = useBoardStore.getState()
-    const { selectedIds } = useUIStore.getState()
-    const originals = originalPositionsRef.current
+  const onDragEnd = useCallback(
+    (id: string, newX: number, newY: number) => {
+      const { objects } = useBoardStore.getState()
+      const { selectedIds } = useUIStore.getState()
+      const originals = originalPositionsRef.current
 
-    const obj = objects.get(id)
-    if (!obj) return
+      const obj = objects.get(id)
+      if (!obj) return
 
-    const isMultiSelect = selectedIds.has(id) && selectedIds.size > 1
+      const isMultiSelect = selectedIds.has(id) && selectedIds.size > 1
 
-    if (isMultiSelect) {
-      // Compute delta from original position of the dragged object
-      const orig = originals.get(id)
-      if (!orig) {
-        // Fallback — just update the single object
-        upsertObject({ ...obj, x: newX, y: newY })
-        return
-      }
+      if (isMultiSelect) {
+        // Compute delta from original position of the dragged object
+        const orig = originals.get(id)
+        if (!orig) {
+          // Fallback — just update the single object
+          updateObject(id, { x: newX, y: newY })
+          return
+        }
 
-      const dx = newX - orig.x
-      const dy = newY - orig.y
+        const dx = newX - orig.x
+        const dy = newY - orig.y
 
-      // Apply delta to all selected objects
-      for (const selId of selectedIds) {
-        const selObj = objects.get(selId)
-        if (!selObj) continue
+        // Apply delta to all selected objects
+        for (const selId of selectedIds) {
+          const selObj = objects.get(selId)
+          if (!selObj) continue
 
-        if (selId === id) {
-          upsertObject({ ...selObj, x: newX, y: newY })
-        } else {
-          const selOrig = originals.get(selId)
-          if (selOrig) {
-            upsertObject({ ...selObj, x: selOrig.x + dx, y: selOrig.y + dy })
+          if (selId === id) {
+            updateObject(selId, { x: newX, y: newY })
+          } else {
+            const selOrig = originals.get(selId)
+            if (selOrig) {
+              updateObject(selId, { x: selOrig.x + dx, y: selOrig.y + dy })
+            }
           }
         }
+      } else {
+        // Single object drag
+        updateObject(id, { x: newX, y: newY })
       }
-    } else {
-      // Single object drag
-      upsertObject({ ...obj, x: newX, y: newY })
-    }
 
-    originalPositionsRef.current = new Map()
-  }, [])
+      originalPositionsRef.current = new Map()
+    },
+    [updateObject],
+  )
 
   return { onDragStart, onDragEnd }
 }

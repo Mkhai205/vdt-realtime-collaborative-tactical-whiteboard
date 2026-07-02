@@ -1,13 +1,9 @@
 import { useEffect } from "react"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
-import type { BoardObjectDto } from "@rctw/shared-contracts"
+import type { BoardObjectDto, ObjectCreatePayload, ObjectUpdatePatch } from "@rctw/shared-contracts"
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
-
-function newLocalId(): string {
-  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-}
 
 /** Returns true when the active element is an input/textarea (avoid triggering shortcuts) */
 function isInputFocused(): boolean {
@@ -31,14 +27,26 @@ function isInputFocused(): boolean {
  *
  * Mutations are optimistic (board store only); socket events wired in Plan 08.
  */
-export function useKeyboardActions() {
+export function useKeyboardActions(mutations: {
+  createObject: (payload: ObjectCreatePayload, selectMode?: "replace" | "add" | "none") => void
+  updateObject: (id: string, patch: ObjectUpdatePatch) => void
+  deleteObject: (id: string) => void
+  undo: () => void
+  redo: () => void
+}) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (isInputFocused()) return
 
-      const { selectedIds, clearSelection, setSelectedIds, setActiveTool, clipboard, setClipboard } =
-        useUIStore.getState()
-      const { objects, upsertObject, removeObject } = useBoardStore.getState()
+      const {
+        selectedIds,
+        clearSelection,
+        setSelectedIds,
+        setActiveTool,
+        clipboard,
+        setClipboard,
+      } = useUIStore.getState()
+      const { objects } = useBoardStore.getState()
 
       // ── Delete / Backspace — remove selected objects ────────────────────────
 
@@ -46,7 +54,7 @@ export function useKeyboardActions() {
         if (selectedIds.size === 0) return
         e.preventDefault()
         for (const id of selectedIds) {
-          removeObject(id)
+          mutations.deleteObject(id)
         }
         clearSelection()
         return
@@ -88,7 +96,7 @@ export function useKeyboardActions() {
         for (const id of selectedIds) {
           const obj = objects.get(id)
           if (obj) {
-            upsertObject({ ...obj, x: obj.x + dx, y: obj.y + dy })
+            mutations.updateObject(id, { x: obj.x + dx, y: obj.y + dy })
           }
         }
         return
@@ -107,15 +115,13 @@ export function useKeyboardActions() {
           break
         }
 
-        // Ctrl+Z — undo (optimistic: just reset store; socket undo in Plan 08)
+        // Ctrl+Z — undo
         case "z": {
           e.preventDefault()
           if (e.shiftKey) {
-            // Ctrl+Shift+Z → redo (stub — socket emit in Plan 08)
-            // useBoardStore.getState().emitRedo?.()
+            mutations.redo()
           } else {
-            // Ctrl+Z → undo (stub — socket emit in Plan 08)
-            // useBoardStore.getState().emitUndo?.()
+            mutations.undo()
           }
           break
         }
@@ -123,8 +129,7 @@ export function useKeyboardActions() {
         // Ctrl+Y — redo
         case "y": {
           e.preventDefault()
-          // Redo stub — socket emit in Plan 08
-          // useBoardStore.getState().emitRedo?.()
+          mutations.redo()
           break
         }
 
@@ -145,24 +150,24 @@ export function useKeyboardActions() {
         case "v": {
           if (clipboard.length === 0) break
           e.preventDefault()
-          const now = new Date().toISOString()
-          const pastedIds = new Set<string>()
+          // Clear current selection so the pasted items will be the only selected ones
+          clearSelection()
 
           for (const src of clipboard) {
-            const newId = newLocalId()
-            pastedIds.add(newId)
-            upsertObject({
-              ...src,
-              id: newId,
+            const payload = {
+              type: src.type,
               x: src.x + 20,
               y: src.y + 20,
-              version: 1,
-              createdAt: now,
-              updatedAt: now,
-            })
+              width: src.width ?? undefined,
+              height: src.height ?? undefined,
+              points: src.points ?? undefined,
+              text: src.text ?? undefined,
+              rotation: src.rotation,
+              style: src.style,
+              zIndex: objects.size,
+            }
+            mutations.createObject(payload, "add")
           }
-
-          setSelectedIds(pastedIds)
           break
         }
 
@@ -173,5 +178,5 @@ export function useKeyboardActions() {
 
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [])
+  }, [mutations])
 }

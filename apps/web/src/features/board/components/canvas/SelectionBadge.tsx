@@ -1,9 +1,13 @@
 "use client"
 
 import { useUIStore } from "@/stores/ui.store"
-import { useBoardStore } from "@/stores/board.store"
+import type { UseObjectMutationsReturn } from "../../hooks/useObjectMutations"
 
 // ─── Component ─────────────────────────────────────────────────────────────────
+
+interface SelectionBadgeProps {
+  mutations: UseObjectMutationsReturn
+}
 
 /**
  * HTML overlay badge shown at bottom-center when 2+ objects are selected.
@@ -14,17 +18,16 @@ import { useBoardStore } from "@/stores/board.store"
  * Layout:
  *   ✦ N objects selected    [Delete all]
  */
-export function SelectionBadge() {
+export function SelectionBadge({ mutations }: SelectionBadgeProps) {
   const selectedIds = useUIStore((s) => s.selectedIds)
   const clearSelection = useUIStore((s) => s.clearSelection)
-  const removeObject = useBoardStore((s) => s.removeObject)
 
   const count = selectedIds.size
   if (count < 2) return null
 
   const handleDeleteAll = () => {
     for (const id of selectedIds) {
-      removeObject(id)
+      mutations.deleteObject(id)
     }
     clearSelection()
   }
@@ -59,7 +62,8 @@ export function SelectionBadge() {
         color: "rgba(255,255,255,0.9)",
 
         // Entrance animation
-        animation: "selection-badge-in 0.18s cubic-bezier(0.34,1.56,0.64,1) both",
+        animation:
+          "selection-badge-in 0.18s cubic-bezier(0.34,1.56,0.64,1) both",
       }}
     >
       {/* Icon + count */}
