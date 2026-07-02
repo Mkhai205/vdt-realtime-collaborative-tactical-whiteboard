@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/auth.store"
 import { authApi } from "../api/auth.api"
@@ -12,9 +13,17 @@ export function useAuth() {
       const data = await authApi.loginWithGoogle(idToken)
       setAuth(data.user, data.accessToken)
       toast.success("Logged in successfully!")
-      router.push("/dashboard")
+
+      const redirectPath =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("redirect") ||
+            "/dashboard"
+          : "/dashboard"
+
+      router.push(redirectPath)
     } catch (error: any) {
-      const errMsg = error?.response?.data?.message || "Failed to log in with Google"
+      const errMsg =
+        error?.response?.data?.message || "Failed to log in with Google"
       toast.error(errMsg)
       throw error
     }

@@ -113,15 +113,15 @@ function useIconImage(
 }
 
 
+import { useBoardStore } from "@/stores/board.store"
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 /**
- * Renders an ICON board object by:
- * 1. Dynamically importing the lucide icon by name (style.iconKey)
- * 2. Converting the SVG to an HTMLImageElement via a Blob URL
- * 3. Drawing it with Konva Image
+ * Renders an ICON board object.
  *
- * Falls back to a violet Rect + "?" text while loading or on unknown key.
+ * Uses Lucide icons rendered into an HTMLImageElement via custom SVG path logic,
+ * then drawn on canvas using `react-konva.Image`.
  */
 export function IconObject({
   object,
@@ -131,12 +131,16 @@ export function IconObject({
   onDragStart,
   onDragEnd,
 }: IconObjectProps) {
-  // isSelected kept for future hover states; Transformer handles selection visuals
-  void isSelected
   const s = resolveStyle("ICON", object.style)
   const w = object.width ?? FALLBACK_SIZE
   const h = object.height ?? FALLBACK_SIZE
   const iconSize = Math.min(w, h)
+
+  // Suppress unused — isSelected kept in props for future use (e.g. text highlight)
+  void isSelected
+
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
   const img = useIconImage(s.iconKey || "Circle", s.fill, iconSize)
 
@@ -152,7 +156,7 @@ export function IconObject({
       y={object.y}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditedByOther}
+      draggable={!isEditedByOther && !isViewer}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react"
 import { Layer, Transformer, Rect } from "react-konva"
 import type Konva from "konva"
 import { useUIStore } from "@/stores/ui.store"
+import { useBoardStore } from "@/stores/board.store"
 import type { UseLassoSelectReturn } from "@/features/board/hooks/useLassoSelect"
 import type { UseTransformReturn } from "@/features/board/hooks/useTransform"
 
@@ -76,6 +77,8 @@ const TRANSFORMER_CONFIG = {
 export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLayerProps) {
   const transformerRef = useRef<Konva.Transformer | null>(null)
   const selectedIds = useUIStore((s) => s.selectedIds)
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
   // ── Sync Transformer nodes whenever selectedIds changes ────────────────────
 
@@ -83,6 +86,7 @@ export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLa
     const tr = transformerRef.current
     const stage = stageRef.current
     if (!tr || !stage) return
+
 
     if (selectedIds.size === 0) {
       tr.nodes([])
@@ -109,9 +113,13 @@ export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLa
       <Transformer
         ref={transformerRef}
         {...TRANSFORMER_CONFIG}
+        resizeEnabled={!isViewer}
+        rotateEnabled={!isViewer}
+        enabledAnchors={isViewer ? [] : TRANSFORMER_CONFIG.enabledAnchors}
         onTransformStart={transform.onTransformStart}
         onTransformEnd={transform.onTransformEnd}
       />
+
 
       {/* Lasso rubber-band rect — updated imperatively by useLassoSelect */}
       <Rect

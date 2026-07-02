@@ -3,6 +3,8 @@ import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
 
+import { useBoardStore } from "@/stores/board.store"
+
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface RectangleObjectProps {
@@ -37,6 +39,9 @@ export function RectangleObject({
   const w = object.width ?? 120
   const h = object.height ?? 80
 
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+
   // Suppress unused — isSelected kept in props for future use (e.g. text highlight)
   void isSelected
 
@@ -54,7 +59,7 @@ export function RectangleObject({
       height={h}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditedByOther}
+      draggable={!isEditedByOther && !isViewer}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}

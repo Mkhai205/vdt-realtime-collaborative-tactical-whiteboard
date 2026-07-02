@@ -1,4 +1,13 @@
-import { Controller, Get, Param, ParseUUIDPipe, Post } from "@nestjs/common"
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Delete,
+  HttpCode,
+  HttpStatus,
+} from "@nestjs/common"
 import { CurrentUser } from "../../../common/decorators/current-user.decorator"
 import { ZodBody } from "../../../common/pipes/zod-validation.pipe"
 import { BoardInvitationService } from "../service/board-invitation.service"
@@ -37,6 +46,20 @@ export class BoardInvitationController {
     @Param("boardId", ParseUUIDPipe) boardId: string,
   ): Promise<BoardInvitationResponse[]> {
     return this.boardInvitationService.listInvitations(currentUser, boardId)
+  }
+
+  @Delete("boards/:boardId/invitations/:invitationId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeInvitation(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param("boardId", ParseUUIDPipe) boardId: string,
+    @Param("invitationId", ParseUUIDPipe) invitationId: string,
+  ): Promise<void> {
+    await this.boardInvitationService.revokeInvitation(
+      currentUser,
+      boardId,
+      invitationId,
+    )
   }
 
   @Post("invitations/accept")

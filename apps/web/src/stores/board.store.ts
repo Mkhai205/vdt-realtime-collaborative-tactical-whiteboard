@@ -6,6 +6,7 @@ import type {
   PresenceUpdateEvent,
   UndoRedoEvent,
   UserSummary,
+  EffectiveBoardRole,
 } from "@rctw/shared-contracts"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ interface BoardState {
   // ── Canvas data ──
   boardId: string | null
   boardName: string
+  boardDescription: string | null
+  boardVisibility: "PRIVATE" | "PUBLIC"
   /** Map of objectId → BoardObjectDto for O(1) lookups */
   objects: Map<string, BoardObjectDto>
   /** Latest room-level revision the client knows about */
@@ -34,6 +37,8 @@ interface BoardState {
 
   // ── Collaboration ──
   onlineUsers: OnlineUser[]
+  currentUser: OnlineUser | null
+  effectiveRole: EffectiveBoardRole | null
   /** Map of objectId → who is currently editing it */
   editingStates: Map<string, EditingStateEntry>
 
@@ -48,6 +53,12 @@ interface BoardActions {
    * Called once immediately after joining a board room.
    */
   initBoard: (event: BoardStateEvent) => void
+
+  /** Update the board's name and description locally */
+  updateBoardInfo: (name: string, description: string | null) => void
+
+  /** Update the board's visibility locally */
+  updateBoardVisibility: (visibility: "PRIVATE" | "PUBLIC") => void
 
   /** Upsert (add or replace) a single object in the map */
   upsertObject: (obj: BoardObjectDto) => void
@@ -99,9 +110,13 @@ type BoardStore = BoardState & BoardActions
 const initialState: BoardState = {
   boardId: null,
   boardName: "",
+  boardDescription: null,
+  boardVisibility: "PRIVATE",
   objects: new Map(),
   revision: 0,
   onlineUsers: [],
+  currentUser: null,
+  effectiveRole: null,
   editingStates: new Map(),
   pendingOps: new Map(),
 }
@@ -128,11 +143,28 @@ export const useBoardStore = create<BoardStore>()((set, get) => ({
     set({
       boardId: event.board.id,
       boardName: event.board.name,
+      boardDescription: event.board.description || null,
+      boardVisibility: event.board.visibility,
+      currentUser: event.currentUser || null,
+      effectiveRole: event.currentUser?.effectiveRole || "VIEWER",
       objects: objectsMap,
       revision: event.board.currentRevision,
       onlineUsers: event.onlineUsers,
       editingStates: editingMap,
       pendingOps: new Map(),
+    })
+  },
+
+  updateBoardInfo: (name, description) => {
+    set({
+      boardName: name,
+      boardDescription: description,
+    })
+  },
+
+  updateBoardVisibility: (visibility) => {
+    set({
+      boardVisibility: visibility,
     })
   },
 

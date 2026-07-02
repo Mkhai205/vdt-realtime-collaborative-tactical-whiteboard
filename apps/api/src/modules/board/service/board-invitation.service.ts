@@ -159,6 +159,29 @@ export class BoardInvitationService {
     return invitations.map((inv) => this.toInvitationResponse(inv))
   }
 
+  async revokeInvitation(
+    currentUser: JwtPayload,
+    boardId: string,
+    invitationId: string,
+  ): Promise<void> {
+    await this.boardPermissionService.assertFormalEditor(
+      currentUser.sub,
+      boardId,
+    )
+
+    const invitation = await this.prisma.boardInvitation.findFirst({
+      where: { id: invitationId, boardId },
+    })
+
+    if (!invitation) {
+      throw AppException.boardNotFound("Invitation not found.")
+    }
+
+    await this.prisma.boardInvitation.delete({
+      where: { id: invitationId },
+    })
+  }
+
   async acceptInvitation(
     currentUser: JwtPayload,
     request: AcceptBoardInvitationRequest,

@@ -11,8 +11,8 @@ import { useViewport } from "./canvas/useViewport"
 import { useBoardSocket } from "../hooks/useBoardSocket"
 import { useObjectMutations } from "../hooks/useObjectMutations"
 import { ConnectionStatus } from "./canvas/ConnectionStatus"
-import { PresenceBar } from "@/features/presence/components/PresenceBar"
 import { CursorOverlay } from "@/features/cursor/components/CursorOverlay"
+import { BoardHeader } from "./BoardHeader"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -51,6 +51,9 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       className="board-canvas-root"
       style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}
     >
+      {/* ── Header Top Bar ── */}
+      <BoardHeader boardId={boardId} mutations={mutations} />
+
       {/* ── Canvas (absolute, full screen) ─── */}
       <CanvasStage boardId={boardId} mutations={mutations} />
 
@@ -60,7 +63,7 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
         style={{
           position: "absolute",
           left: 16,
-          top: "50%",
+          top: "55%",
           transform: "translateY(-50%)",
           zIndex: 10,
           display: "flex",
@@ -97,22 +100,9 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       {/* ── Connection status indicator ─── */}
       <ConnectionStatus status={connectionStatus} />
 
-      {/* ── Top-right: presence bar ─── */}
-      <div
-        id="board-presence-container"
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          zIndex: 10,
-          pointerEvents: "auto",
-        }}
-      >
-        <PresenceBar />
-      </div>
-
       {/* ── Remote Cursor Overlay ─── */}
       <CursorOverlay boardId={boardId} />
     </div>
   )
 }
+

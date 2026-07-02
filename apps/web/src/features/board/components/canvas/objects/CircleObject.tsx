@@ -3,6 +3,8 @@ import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
 
+import { useBoardStore } from "@/stores/board.store"
+
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface CircleObjectProps {
@@ -41,6 +43,9 @@ export function CircleObject({
   const rx = w / 2
   const ry = h / 2
 
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+
   // Suppress unused — kept for future hover/focus states
   void isSelected
 
@@ -57,7 +62,7 @@ export function CircleObject({
       y={object.y + ry}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditedByOther}
+      draggable={!isEditedByOther && !isViewer}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}

@@ -52,6 +52,9 @@ export function useTool() {
       )
         return
 
+      const role = useBoardStore.getState().effectiveRole
+      const isViewer = role === "VIEWER" || role === "PUBLIC_VIEWER"
+
       // Tool shortcuts (single key, no modifier)
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         const key = e.key.toLowerCase()
@@ -63,6 +66,7 @@ export function useTool() {
         }
 
         if (key === "delete" || key === "backspace") {
+          if (isViewer) return
           // Delete selected objects — optimistic local removal; emit in Plan 08
           const ids = useUIStore.getState().selectedIds
           if (ids.size === 0) return
@@ -76,6 +80,7 @@ export function useTool() {
 
         const tool = KEY_TO_TOOL[key]
         if (tool) {
+          if (isViewer && tool !== "SELECT" && tool !== "HAND") return
           e.preventDefault()
           setActiveTool(tool)
         }

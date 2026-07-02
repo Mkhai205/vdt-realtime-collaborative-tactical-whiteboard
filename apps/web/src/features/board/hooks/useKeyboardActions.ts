@@ -1,7 +1,11 @@
 import { useEffect } from "react"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
-import type { BoardObjectDto, ObjectCreatePayload, ObjectUpdatePatch } from "@rctw/shared-contracts"
+import type {
+  BoardObjectDto,
+  ObjectCreatePayload,
+  ObjectUpdatePatch,
+} from "@rctw/shared-contracts"
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -28,7 +32,10 @@ function isInputFocused(): boolean {
  * Mutations are optimistic (board store only); socket events wired in Plan 08.
  */
 export function useKeyboardActions(mutations: {
-  createObject: (payload: ObjectCreatePayload, selectMode?: "replace" | "add" | "none") => void
+  createObject: (
+    payload: ObjectCreatePayload,
+    selectMode?: "replace" | "add" | "none",
+  ) => void
   updateObject: (id: string, patch: ObjectUpdatePatch) => void
   deleteObject: (id: string) => void
   undo: () => void
@@ -46,11 +53,14 @@ export function useKeyboardActions(mutations: {
         clipboard,
         setClipboard,
       } = useUIStore.getState()
-      const { objects } = useBoardStore.getState()
+      const { objects, effectiveRole } = useBoardStore.getState()
+      const isViewer =
+        effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
       // ── Delete / Backspace — remove selected objects ────────────────────────
 
       if (e.key === "Delete" || e.key === "Backspace") {
+        if (isViewer) return
         if (selectedIds.size === 0) return
         e.preventDefault()
         for (const id of selectedIds) {
@@ -93,6 +103,7 @@ export function useKeyboardActions(mutations: {
       }
 
       if (dx !== 0 || dy !== 0) {
+        if (isViewer) return
         for (const id of selectedIds) {
           const obj = objects.get(id)
           if (obj) {
@@ -117,6 +128,7 @@ export function useKeyboardActions(mutations: {
 
         // Ctrl+Z — undo
         case "z": {
+          if (isViewer) break
           e.preventDefault()
           if (e.shiftKey) {
             mutations.redo()
@@ -128,6 +140,7 @@ export function useKeyboardActions(mutations: {
 
         // Ctrl+Y — redo
         case "y": {
+          if (isViewer) break
           e.preventDefault()
           mutations.redo()
           break
@@ -148,6 +161,7 @@ export function useKeyboardActions(mutations: {
 
         // Ctrl+V — paste clipboard with +20/+20 offset
         case "v": {
+          if (isViewer) break
           if (clipboard.length === 0) break
           e.preventDefault()
           // Clear current selection so the pasted items will be the only selected ones

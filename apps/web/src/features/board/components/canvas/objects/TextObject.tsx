@@ -6,6 +6,8 @@ import { resolveStyle } from "./shapeDefaults"
 import { useUIStore } from "@/stores/ui.store"
 import { EditingBadge } from "./EditingBadge"
 
+import { useBoardStore } from "@/stores/board.store"
+
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface TextObjectProps {
@@ -65,10 +67,13 @@ export function TextObject({
   const borderStroke = editingUser?.avatarColor || "#3b82f6"
   const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
 
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+
   // ── Enter edit mode ────────────────────────────────────────────────────────
 
   const enterEdit = useCallback(() => {
-    if (isEditedByOther) return
+    if (isEditedByOther || isViewer) return
     // Initialize edit buffer from the current object text on entry.
     // This is a callback (not an effect), so setState here is fine.
     setEditValue(object.text ?? "")
@@ -76,7 +81,8 @@ export function TextObject({
     if (setObjectEditingState) {
       setObjectEditingState(object.id, "STARTED")
     }
-  }, [isEditedByOther, object.text, object.id, setObjectEditingState])
+  }, [isEditedByOther, isViewer, object.text, object.id, setObjectEditingState])
+
 
   // ── Commit or cancel edit ──────────────────────────────────────────────────
 
@@ -178,7 +184,7 @@ export function TextObject({
       y={object.y}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditing && !isEditedByOther}
+      draggable={!isEditing && !isEditedByOther && !isViewer}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDblClick={enterEdit}

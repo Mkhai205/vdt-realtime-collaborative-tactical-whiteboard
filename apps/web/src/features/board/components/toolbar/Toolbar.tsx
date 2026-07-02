@@ -11,6 +11,7 @@ import {
   Smile,
   type LucideIcon,
 } from "lucide-react"
+import { useBoardStore } from "@/stores/board.store"
 import type { Tool } from "@rctw/shared-contracts"
 import { useTool } from "@/features/board/hooks/useTool"
 import { ToolButton } from "./ToolButton"
@@ -52,6 +53,10 @@ const TOOL_GROUPS: Array<
  */
 export function Toolbar() {
   const { activeTool, selectTool } = useTool()
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+
+  const displayedGroups = isViewer ? [TOOL_GROUPS[0]!] : TOOL_GROUPS
 
   return (
     <nav
@@ -60,7 +65,7 @@ export function Toolbar() {
       role="toolbar"
       aria-label="Drawing tools"
     >
-      {TOOL_GROUPS.map((group, gi) => (
+      {displayedGroups.map((group, gi) => (
         <div key={gi} className="toolbar-group">
           {group.map(({ tool, icon: Icon, shortcut, label }) => (
             <ToolButton
@@ -73,7 +78,7 @@ export function Toolbar() {
               onClick={selectTool}
             />
           ))}
-          {gi < TOOL_GROUPS.length - 1 && (
+          {gi < displayedGroups.length - 1 && (
             <div className="toolbar-sep" aria-hidden />
           )}
         </div>
@@ -81,3 +86,4 @@ export function Toolbar() {
     </nav>
   )
 }
+

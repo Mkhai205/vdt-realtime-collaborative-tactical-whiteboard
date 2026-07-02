@@ -12,6 +12,8 @@ interface ToolButtonProps {
   label: string
   isActive: boolean
   onClick: (tool: Tool) => void
+  disabled?: boolean
+  disabledTooltip?: string
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -31,23 +33,33 @@ export function ToolButton({
   label,
   isActive,
   onClick,
+  disabled = false,
+  disabledTooltip,
 }: ToolButtonProps) {
   return (
     <div className="tool-btn-wrapper" role="none">
       <button
         id={`tool-btn-${tool.toLowerCase()}`}
         className={`tool-btn${isActive ? " tool-btn--active" : ""}`}
-        onClick={() => onClick(tool)}
+        onClick={() => !disabled && onClick(tool)}
         aria-label={`${label} (${shortcut})`}
         aria-pressed={isActive}
-        title={`${label} — ${shortcut}`}
+        disabled={disabled}
+        style={{
+          opacity: disabled ? 0.4 : undefined,
+          cursor: disabled ? "not-allowed" : undefined,
+        }}
+        title={disabled ? disabledTooltip : `${label} — ${shortcut}`}
       >
         <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
       </button>
       <div className="tool-tooltip" role="tooltip">
-        <span className="tool-tooltip-label">{label}</span>
-        <kbd className="tool-tooltip-key">{shortcut}</kbd>
+        <span className="tool-tooltip-label">
+          {disabled && disabledTooltip ? disabledTooltip : label}
+        </span>
+        {!disabled && <kbd className="tool-tooltip-key">{shortcut}</kbd>}
       </div>
     </div>
   )
 }
+
