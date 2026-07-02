@@ -146,3 +146,166 @@
     @apply font-sans;
   }
 }
+
+/* ─── Canvas: Board root ──────────────────────────────────────────────────── */
+
+.board-canvas-root {
+  background-color: #fafafa;
+}
+
+.dark .board-canvas-root {
+  background-color: #111827;
+}
+
+/* ─── Canvas: Zoom controls ───────────────────────────────────────────────── */
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: oklch(1 0 0 / 90%);
+  border: 1px solid oklch(0 0 0 / 8%);
+  box-shadow:
+    0 2px 8px oklch(0 0 0 / 12%),
+    0 1px 2px oklch(0 0 0 / 8%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  user-select: none;
+}
+
+.dark .zoom-controls {
+  background: oklch(0.22 0.008 224 / 90%);
+  border-color: oklch(1 0 0 / 10%);
+  box-shadow:
+    0 2px 8px oklch(0 0 0 / 40%),
+    0 1px 2px oklch(0 0 0 / 30%);
+}
+
+.zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: oklch(0.3 0.005 220);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.dark .zoom-btn {
+  color: oklch(0.85 0.005 220);
+}
+
+.zoom-btn:hover {
+  background: oklch(0.93 0.005 220);
+  color: oklch(0.15 0.005 220);
+}
+
+.dark .zoom-btn:hover {
+  background: oklch(0.32 0.01 224);
+  color: oklch(0.97 0 0);
+}
+
+.zoom-btn:active {
+  background: oklch(0.88 0.01 220);
+  transform: scale(0.94);
+}
+
+.dark .zoom-btn:active {
+  background: oklch(0.28 0.01 224);
+}
+
+.zoom-pct {
+  min-width: 44px;
+  height: 28px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: oklch(0.3 0.005 220);
+  letter-spacing: 0.01em;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.dark .zoom-pct {
+  color: oklch(0.85 0.005 220);
+}
+
+.zoom-pct:hover {
+  background: oklch(0.93 0.005 220);
+  color: oklch(0.15 0.005 220);
+}
+
+.dark .zoom-pct:hover {
+  background: oklch(0.32 0.01 224);
+  color: oklch(0.97 0 0);
+}
+
+.zoom-sep {
+  width: 1px;
+  height: 18px;
+  background: oklch(0 0 0 / 10%);
+  margin: 0 2px;
+  border-radius: 1px;
+}
+
+.dark .zoom-sep {
+  background: oklch(1 0 0 / 12%);
+}
+
+.zoom-fit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  padding: 0 8px;
+}
+
+.zoom-fit-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ─── Canvas: Zoom indicator (transient) ──────────────────────────────────── */
+
+.zoom-indicator {
+  position: fixed;
+  bottom: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: oklch(0.1 0.005 220 / 80%);
+  color: oklch(0.97 0 0);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: 50;
+  animation: zoom-indicator-appear 0.15s ease;
+}
+
+@keyframes zoom-indicator-appear {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}

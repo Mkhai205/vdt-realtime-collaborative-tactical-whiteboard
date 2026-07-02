@@ -1,0 +1,13 @@
+// Canvas Core — Plan 04 exports
+export { CanvasStage } from "./CanvasStage"
+export { CanvasBackground } from "./CanvasBackground"
+export { ZoomControls } from "./ZoomControls"
+export { ZoomIndicator } from "./ZoomIndicator"
+export { useViewport } from "./useViewport"
+export type { UseViewportReturn } from "./useViewport"
+export { useZoom } from "./useZoom"
+export type { UseZoomReturn } from "./useZoom"
+export { usePan } from "./usePan"
+export type { UsePanReturn } from "./usePan"
+export { useCanvasEvents } from "./useCanvasEvents"
+export type { UseCanvasEventsReturn } from "./useCanvasEvents"
