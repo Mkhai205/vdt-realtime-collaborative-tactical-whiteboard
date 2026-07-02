@@ -89,6 +89,7 @@ model Board {
   operations        BoardOperation[]
   snapshots         BoardSnapshot[]
   boardJoinRequests BoardJoinRequest[]
+  joinLinks         BoardJoinLink[]
 
   @@index([createdById])
   @@index([visibility])
@@ -124,6 +125,19 @@ model BoardJoinRequest {
   user User @relation(fields: [userId], references: [id])
 
   @@unique([boardId, userId])
+  @@index([boardId])
+}
+
+model BoardJoinLink {
+  id        String    @id @default(uuid()) @db.Uuid
+  boardId   String    @db.Uuid
+  token     String    @unique @default(uuid())
+  role      BoardRole @default(EDITOR)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  board     Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  @@index([token])
   @@index([boardId])
 }
 

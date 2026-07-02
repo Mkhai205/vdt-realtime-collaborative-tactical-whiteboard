@@ -66,6 +66,10 @@ export class BoardMemberController {
     @Param("boardId", ParseUUIDPipe) boardId: string,
     @Param("memberId", ParseUUIDPipe) memberId: string,
   ): Promise<void> {
-    await this.boardMemberService.removeBoardMember(currentUser, boardId, memberId)
+    await this.boardMemberService.removeBoardMember(
+      currentUser,
+      boardId,
+      memberId,
+    )
   }
 }

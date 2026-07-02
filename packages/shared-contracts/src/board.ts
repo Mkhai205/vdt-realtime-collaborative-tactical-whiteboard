@@ -65,19 +65,12 @@ export const operationTypeSchema = z.enum([
 export type OperationType = z.infer<typeof operationTypeSchema>
 export const operationTypes = operationTypeSchema.enum
 
-// --- Query schemas ---
+// --- Board schemas ---
 
 export const listBoardsQuerySchema = PaginationQuerySchema.extend({
   search: z.string().trim().max(100).optional(),
 })
 export type ListBoardsQuery = z.infer<typeof listBoardsQuerySchema>
-
-export const boardOperationsQuerySchema = PaginationQuerySchema.extend({
-  fromRevision: z.coerce.number().int().nonnegative().optional(),
-})
-export type BoardOperationsQuery = z.infer<typeof boardOperationsQuerySchema>
-
-// --- Request schemas---
 
 export const createBoardRequestSchema = z.object({
   name: nameSchema,
@@ -105,25 +98,29 @@ export type UpdateBoardSettingsRequest = z.infer<
   typeof updateBoardSettingsRequestSchema
 >
 
-export const addBoardMemberRequestSchema = z.object({
-  email: emailSchema,
-  role: z.enum(["EDITOR", "VIEWER"]),
-})
-export type AddBoardMemberRequest = z.infer<typeof addBoardMemberRequestSchema>
+export type BoardSummary = {
+  id: string
+  name: string
+  description: string | null
+  visibility: BoardVisibility
+  currentRevision: number
+  createdBy: UserSummary
+  createdAt: string
+  updatedAt: string
+}
 
-export const updateBoardMemberRoleRequestSchema = z.object({
-  role: boardRoleSchema,
-})
-export type UpdateBoardMemberRoleRequest = z.infer<
-  typeof updateBoardMemberRoleRequestSchema
->
+export type BoardResponse = BoardSummary
+export type ListBoardsResponse = PaginatedResponse<BoardSummary>
+export type BoardDetailResponse = BoardSummary & {
+  effectiveRole: EffectiveBoardRole
+}
 
-export const respondJoinRequestSchema = z.object({
-  action: z.enum(["APPROVE", "REJECT"]),
-})
-export type RespondJoinRequest = z.infer<typeof respondJoinRequestSchema>
+// --- Board Data schemas ---
 
-// --- Response types ---
+export const boardOperationsQuerySchema = PaginationQuerySchema.extend({
+  fromRevision: z.coerce.number().int().nonnegative().optional(),
+})
+export type BoardOperationsQuery = z.infer<typeof boardOperationsQuerySchema>
 
 export const shapeStyleSchema = z
   .object({
@@ -144,23 +141,6 @@ export const shapeStyleSchema = z
   })
   .catchall(z.unknown())
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>
-
-export type BoardSummary = {
-  id: string
-  name: string
-  description: string | null
-  visibility: BoardVisibility
-  currentRevision: number
-  createdBy: UserSummary
-  createdAt: string
-  updatedAt: string
-}
-export type BoardMemberSummary = {
-  id: string
-  role: BoardRole
-  joinedAt: string
-  user: UserSummary
-}
 
 export type BoardObjectDto = {
   id: string
@@ -195,14 +175,6 @@ export type BoardOperationDto = {
   createdAt: string
 }
 
-export type BoardResponse = BoardSummary
-export type ListBoardsResponse = PaginatedResponse<BoardSummary>
-export type BoardDetailResponse = BoardSummary & {
-  effectiveRole: EffectiveBoardRole
-}
-export type BoardMemberResponse = BoardMemberSummary
-export type ListBoardMembersResponse = BoardMemberSummary[]
-
 export type BoardObjectsResponse = {
   revision: number
   objects: BoardObjectDto[]
@@ -211,4 +183,60 @@ export type BoardOperationsResponse = {
   latestRevision: number
   hasMore: boolean
   operations: BoardOperationDto[]
+}
+
+// --- Board Member schemas ---
+
+export const addBoardMemberRequestSchema = z.object({
+  email: emailSchema,
+  role: z.enum(["EDITOR", "VIEWER"]),
+})
+export type AddBoardMemberRequest = z.infer<typeof addBoardMemberRequestSchema>
+
+export const updateBoardMemberRoleRequestSchema = z.object({
+  role: boardRoleSchema,
+})
+export type UpdateBoardMemberRoleRequest = z.infer<
+  typeof updateBoardMemberRoleRequestSchema
+>
+
+export type BoardMemberSummary = {
+  id: string
+  role: BoardRole
+  joinedAt: string
+  user: UserSummary
+}
+
+export type BoardMemberResponse = BoardMemberSummary
+export type ListBoardMembersResponse = BoardMemberSummary[]
+
+// --- Board Join Request schemas ---
+
+export const respondJoinRequestSchema = z.object({
+  action: z.enum(["APPROVE", "REJECT"]),
+})
+export type RespondJoinRequest = z.infer<typeof respondJoinRequestSchema>
+
+// --- Board Share Link schemas ---
+
+export const createBoardShareLinkRequestSchema = z.object({
+  role: z.enum(["EDITOR", "VIEWER"]),
+})
+export type CreateBoardShareLinkRequest = z.infer<
+  typeof createBoardShareLinkRequestSchema
+>
+
+export const joinBoardByLinkRequestSchema = z.object({
+  token: z.uuid(),
+})
+export type JoinBoardByLinkRequest = z.infer<
+  typeof joinBoardByLinkRequestSchema
+>
+
+export type BoardShareLinkResponse = {
+  id: string
+  token: string
+  role: "EDITOR" | "VIEWER"
+  url: string
+  createdAt: string
 }
