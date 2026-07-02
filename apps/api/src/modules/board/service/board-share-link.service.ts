@@ -55,7 +55,7 @@ export class BoardShareLinkService {
     return links.map((link) => ({
       id: link.id,
       token: link.token,
-      role: link.role,
+      role: link.role as "EDITOR" | "VIEWER",
       url: this.buildUrl(link.token),
       createdAt: link.createdAt.toISOString(),
     }))
@@ -82,7 +82,7 @@ export class BoardShareLinkService {
     return {
       id: created.id,
       token: created.token,
-      role: created.role,
+      role: created.role as "EDITOR" | "VIEWER",
       url: this.buildUrl(created.token),
       createdAt: created.createdAt.toISOString(),
     }

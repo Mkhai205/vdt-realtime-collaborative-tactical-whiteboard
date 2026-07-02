@@ -240,3 +240,31 @@ export type BoardShareLinkResponse = {
   url: string
   createdAt: string
 }
+
+// --- Board Invitation schemas ---
+
+export const createBoardInvitationRequestSchema = z.object({
+  email: z.email(),
+  role: z.enum(["EDITOR", "VIEWER"]),
+})
+export type CreateBoardInvitationRequest = z.infer<
+  typeof createBoardInvitationRequestSchema
+>
+
+export const acceptBoardInvitationRequestSchema = z.object({
+  token: z.uuid(),
+})
+export type AcceptBoardInvitationRequest = z.infer<
+  typeof acceptBoardInvitationRequestSchema
+>
+
+export type BoardInvitationResponse = {
+  id: string
+  boardId: string
+  email: string
+  role: "EDITOR" | "VIEWER"
+  token: string
+  expiresAt: string
+  createdAt: string
+  invitedBy: UserSummary
+}

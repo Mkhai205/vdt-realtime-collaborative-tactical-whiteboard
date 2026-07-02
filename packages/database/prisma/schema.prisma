@@ -58,6 +58,7 @@ model User {
   objectsUpdated    BoardObject[]      @relation("ObjectUpdater")
   refreshTokens     RefreshToken[]
   boardJoinRequests BoardJoinRequest[]
+  invitationsSent   BoardInvitation[]
 }
 
 model RefreshToken {
@@ -90,6 +91,7 @@ model Board {
   snapshots         BoardSnapshot[]
   boardJoinRequests BoardJoinRequest[]
   joinLinks         BoardJoinLink[]
+  invitations       BoardInvitation[]
 
   @@index([createdById])
   @@index([visibility])
@@ -140,6 +142,26 @@ model BoardJoinLink {
   @@index([token])
   @@index([boardId])
 }
+
+model BoardInvitation {
+  id          String    @id @default(uuid()) @db.Uuid
+  boardId     String    @db.Uuid
+  email       String    @db.VarChar(255)
+  role        BoardRole @default(EDITOR)
+  token       String    @unique @default(uuid())
+  invitedById String    @db.Uuid
+  expiresAt   DateTime  @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  board     Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  invitedBy User  @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, email])
+  @@index([token])
+  @@index([boardId])
+  @@index([invitedById])
+}
+
 
 model BoardObject {
   id          String     @id @default(uuid()) @db.Uuid
