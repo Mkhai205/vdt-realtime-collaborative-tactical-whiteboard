@@ -12,10 +12,10 @@ interface IconObjectProps {
   isSelected: boolean
   isEditedByOther: boolean
   onSelect: (id: string, multi: boolean) => void
+  onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
 }
 
-const SELECTION_STROKE = "#6366f1"
 const EDIT_LOCK_STROKE = "#3b82f6"
 const FALLBACK_SIZE = 48
 
@@ -127,20 +127,17 @@ export function IconObject({
   isSelected,
   isEditedByOther,
   onSelect,
+  onDragStart,
   onDragEnd,
 }: IconObjectProps) {
+  // isSelected kept for future hover states; Transformer handles selection visuals
+  void isSelected
   const s = resolveStyle("ICON", object.style)
   const w = object.width ?? FALLBACK_SIZE
   const h = object.height ?? FALLBACK_SIZE
   const iconSize = Math.min(w, h)
 
   const img = useIconImage(s.iconKey || "Circle", s.fill, iconSize)
-
-  const strokeColor = isSelected
-    ? SELECTION_STROKE
-    : isEditedByOther
-      ? EDIT_LOCK_STROKE
-      : "transparent"
 
   return (
     <Group
@@ -152,6 +149,7 @@ export function IconObject({
       draggable={!isEditedByOther}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
+      onDragStart={() => onDragStart(object.id)}
       onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
     >
       {img ? (
@@ -191,15 +189,15 @@ export function IconObject({
         </>
       )}
 
-      {/* Selection / edit-lock border */}
-      {(isSelected || isEditedByOther) && (
+      {/* Edit-lock border */}
+      {isEditedByOther && (
         <Rect
           width={w}
           height={h}
-          stroke={strokeColor}
+          stroke={EDIT_LOCK_STROKE}
           strokeWidth={2}
           fill="transparent"
-          dash={isEditedByOther ? [6, 4] : undefined}
+          dash={[6, 4]}
           cornerRadius={4}
           listening={false}
           perfectDrawEnabled={false}

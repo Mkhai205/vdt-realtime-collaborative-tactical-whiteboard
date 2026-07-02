@@ -16,6 +16,7 @@ interface ObjectRendererProps {
   /** True if this object is currently being edited by another user */
   isEditedByOther: boolean
   onSelect: (id: string, multi: boolean) => void
+  onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
   onTextChange: (id: string, text: string) => void
 }
@@ -33,6 +34,7 @@ export function ObjectRenderer({
   isSelected,
   isEditedByOther,
   onSelect,
+  onDragStart,
   onDragEnd,
   onTextChange,
 }: ObjectRendererProps) {
@@ -44,6 +46,7 @@ export function ObjectRenderer({
           isSelected={isSelected}
           isEditedByOther={isEditedByOther}
           onSelect={onSelect}
+          onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
       )
@@ -55,6 +58,7 @@ export function ObjectRenderer({
           isSelected={isSelected}
           isEditedByOther={isEditedByOther}
           onSelect={onSelect}
+          onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
       )
@@ -76,6 +80,7 @@ export function ObjectRenderer({
           isSelected={isSelected}
           isEditedByOther={isEditedByOther}
           onSelect={onSelect}
+          onDragStart={onDragStart}
           onDragEnd={onDragEnd}
           onTextChange={onTextChange}
         />
@@ -98,6 +103,7 @@ export function ObjectRenderer({
           isSelected={isSelected}
           isEditedByOther={isEditedByOther}
           onSelect={onSelect}
+          onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
       )

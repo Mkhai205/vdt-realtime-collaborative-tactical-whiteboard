@@ -14,6 +14,7 @@ interface TextObjectProps {
   isSelected: boolean
   isEditedByOther: boolean
   onSelect: (id: string, multi: boolean) => void
+  onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
   /** Called when user finishes editing to persist the new text */
   onTextChange: (id: string, text: string) => void
@@ -42,6 +43,7 @@ export function TextObject({
   isSelected,
   isEditedByOther,
   onSelect,
+  onDragStart,
   onDragEnd,
   onTextChange,
 }: TextObjectProps) {
@@ -169,6 +171,7 @@ export function TextObject({
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDblClick={enterEdit}
       onDblTap={enterEdit}
+      onDragStart={() => onDragStart(object.id)}
       onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
     >
       {/* Selection / focus border */}

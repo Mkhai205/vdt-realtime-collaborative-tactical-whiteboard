@@ -5,6 +5,7 @@ import { ZoomControls } from "./canvas/ZoomControls"
 import { ZoomIndicator } from "./canvas/ZoomIndicator"
 import { Toolbar } from "./toolbar/Toolbar"
 import { StylePanel } from "./toolbar/StylePanel"
+import { SelectionBadge } from "./canvas/SelectionBadge"
 import { useViewport } from "./canvas/useViewport"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
@@ -79,6 +80,9 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
 
       {/* ── Transient zoom indicator ─── */}
       <ZoomIndicator />
+
+      {/* ── Selection count badge (shown when 2+ objects selected) ─── */}
+      <SelectionBadge />
 
       {/* ── Placeholder slots for future plans ─── */}
       {/* <BoardHeader />       Plan 07 */}

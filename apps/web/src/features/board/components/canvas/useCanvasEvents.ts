@@ -4,6 +4,7 @@ import { useUIStore } from "@/stores/ui.store"
 import type { UsePanReturn } from "./usePan"
 import type { UseZoomReturn } from "./useZoom"
 import type { UseShapeCreationReturn } from "@/features/board/hooks/useShapeCreation"
+import type { UseLassoSelectReturn } from "@/features/board/hooks/useLassoSelect"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,7 @@ export type UseCanvasEventsOptions = {
   pan: UsePanReturn
   zoom: UseZoomReturn
   shapeCreation: UseShapeCreationReturn
+  lassoSelect: UseLassoSelectReturn
 }
 
 export type UseCanvasEventsReturn = {
@@ -27,19 +29,24 @@ export type UseCanvasEventsReturn = {
 const PAN_TOOLS = new Set(["SELECT", "HAND"])
 const DRAW_TOOLS = new Set(["RECTANGLE", "CIRCLE", "LINE", "TEXT", "PATH", "ICON"])
 
+// Suppress unused-var; PAN_TOOLS will be used for future cursor-override checks
+void PAN_TOOLS
+
 /**
  * Central event router for the Konva Stage.
  *
  * Priority:
  *   1. Pan (HAND tool or spacebar pressed)
  *   2. Shape creation (RECTANGLE, CIRCLE, LINE, TEXT, PATH, ICON)
- *   3. SELECT tool → handled by individual ObjectRenderer click events
+ *   3. SELECT tool + empty stage drag → lasso select
+ *   4. SELECT tool clicks → handled by individual ObjectRenderer click events
  */
 export function useCanvasEvents({
   stageRef,
   pan,
   zoom,
   shapeCreation,
+  lassoSelect,
 }: UseCanvasEventsOptions): UseCanvasEventsReturn {
   const { activeTool } = useUIStore()
   const activeToolRef = useRef(activeTool)
@@ -69,9 +76,18 @@ export function useCanvasEvents({
       // Drawing tools
       if (DRAW_TOOLS.has(tool)) {
         shapeCreation.onMouseDown(e)
+        return
+      }
+
+      // SELECT tool + empty stage background → start lasso
+      if (tool === "SELECT") {
+        const stage = stageRef.current
+        if (stage && e.target === stage) {
+          lassoSelect.onMouseDown(e)
+        }
       }
     },
-    [pan, shapeCreation],
+    [pan, shapeCreation, lassoSelect, stageRef],
   )
 
   // ── Mouse move (RAF-throttled) ─────────────────────────────────────────────
@@ -88,12 +104,18 @@ export function useCanvasEvents({
         }
 
         const tool = activeToolRef.current
+
         if (DRAW_TOOLS.has(tool)) {
           shapeCreation.onMouseMove(e)
+          return
+        }
+
+        if (tool === "SELECT" && lassoSelect.isLassoingRef.current) {
+          lassoSelect.onMouseMove(e)
         }
       })
     },
-    [pan, shapeCreation],
+    [pan, shapeCreation, lassoSelect],
   )
 
   // ── Mouse up ───────────────────────────────────────────────────────────────
@@ -106,13 +128,20 @@ export function useCanvasEvents({
       }
 
       const tool = activeToolRef.current
+
       if (DRAW_TOOLS.has(tool)) {
         shapeCreation.onMouseUp(e)
+        pan.handlePanEnd()
+        return
+      }
+
+      if (tool === "SELECT") {
+        lassoSelect.onMouseUp()
       }
 
       pan.handlePanEnd()
     },
-    [pan, shapeCreation],
+    [pan, shapeCreation, lassoSelect],
   )
 
   // ── Wheel ──────────────────────────────────────────────────────────────────
@@ -128,7 +157,7 @@ export function useCanvasEvents({
 
   const onDblClick = useCallback(
     (_e: Konva.KonvaEventObject<MouseEvent>) => {
-      // Plan 07+: SELECT + dblclick on text → inline edit
+      // Plan 07+: SELECT + dblclick on text → inline edit (handled by TextObject internally)
       void stageRef
     },
     [stageRef],

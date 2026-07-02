@@ -11,12 +11,12 @@ interface RectangleObjectProps {
   isSelected: boolean
   isEditedByOther: boolean
   onSelect: (id: string, multi: boolean) => void
+  onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
 }
 
 // ─── Selection / editing highlight colours ─────────────────────────────────────
 
-const SELECTION_STROKE = "#6366f1"
 const EDIT_LOCK_STROKE = "#3b82f6"
 const EDIT_LOCK_FILL = "rgba(59,130,246,0.08)"
 
@@ -24,18 +24,22 @@ const EDIT_LOCK_FILL = "rgba(59,130,246,0.08)"
 
 /**
  * Renders a single RECTANGLE board object as a Konva Rect.
- * Handles drag and selection click; Transformer wiring lives in Plan 06.
+ * Selection highlight is handled by the Konva Transformer in SelectionLayer.
  */
 export function RectangleObject({
   object,
   isSelected,
   isEditedByOther,
   onSelect,
+  onDragStart,
   onDragEnd,
 }: RectangleObjectProps) {
   const s = resolveStyle("RECTANGLE", object.style)
   const w = object.width ?? 120
   const h = object.height ?? 80
+
+  // Suppress unused — isSelected kept in props for future use (e.g. text highlight)
+  void isSelected
 
   return (
     <Group
@@ -49,6 +53,7 @@ export function RectangleObject({
       draggable={!isEditedByOther}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
+      onDragStart={() => onDragStart(object.id)}
       onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
     >
       {/* Main shape */}
@@ -56,8 +61,8 @@ export function RectangleObject({
         width={w}
         height={h}
         fill={s.fill}
-        stroke={isSelected ? SELECTION_STROKE : s.stroke}
-        strokeWidth={isSelected ? Math.max(s.strokeWidth, 2) : s.strokeWidth}
+        stroke={s.stroke}
+        strokeWidth={s.strokeWidth}
         cornerRadius={4}
         perfectDrawEnabled={false}
         shadowEnabled={false}

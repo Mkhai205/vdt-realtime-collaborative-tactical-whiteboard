@@ -4,6 +4,7 @@ import { useMemo, useCallback } from "react"
 import { Layer } from "react-konva"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
+import { useDragMove } from "@/features/board/hooks/useDragMove"
 import { ObjectRenderer } from "./objects/ObjectRenderer"
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -14,12 +15,18 @@ import { ObjectRenderer } from "./objects/ObjectRenderer"
  * Object mutations triggered from this layer (drag, text edit) write directly
  * to the board store for optimistic rendering; socket emission will be wired
  * in Plan 08 (Realtime Sync).
+ *
+ * Selection highlight is now fully handled by the Konva Transformer in
+ * SelectionLayer; individual shapes no longer draw their own selection border.
+ * The `isSelected` prop is still forwarded for text object focus border.
  */
 export function ObjectsLayer() {
   const objects = useBoardStore((s) => s.objects)
   const editingStates = useBoardStore((s) => s.editingStates)
   const { selectedIds, setSelectedIds, addToSelection, clearSelection } =
     useUIStore()
+
+  const { onDragStart, onDragEnd } = useDragMove()
 
   // ── Sort objects by zIndex once per render ────────────────────────────────
 
@@ -56,16 +63,6 @@ export function ObjectsLayer() {
     [clearSelection],
   )
 
-  const handleDragEnd = useCallback(
-    (id: string, x: number, y: number) => {
-      // Optimistic position update — socket emit wired in Plan 08
-      const obj = objects.get(id)
-      if (!obj) return
-      useBoardStore.getState().upsertObject({ ...obj, x, y })
-    },
-    [objects],
-  )
-
   const handleTextChange = useCallback(
     (id: string, text: string) => {
       // Optimistic text update — socket emit wired in Plan 08
@@ -87,7 +84,8 @@ export function ObjectsLayer() {
           isSelected={selectedIds.has(obj.id)}
           isEditedByOther={editingStates.has(obj.id)}
           onSelect={handleSelect}
-          onDragEnd={handleDragEnd}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
           onTextChange={handleTextChange}
         />
       ))}

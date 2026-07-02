@@ -11,10 +11,10 @@ interface CircleObjectProps {
   isSelected: boolean
   isEditedByOther: boolean
   onSelect: (id: string, multi: boolean) => void
+  onDragStart: (id: string) => void
   onDragEnd: (id: string, x: number, y: number) => void
 }
 
-const SELECTION_STROKE = "#6366f1"
 const EDIT_LOCK_STROKE = "#3b82f6"
 const EDIT_LOCK_FILL = "rgba(59,130,246,0.08)"
 
@@ -25,12 +25,15 @@ const EDIT_LOCK_FILL = "rgba(59,130,246,0.08)"
  * width / height are stored independently so the shape can be a true ellipse.
  * The Ellipse origin is its center, so the Group is offset by -radiusX/-radiusY
  * so that (object.x, object.y) maps to the top-left like all other shapes.
+ *
+ * Selection highlight is handled by the Konva Transformer in SelectionLayer.
  */
 export function CircleObject({
   object,
   isSelected,
   isEditedByOther,
   onSelect,
+  onDragStart,
   onDragEnd,
 }: CircleObjectProps) {
   const s = resolveStyle("CIRCLE", object.style)
@@ -38,6 +41,9 @@ export function CircleObject({
   const h = object.height ?? 100
   const rx = w / 2
   const ry = h / 2
+
+  // Suppress unused — kept for future hover/focus states
+  void isSelected
 
   return (
     <Group
@@ -50,6 +56,7 @@ export function CircleObject({
       draggable={!isEditedByOther}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
+      onDragStart={() => onDragStart(object.id)}
       onDragEnd={(e) =>
         // Re-derive top-left from center
         onDragEnd(object.id, e.target.x() - rx, e.target.y() - ry)
@@ -59,8 +66,8 @@ export function CircleObject({
         radiusX={rx}
         radiusY={ry}
         fill={s.fill}
-        stroke={isSelected ? SELECTION_STROKE : s.stroke}
-        strokeWidth={isSelected ? Math.max(s.strokeWidth, 2) : s.strokeWidth}
+        stroke={s.stroke}
+        strokeWidth={s.strokeWidth}
         perfectDrawEnabled={false}
         shadowEnabled={false}
         dash={isEditedByOther ? [6, 4] : undefined}

@@ -12,3 +12,6 @@ export { usePan } from "./usePan"
 export type { UsePanReturn } from "./usePan"
 export { useCanvasEvents } from "./useCanvasEvents"
 export type { UseCanvasEventsReturn } from "./useCanvasEvents"
+// Plan 07 — Selection & Transform
+export { SelectionLayer } from "./SelectionLayer"
+export { SelectionBadge } from "./SelectionBadge"

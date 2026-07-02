@@ -6,11 +6,15 @@ import { useUIStore } from "@/stores/ui.store"
 import { CanvasBackground } from "./CanvasBackground"
 import { ObjectsLayer } from "./ObjectsLayer"
 import { DrawingPreview } from "./DrawingPreview"
+import { SelectionLayer } from "./SelectionLayer"
 import { useViewport } from "./useViewport"
 import { useZoom } from "./useZoom"
 import { usePan } from "./usePan"
 import { useCanvasEvents } from "./useCanvasEvents"
 import { useShapeCreation } from "@/features/board/hooks/useShapeCreation"
+import { useLassoSelect } from "@/features/board/hooks/useLassoSelect"
+import { useTransform } from "@/features/board/hooks/useTransform"
+import { useKeyboardActions } from "@/features/board/hooks/useKeyboardActions"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -30,11 +34,14 @@ interface CanvasStageProps {
  *  - Manages spacebar keydown/keyup for pan-in-any-tool mode
  *  - Renders the layer structure:
  *      [0] CanvasBackground  (dot grid, listening=false)
- *      [1] Objects           (board objects — populated by Plan 05+)
- *      [2] Selection         (selection handles — Plan 06+)
- *      [3] UI                (drawing preview — Plan 05+)
+ *      [1] Objects           (board objects)
+ *      [2] Selection         (Transformer + lasso rect)
+ *      [3] UI                (drawing preview)
  */
 export function CanvasStage({ boardId }: CanvasStageProps) {
+  // Suppress unused boardId until Plan 08 socket wiring
+  void boardId
+
   // ── Stage dimensions ──────────────────────────────────────────────────────
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -67,7 +74,14 @@ export function CanvasStage({ boardId }: CanvasStageProps) {
   const zoom = useZoom({ stageRef })
   const pan = usePan({ stageRef })
   const shapeCreation = useShapeCreation(stageRef)
-  const events = useCanvasEvents({ stageRef, pan, zoom, shapeCreation })
+  const lassoSelect = useLassoSelect(stageRef)
+  const transform = useTransform()
+
+  const events = useCanvasEvents({ stageRef, pan, zoom, shapeCreation, lassoSelect })
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+
+  useKeyboardActions()
 
   // ── Spacebar → pan override ───────────────────────────────────────────────
 
@@ -150,8 +164,12 @@ export function CanvasStage({ boardId }: CanvasStageProps) {
         {/* Layer 1 — Board objects (sorted by zIndex) */}
         <ObjectsLayer />
 
-        {/* Layer 2 — Selection handles (Plan 07+) */}
-        <Layer id="selection-layer" listening={false} />
+        {/* Layer 2 — Selection handles (Transformer + lasso) */}
+        <SelectionLayer
+          stageRef={stageRef}
+          lassoSelect={lassoSelect}
+          transform={transform}
+        />
 
         {/* Layer 3 — Drawing preview */}
         <DrawingPreview />
