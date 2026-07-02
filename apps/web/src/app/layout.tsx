@@ -3,7 +3,6 @@ import { Inter, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/providers/theme-provider"
 import { ReactQueryProvider } from "@/providers/react-query-provider"
-import { AuthProvider } from "@/providers/auth-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -39,9 +38,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <ReactQueryProvider>
-            <AuthProvider>
-              <TooltipProvider>{children}</TooltipProvider>
-            </AuthProvider>
+            <TooltipProvider>{children}</TooltipProvider>
             <Toaster position="top-right" theme="system" richColors />
           </ReactQueryProvider>
         </ThemeProvider>
