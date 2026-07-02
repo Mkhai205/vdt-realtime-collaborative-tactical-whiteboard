@@ -1,6 +1,7 @@
 // Canvas Core — Plan 04 exports
 export { CanvasStage } from "./CanvasStage"
 export { CanvasBackground } from "./CanvasBackground"
+export { ObjectsLayer } from "./ObjectsLayer"
 export { ZoomControls } from "./ZoomControls"
 export { ZoomIndicator } from "./ZoomIndicator"
 export { useViewport } from "./useViewport"

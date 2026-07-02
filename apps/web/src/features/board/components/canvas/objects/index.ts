@@ -1,0 +1,10 @@
+// Objects sub-system — Plan 05 exports
+export { ObjectRenderer } from "./ObjectRenderer"
+export { RectangleObject } from "./RectangleObject"
+export { CircleObject } from "./CircleObject"
+export { LineObject } from "./LineObject"
+export { TextObject } from "./TextObject"
+export { PathObject } from "./PathObject"
+export { IconObject } from "./IconObject"
+export { resolveStyle, safePoints, getBoundsFromPoints, DEFAULT_STYLES } from "./shapeDefaults"
+export type { Rect } from "./shapeDefaults"

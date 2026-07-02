@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Stage, Layer } from "react-konva"
 import { useUIStore } from "@/stores/ui.store"
 import { CanvasBackground } from "./CanvasBackground"
+import { ObjectsLayer } from "./ObjectsLayer"
 import { useViewport } from "./useViewport"
 import { useZoom } from "./useZoom"
 import { usePan } from "./usePan"
@@ -143,8 +144,8 @@ export function CanvasStage({ boardId }: CanvasStageProps) {
           stageHeight={stageSize.height}
         />
 
-        {/* Layer 1 — Board objects (populated by Plan 05+) */}
-        <Layer id="objects-layer" />
+        {/* Layer 1 — Board objects (sorted by zIndex) */}
+        <ObjectsLayer />
 
         {/* Layer 2 — Selection handles (Plan 06+) */}
         <Layer id="selection-layer" listening={false} />
