@@ -5,10 +5,12 @@ import { Stage, Layer } from "react-konva"
 import { useUIStore } from "@/stores/ui.store"
 import { CanvasBackground } from "./CanvasBackground"
 import { ObjectsLayer } from "./ObjectsLayer"
+import { DrawingPreview } from "./DrawingPreview"
 import { useViewport } from "./useViewport"
 import { useZoom } from "./useZoom"
 import { usePan } from "./usePan"
 import { useCanvasEvents } from "./useCanvasEvents"
+import { useShapeCreation } from "@/features/board/hooks/useShapeCreation"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -64,7 +66,8 @@ export function CanvasStage({ boardId }: CanvasStageProps) {
 
   const zoom = useZoom({ stageRef })
   const pan = usePan({ stageRef })
-  const events = useCanvasEvents({ stageRef, pan, zoom })
+  const shapeCreation = useShapeCreation(stageRef)
+  const events = useCanvasEvents({ stageRef, pan, zoom, shapeCreation })
 
   // ── Spacebar → pan override ───────────────────────────────────────────────
 
@@ -147,11 +150,11 @@ export function CanvasStage({ boardId }: CanvasStageProps) {
         {/* Layer 1 — Board objects (sorted by zIndex) */}
         <ObjectsLayer />
 
-        {/* Layer 2 — Selection handles (Plan 06+) */}
+        {/* Layer 2 — Selection handles (Plan 07+) */}
         <Layer id="selection-layer" listening={false} />
 
-        {/* Layer 3 — Drawing preview / snap guides (Plan 05+) */}
-        <Layer id="ui-layer" listening={false} />
+        {/* Layer 3 — Drawing preview */}
+        <DrawingPreview />
       </Stage>
     </div>
   )
@@ -165,16 +168,14 @@ function getCursorStyle(tool: string): string {
       return "grab"
     case "SELECT":
       return "default"
-    case "DRAW_RECT":
-    case "DRAW_ELLIPSE":
-    case "DRAW_LINE":
-    case "DRAW_ARROW":
-    case "DRAW_FREEHAND":
+    case "RECTANGLE":
+    case "CIRCLE":
+    case "LINE":
+    case "PATH":
+    case "ICON":
       return "crosshair"
     case "TEXT":
       return "text"
-    case "ERASER":
-      return "cell"
     default:
       return "default"
   }

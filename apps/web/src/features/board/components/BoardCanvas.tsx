@@ -3,6 +3,8 @@
 import { CanvasStage } from "./canvas/CanvasStage"
 import { ZoomControls } from "./canvas/ZoomControls"
 import { ZoomIndicator } from "./canvas/ZoomIndicator"
+import { Toolbar } from "./toolbar/Toolbar"
+import { StylePanel } from "./toolbar/StylePanel"
 import { useViewport } from "./canvas/useViewport"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
@@ -14,18 +16,18 @@ interface BoardCanvasProps {
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 /**
- * Top-level board layout that composes:
+ * Top-level board layout:
  *
- *  ┌──────────────────────────────────────────┐
- *  │  [BoardHeader]               top bar      │  ← Plan 07+
- *  │                                           │
- *  │  [Toolbar]  CanvasStage (infinite canvas) │
- *  │             ↑ full-screen, absolute       │
- *  │                                           │
- *  │                      [PresenceBar] (tr)   │  ← Plan 09+
- *  │                      [ZoomControls] (br)  │
- *  │  [ZoomIndicator]     centre-bottom        │
- *  └──────────────────────────────────────────┘
+ *  ┌──────────────────────────────────────────────────┐
+ *  │  [BoardHeader]                      top bar       │  ← Plan 07+
+ *  │                                                   │
+ *  │  [Toolbar]   CanvasStage (infinite canvas)        │
+ *  │  [StylePanel]  ↑ full-screen, absolute            │
+ *  │                                                   │
+ *  │                         [PresenceBar] (top-right) │  ← Plan 09+
+ *  │                         [ZoomControls] (br)       │
+ *  │  [ZoomIndicator]        centre-bottom             │
+ *  └──────────────────────────────────────────────────┘
  *
  * CursorOverlay (remote cursors, pointer-events: none) — Plan 08+
  */
@@ -40,6 +42,26 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
     >
       {/* ── Canvas (absolute, full screen) ─── */}
       <CanvasStage boardId={boardId} />
+
+      {/* ── Left: floating toolbar + style panel ─── */}
+      <div
+        id="board-left-panel"
+        style={{
+          position: "absolute",
+          left: 16,
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 8,
+          pointerEvents: "auto",
+        }}
+      >
+        <Toolbar />
+        <StylePanel />
+      </div>
 
       {/* ── Bottom-right: zoom controls ─── */}
       <div
@@ -59,7 +81,6 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       <ZoomIndicator />
 
       {/* ── Placeholder slots for future plans ─── */}
-      {/* <Toolbar />           Plan 05 */}
       {/* <BoardHeader />       Plan 07 */}
       {/* <PresenceBar />       Plan 09 */}
       {/* <CursorOverlay />     Plan 08 */}
