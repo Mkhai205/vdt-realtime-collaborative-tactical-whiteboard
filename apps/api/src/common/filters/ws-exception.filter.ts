@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, Logger } from "@nestjs/common"
 import { BaseWsExceptionFilter, WsException } from "@nestjs/websockets"
 import { Socket } from "socket.io"
+import { ServerEvents } from "@rctw/shared-contracts"
 
 import { AppException } from "../exceptions/app.exception"
 
@@ -12,10 +13,17 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
     const client = host.switchToWs().getClient<Socket>()
 
     if (exception instanceof AppException) {
-      const body = exception.getResponse() as any
+      this.logger.warn(
+        `AppException for client ${client.id}: ${exception.message}`,
+      )
 
-      client.emit("exception", {
-        success: false,
+      const body = exception.getResponse() as {
+        code?: string
+        message?: string
+        errors?: string[]
+      }
+
+      client.emit(ServerEvents.ERROR, {
         code: body.code,
         message: body.message,
         errors: body.errors,
@@ -25,14 +33,21 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
     }
 
     if (exception instanceof WsException) {
-      super.catch(exception, host)
+      const error = exception.getError()
+      const message =
+        typeof error === "string" ? error : (error as any)?.message
+
+      client.emit(ServerEvents.ERROR, {
+        code: "WS_EXCEPTION",
+        message: message || "WebSocket error",
+      })
+
       return
     }
 
     this.logError(exception, client)
 
-    client.emit("exception", {
-      success: false,
+    client.emit(ServerEvents.ERROR, {
       code: "INTERNAL_SERVER_ERROR",
       message: "Internal server error",
     })
@@ -40,8 +55,8 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
 
   private logError(exception: unknown, client: Socket): void {
     this.logger.error(
-      `Exception thrown for client ${client.id}`,
-      exception instanceof Error ? exception.stack : undefined,
+      `Unhandled exception for client ${client.id}`,
+      exception instanceof Error ? exception.stack : String(exception),
     )
   }
 }

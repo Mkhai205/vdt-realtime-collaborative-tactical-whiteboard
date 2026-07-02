@@ -26,38 +26,35 @@ export class SelectionHandler {
     const { boardId, objectId, status } = dto
     const roomName = toBoardSocketName(boardId)
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      // Cập nhật trạng thái in-memory
-      if (status === "STARTED") {
-        this.presenceService.setEditing(client.id, boardId, objectId)
-      } else {
-        this.presenceService.clearEditing(client.id, boardId, objectId)
-      }
-
-      const event: ObjectEditingEvent = {
-        boardId,
-        objectId,
-        user: {
-          id: currentUser.sub,
-          name: currentUser.name,
-          avatarUrl: currentUser.avatarUrl,
-          avatarColor: currentUser.avatarColor,
-        },
-        status,
-        timestamp: new Date().toISOString(),
-      }
-
-      // Broadcast tới các client khác trong board (ngoại trừ người gửi)
-      client.to(roomName).emit(ServerEvents.OBJECT_EDITING, event)
-    } catch (error: any) {
-      this.logger.error(`Object editing awareness error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
+    // Cập nhật trạng thái in-memory & Redis
+    if (status === "STARTED") {
+      await this.presenceService.setEditing(client.id, boardId, objectId, {
+        id: currentUser.sub,
+        name: currentUser.name,
+        avatarUrl: currentUser.avatarUrl,
+        avatarColor: currentUser.avatarColor,
       })
+    } else {
+      await this.presenceService.clearEditing(client.id, boardId, objectId)
     }
+
+    const event: ObjectEditingEvent = {
+      boardId,
+      objectId,
+      user: {
+        id: currentUser.sub,
+        name: currentUser.name,
+        avatarUrl: currentUser.avatarUrl,
+        avatarColor: currentUser.avatarColor,
+      },
+      status,
+      timestamp: new Date().toISOString(),
+    }
+
+    // Broadcast tới các client khác trong board (ngoại trừ người gửi)
+    client.to(roomName).emit(ServerEvents.OBJECT_EDITING, event)
   }
 }

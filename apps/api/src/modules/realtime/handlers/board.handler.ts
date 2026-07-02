@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { Socket } from "socket.io"
 import {
   type JwtPayload,
@@ -18,8 +18,6 @@ import { AppException } from "../../../common/exceptions"
 
 @Injectable()
 export class BoardHandler {
-  private readonly logger = new Logger(BoardHandler.name)
-
   constructor(
     private readonly boardService: BoardService,
     private readonly whiteboardQueryService: WhiteboardQueryService,
@@ -32,63 +30,58 @@ export class BoardHandler {
   async join(client: Socket, dto: BoardJoinRequest): Promise<void> {
     const { boardId } = dto
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      const userSummary = toUserSummary(currentUser)
+    const userSummary = toUserSummary(currentUser)
 
-      // Kiểm tra quyền truy cập board
-      const joinResponse = await this.boardService.getBoard(
-        currentUser,
-        boardId,
-      )
-      // Lấy danh sách objects hiện tại
-      const objectsResponse = await this.whiteboardQueryService.getBoardObjects(
-        currentUser,
-        boardId,
-      )
+    // Kiểm tra quyền truy cập board
+    const joinResponse = await this.boardService.getBoard(currentUser, boardId)
 
-      // Join socket.io room
-      const roomName = toBoardSocketName(boardId)
-      await client.join(roomName)
+    // Lấy danh sách objects hiện tại
+    const objectsResponse = await this.whiteboardQueryService.getBoardObjects(
+      currentUser,
+      boardId,
+    )
 
-      // Thêm vào presence store (Redis)
-      const onlineUsers = await this.presenceService.joinBoard({
-        socketId: client.id,
-        boardId,
-        user: userSummary,
+    // Join socket.io room
+    const roomName = toBoardSocketName(boardId)
+    await client.join(roomName)
+
+    // Thêm vào presence store (Redis)
+    const onlineUsers = await this.presenceService.joinBoard({
+      socketId: client.id,
+      boardId,
+      user: userSummary,
+      effectiveRole: joinResponse.effectiveRole,
+    })
+
+    // Lấy trạng thái các objects đang được chỉnh sửa
+    const editingStates = await this.presenceService.getEditingStates(boardId)
+
+    const boardState: BoardStateEvent = {
+      board: {
+        id: joinResponse.id,
+        name: joinResponse.name,
+        description: joinResponse.description ?? null,
+        currentRevision: objectsResponse.revision,
+        visibility: joinResponse.visibility,
+      },
+      currentUser: {
+        ...userSummary,
         effectiveRole: joinResponse.effectiveRole,
-      })
-
-      const boardState: BoardStateEvent = {
-        board: {
-          id: joinResponse.id,
-          name: joinResponse.name,
-          description: joinResponse.description ?? null,
-          currentRevision: objectsResponse.revision,
-          visibility: joinResponse.visibility,
-        },
-        currentUser: {
-          ...userSummary,
-          effectiveRole: joinResponse.effectiveRole,
-        },
-        objects: objectsResponse.objects,
-        onlineUsers,
-      }
-
-      // Gửi state cho client vừa join
-      client.emit(ServerEvents.BOARD_STATE, boardState)
-
-      // Broadcast update presence tới cả room
-      this.emitPresenceUpdate(client, boardId, onlineUsers)
-    } catch (error: any) {
-      this.logger.error(`Join board error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
-      })
+        role: joinResponse.effectiveRole,
+      },
+      objects: objectsResponse.objects,
+      onlineUsers,
+      editingStates,
     }
+
+    // Gửi state cho client vừa join
+    client.emit(ServerEvents.BOARD_STATE, boardState)
+
+    // Broadcast update presence tới cả room
+    this.emitPresenceUpdate(client, boardId, onlineUsers)
   }
 
   /**
@@ -97,31 +90,25 @@ export class BoardHandler {
   async leave(client: Socket, dto: BoardLeaveRequest): Promise<void> {
     const { boardId } = dto
 
-    try {
-      // Clear editing states trên board này
-      const endedEditingStates =
-        this.presenceService.clearEditingForSocketBoard(client.id, boardId)
+    // Clear editing states trên board này
+    const endedEditingStates = this.presenceService.clearEditingForSocketBoard(
+      client.id,
+      boardId,
+    )
 
-      // Leave socket.io room
-      const roomName = toBoardSocketName(boardId)
-      await client.leave(roomName)
+    // Leave socket.io room
+    const roomName = toBoardSocketName(boardId)
+    await client.leave(roomName)
 
-      // Xóa khỏi presence store
-      await this.presenceService.leaveBoard(client.id, boardId)
+    // Xóa khỏi presence store
+    await this.presenceService.leaveBoard(client.id, boardId)
 
-      // Broadcast ended editing states
-      this.emitEndedEditingStates(client, endedEditingStates, client.id)
+    // Broadcast ended editing states
+    this.emitEndedEditingStates(client, endedEditingStates, client.id)
 
-      // Lấy online users mới để broadcast
-      const onlineUsers = await this.presenceService.getOnlineUsers(boardId)
-      this.emitPresenceUpdate(client, boardId, onlineUsers)
-    } catch (error: any) {
-      this.logger.error(`Leave board error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
-      })
-    }
+    // Lấy online users mới để broadcast
+    const onlineUsers = await this.presenceService.getOnlineUsers(boardId)
+    this.emitPresenceUpdate(client, boardId, onlineUsers)
   }
 
   /**
@@ -130,63 +117,52 @@ export class BoardHandler {
   async sync(client: Socket, dto: SyncRequest): Promise<void> {
     const { boardId, lastSeenRevision } = dto
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      const userSummary = toUserSummary(currentUser)
+    const userSummary = toUserSummary(currentUser)
 
-      // Kiểm tra quyền truy cập board
-      const joinResponse = await this.boardService.getBoard(
-        currentUser,
+    // Kiểm tra quyền truy cập board
+    const joinResponse = await this.boardService.getBoard(currentUser, boardId)
+
+    // Join socket.io room
+    const roomName = toBoardSocketName(boardId)
+    await client.join(roomName)
+
+    const alreadyInBoard = await this.presenceService.hasSocketInBoard(
+      client.id,
+      boardId,
+    )
+
+    let onlineUsers: any[] = []
+    if (!alreadyInBoard) {
+      onlineUsers = await this.presenceService.joinBoard({
+        socketId: client.id,
         boardId,
-      )
-
-      // Join socket.io room
-      const roomName = toBoardSocketName(boardId)
-      await client.join(roomName)
-
-      const alreadyInBoard = await this.presenceService.hasSocketInBoard(
-        client.id,
-        boardId,
-      )
-
-      let onlineUsers: any[] = []
-      if (!alreadyInBoard) {
-        onlineUsers = await this.presenceService.joinBoard({
-          socketId: client.id,
-          boardId,
-          user: userSummary,
-          effectiveRole: joinResponse.effectiveRole,
-        })
-      } else {
-        onlineUsers = await this.presenceService.getOnlineUsers(boardId)
-      }
-
-      // Replay operations từ revision đã biết
-      // Mặc định lấy trang đầu tiên, limit 100 operations.
-      // Nếu hasMore = true, client sẽ chủ động gửi sync tiếp.
-      const replay = await this.whiteboardQueryService.getBoardOperationReplay(
-        currentUser,
-        boardId,
-        { page: 1, limit: 100, fromRevision: lastSeenRevision },
-      )
-
-      const response: SyncResponse = {
-        currentRevision: replay.latestRevision,
-        operations: replay.operations,
-        hasMore: replay.hasMore,
-      }
-
-      client.emit(ServerEvents.SYNC_RESPONSE, response)
-      this.emitPresenceUpdate(client, boardId, onlineUsers)
-    } catch (error: any) {
-      this.logger.error(`Sync board error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
+        user: userSummary,
+        effectiveRole: joinResponse.effectiveRole,
       })
+    } else {
+      onlineUsers = await this.presenceService.getOnlineUsers(boardId)
     }
+
+    // Replay operations từ revision đã biết
+    // Mặc định lấy trang đầu tiên, limit 100 operations.
+    // Nếu hasMore = true, client sẽ chủ động gửi sync tiếp.
+    const replay = await this.whiteboardQueryService.getBoardOperationReplay(
+      currentUser,
+      boardId,
+      { page: 1, limit: 100, fromRevision: lastSeenRevision },
+    )
+
+    const response: SyncResponse = {
+      currentRevision: replay.latestRevision,
+      operations: replay.operations,
+      hasMore: replay.hasMore,
+    }
+
+    client.emit(ServerEvents.SYNC_RESPONSE, response)
+    this.emitPresenceUpdate(client, boardId, onlineUsers)
   }
 
   // ── Helpers ──

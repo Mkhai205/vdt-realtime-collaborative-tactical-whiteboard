@@ -1,4 +1,4 @@
-import { Logger, UseGuards } from "@nestjs/common"
+import { Logger, UseFilters, UseGuards } from "@nestjs/common"
 import {
   ConnectedSocket,
   MessageBody,
@@ -11,6 +11,7 @@ import {
 } from "@nestjs/websockets"
 import type { Server, Socket } from "socket.io"
 import { WsAuthGuard } from "../guards/ws-auth.guard"
+import { WsExceptionFilter } from "../../../common/filters"
 import {
   BoardHandler,
   ObjectHandler,
@@ -41,6 +42,7 @@ import {
   },
 })
 @UseGuards(WsAuthGuard)
+@UseFilters(WsExceptionFilter)
 export class BoardGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {

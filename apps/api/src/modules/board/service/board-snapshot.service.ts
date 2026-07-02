@@ -54,10 +54,15 @@ export class BoardSnapshotService {
    * Dùng RepeatableRead để đảm bảo currentRevision và objects nhất quán.
    */
   async createSnapshot(boardId: string): Promise<BoardSnapshotResult> {
-    return this.prisma.$transaction(
+    const result = await this.prisma.$transaction(
       (tx) => this.createSnapshotInTx(tx as unknown as TxClient, boardId),
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     )
+
+    // Tự động dọn dẹp các operations cũ sau khi tạo snapshot thành công
+    void this.purgeOldOperations(boardId)
+
+    return result
   }
 
   /**
@@ -207,6 +212,61 @@ export class BoardSnapshotService {
       )
     } catch (error) {
       this.logger.error(`Scheduled snapshot job error: ${String(error)}`)
+    }
+  }
+
+  /**
+   * Xóa các operations cũ đã được gộp vào Snapshot mới nhất của board này
+   */
+  async purgeOldOperations(boardId: string): Promise<void> {
+    try {
+      const latestSnapshot = await this.prisma.boardSnapshot.findFirst({
+        where: { boardId },
+        orderBy: { revision: "desc" },
+        select: { revision: true },
+      })
+
+      if (!latestSnapshot) return
+
+      const result = await this.prisma.boardOperation.deleteMany({
+        where: {
+          boardId,
+          revision: { lt: latestSnapshot.revision },
+        },
+      })
+
+      if (result.count > 0) {
+        this.logger.log(
+          `Purged ${result.count} old operations for board ${boardId} (revision < ${latestSnapshot.revision})`,
+        )
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to purge operations for board ${boardId}: ${String(error)}`,
+      )
+    }
+  }
+
+  /**
+   * Định kỳ dọn dẹp hàng ngày lúc 2 giờ sáng
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async dailyPurgeJob(): Promise<void> {
+    this.logger.log("Running scheduled daily operation purge job...")
+    try {
+      const boards = await this.prisma.board.findMany({
+        select: { id: true },
+      })
+
+      for (const board of boards) {
+        await this.purgeOldOperations(board.id)
+      }
+
+      this.logger.log(
+        `Daily operations purge job completed for ${boards.length} board(s).`,
+      )
+    } catch (error) {
+      this.logger.error(`Daily operations purge job failed: ${String(error)}`)
     }
   }
 

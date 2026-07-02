@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { Socket } from "socket.io"
 import {
   type JwtPayload,
@@ -14,8 +14,6 @@ import { AppException } from "../../../common/exceptions"
 
 @Injectable()
 export class OperationHandler {
-  private readonly logger = new Logger(OperationHandler.name)
-
   constructor(
     private readonly mutationService: WhiteboardMutationService,
     private readonly snapshotService: BoardSnapshotService,
@@ -28,46 +26,38 @@ export class OperationHandler {
     const { boardId } = dto
     const roomName = toBoardSocketName(boardId)
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      const result = await this.mutationService.undoOperation(
-        currentUser,
+    const result = await this.mutationService.undoOperation(
+      currentUser,
+      boardId,
+    )
+
+    let event: UndoRedoEvent
+    if (result.kind === "deleted") {
+      event = {
         boardId,
-      )
-
-      let event: UndoRedoEvent
-      if (result.kind === "deleted") {
-        event = {
-          boardId,
-          action: "UNDO",
-          object: null,
-          objectId: result.objectId,
-          operation: result.operation,
-        }
-      } else {
-        event = {
-          boardId,
-          action: "UNDO",
-          object: result.object,
-          objectId: result.object.id,
-          operation: result.operation,
-        }
+        action: "UNDO",
+        object: null,
+        objectId: result.objectId,
+        operation: result.operation,
       }
-
-      // Emit tới tất cả các clients trong room (bao gồm cả client gửi undo)
-      client.nsp.to(roomName).emit(ServerEvents.UNDO_REDO, event)
-
-      // Trigger auto-snapshot check
-      void this.snapshotService.maybeAutoSnapshot(boardId)
-    } catch (error: any) {
-      this.logger.error(`Undo operation error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
-      })
+    } else {
+      event = {
+        boardId,
+        action: "UNDO",
+        object: result.object,
+        objectId: result.object.id,
+        operation: result.operation,
+      }
     }
+
+    // Emit tới tất cả các clients trong room (bao gồm cả client gửi undo)
+    client.nsp.to(roomName).emit(ServerEvents.UNDO_REDO, event)
+
+    // Trigger auto-snapshot check
+    void this.snapshotService.maybeAutoSnapshot(boardId)
   }
 
   /**
@@ -77,45 +67,37 @@ export class OperationHandler {
     const { boardId } = dto
     const roomName = toBoardSocketName(boardId)
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      const result = await this.mutationService.redoOperation(
-        currentUser,
+    const result = await this.mutationService.redoOperation(
+      currentUser,
+      boardId,
+    )
+
+    let event: UndoRedoEvent
+    if (result.kind === "deleted") {
+      event = {
         boardId,
-      )
-
-      let event: UndoRedoEvent
-      if (result.kind === "deleted") {
-        event = {
-          boardId,
-          action: "REDO",
-          object: null,
-          objectId: result.objectId,
-          operation: result.operation,
-        }
-      } else {
-        event = {
-          boardId,
-          action: "REDO",
-          object: result.object,
-          objectId: result.object.id,
-          operation: result.operation,
-        }
+        action: "REDO",
+        object: null,
+        objectId: result.objectId,
+        operation: result.operation,
       }
-
-      // Emit tới tất cả các clients trong room (bao gồm cả client gửi redo)
-      client.nsp.to(roomName).emit(ServerEvents.UNDO_REDO, event)
-
-      // Trigger auto-snapshot check
-      void this.snapshotService.maybeAutoSnapshot(boardId)
-    } catch (error: any) {
-      this.logger.error(`Redo operation error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
-      })
+    } else {
+      event = {
+        boardId,
+        action: "REDO",
+        object: result.object,
+        objectId: result.object.id,
+        operation: result.operation,
+      }
     }
+
+    // Emit tới tất cả các clients trong room (bao gồm cả client gửi redo)
+    client.nsp.to(roomName).emit(ServerEvents.UNDO_REDO, event)
+
+    // Trigger auto-snapshot check
+    void this.snapshotService.maybeAutoSnapshot(boardId)
   }
 }

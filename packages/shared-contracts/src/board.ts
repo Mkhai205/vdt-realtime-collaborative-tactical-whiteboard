@@ -145,7 +145,6 @@ export const shapeStyleSchema = z
   .catchall(z.unknown())
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>
 
-
 export type BoardSummary = {
   id: string
   name: string

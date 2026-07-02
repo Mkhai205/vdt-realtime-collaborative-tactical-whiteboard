@@ -24,8 +24,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    const redisUrl =
-      this.configService.get<string>("REDIS_URL") || "redis://localhost:6379"
+    const redisUrl = this.configService.get<string>("REDIS_URL") as string
 
     const commonOptions = {
       maxRetriesPerRequest: 3,
@@ -190,6 +189,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.memoryStore.delete(`${key}:${field}`)
+  }
+
+  async hget(key: string, field: string): Promise<string | null> {
+    if (this.isConnected) {
+      try {
+        return await this.client.hget(key, field)
+      } catch (e: any) {
+        this.logger.warn(
+          `Redis hget failed: ${e.message}. Using in-memory fallback.`,
+        )
+      }
+    }
+    return this.memoryStore.get(`${key}:${field}`) ?? null
   }
 
   // ── PUB/SUB ──

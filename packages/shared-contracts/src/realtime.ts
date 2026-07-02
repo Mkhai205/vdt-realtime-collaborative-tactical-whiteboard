@@ -123,6 +123,8 @@ export type ObjectEditingRequest = z.infer<typeof objectEditingRequestSchema>
 /** User đang online trên một board */
 export type OnlineUser = UserSummary & {
   effectiveRole: EffectiveBoardRole
+  role: EffectiveBoardRole
+  selectedObjectId?: string | null
 }
 
 /**
@@ -140,6 +142,8 @@ export type BoardStateEvent = {
   currentUser: OnlineUser
   objects: BoardObjectDto[]
   onlineUsers: OnlineUser[]
+  /** Danh sách các object đang được chỉnh sửa bởi người dùng khác khi client join */
+  editingStates: Array<{ objectId: string; user: UserSummary }>
 }
 
 /**

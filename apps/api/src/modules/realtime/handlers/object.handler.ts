@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { Socket } from "socket.io"
 import {
   type JwtPayload,
@@ -20,8 +20,6 @@ import { AppException } from "../../../common/exceptions"
 
 @Injectable()
 export class ObjectHandler {
-  private readonly logger = new Logger(ObjectHandler.name)
-
   constructor(
     private readonly mutationService: WhiteboardMutationService,
     private readonly snapshotService: BoardSnapshotService,
@@ -34,42 +32,34 @@ export class ObjectHandler {
     const { boardId, object, clientOpId } = dto
     const roomName = toBoardSocketName(boardId)
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      const result = await this.mutationService.createObject(
-        currentUser,
-        boardId,
-        object,
-        clientOpId,
-      )
+    const result = await this.mutationService.createObject(
+      currentUser,
+      boardId,
+      object,
+      clientOpId,
+    )
 
-      // 1. Gửi ACK về chính client gửi
-      const ack: ObjectCreatedAck = {
-        clientOpId,
-        object: result.object,
-        operation: result.operation,
-      }
-      client.emit(ServerEvents.OBJECT_CREATED, ack)
-
-      // 2. Broadcast event tới các client khác trong board
-      const event: ObjectCreatedEvent = {
-        boardId,
-        object: result.object,
-        operation: result.operation,
-      }
-      client.to(roomName).emit(ServerEvents.OBJECT_CREATED, event)
-
-      // 3. Trigger auto-snapshot check (background task, không block flow chính)
-      void this.snapshotService.maybeAutoSnapshot(boardId)
-    } catch (error: any) {
-      this.logger.error(`Create object error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
-      })
+    // 1. Gửi ACK về chính client gửi
+    const ack: ObjectCreatedAck = {
+      clientOpId,
+      object: result.object,
+      operation: result.operation,
     }
+    client.emit(ServerEvents.OBJECT_CREATED, ack)
+
+    // 2. Broadcast event tới các client khác trong board
+    const event: ObjectCreatedEvent = {
+      boardId,
+      object: result.object,
+      operation: result.operation,
+    }
+    client.to(roomName).emit(ServerEvents.OBJECT_CREATED, event)
+
+    // 3. Trigger auto-snapshot check (background task, không block flow chính)
+    void this.snapshotService.maybeAutoSnapshot(boardId)
   }
 
   /**
@@ -79,44 +69,36 @@ export class ObjectHandler {
     const { boardId, objectId, baseVersion, patch, clientOpId } = dto
     const roomName = toBoardSocketName(boardId)
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      const result = await this.mutationService.updateObject(
-        currentUser,
-        boardId,
-        objectId,
-        patch,
-        clientOpId,
-        baseVersion,
-      )
+    const result = await this.mutationService.updateObject(
+      currentUser,
+      boardId,
+      objectId,
+      patch,
+      clientOpId,
+      baseVersion,
+    )
 
-      // 1. Gửi ACK về chính client gửi
-      const ack: ObjectUpdatedAck = {
-        clientOpId,
-        object: result.object,
-        operation: result.operation,
-      }
-      client.emit(ServerEvents.OBJECT_UPDATED, ack)
-
-      // 2. Broadcast event tới các client khác trong board
-      const event: ObjectUpdatedEvent = {
-        boardId,
-        object: result.object,
-        operation: result.operation,
-      }
-      client.to(roomName).emit(ServerEvents.OBJECT_UPDATED, event)
-
-      // 3. Trigger auto-snapshot check
-      void this.snapshotService.maybeAutoSnapshot(boardId)
-    } catch (error: any) {
-      this.logger.error(`Update object error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
-      })
+    // 1. Gửi ACK về chính client gửi
+    const ack: ObjectUpdatedAck = {
+      clientOpId,
+      object: result.object,
+      operation: result.operation,
     }
+    client.emit(ServerEvents.OBJECT_UPDATED, ack)
+
+    // 2. Broadcast event tới các client khác trong board
+    const event: ObjectUpdatedEvent = {
+      boardId,
+      object: result.object,
+      operation: result.operation,
+    }
+    client.to(roomName).emit(ServerEvents.OBJECT_UPDATED, event)
+
+    // 3. Trigger auto-snapshot check
+    void this.snapshotService.maybeAutoSnapshot(boardId)
   }
 
   /**
@@ -126,42 +108,34 @@ export class ObjectHandler {
     const { boardId, objectId, baseVersion, clientOpId } = dto
     const roomName = toBoardSocketName(boardId)
 
-    try {
-      const currentUser = client.data.currentUser as JwtPayload
-      if (!currentUser) throw AppException.unauthenticated()
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
 
-      const result = await this.mutationService.deleteObject(
-        currentUser,
-        boardId,
-        objectId,
-        clientOpId,
-        baseVersion,
-      )
+    const result = await this.mutationService.deleteObject(
+      currentUser,
+      boardId,
+      objectId,
+      clientOpId,
+      baseVersion,
+    )
 
-      // 1. Gửi ACK về chính client gửi
-      const ack: ObjectDeletedAck = {
-        clientOpId,
-        objectId,
-        operation: result.operation,
-      }
-      client.emit(ServerEvents.OBJECT_DELETED, ack)
-
-      // 2. Broadcast event tới các client khác trong board
-      const event: ObjectDeletedEvent = {
-        boardId,
-        objectId,
-        operation: result.operation,
-      }
-      client.to(roomName).emit(ServerEvents.OBJECT_DELETED, event)
-
-      // 3. Trigger auto-snapshot check
-      void this.snapshotService.maybeAutoSnapshot(boardId)
-    } catch (error: any) {
-      this.logger.error(`Delete object error: ${error.message}`)
-      client.emit(ServerEvents.ERROR, {
-        code: error.response?.code || "UNEXPECTED_ERROR",
-        message: error.message,
-      })
+    // 1. Gửi ACK về chính client gửi
+    const ack: ObjectDeletedAck = {
+      clientOpId,
+      objectId,
+      operation: result.operation,
     }
+    client.emit(ServerEvents.OBJECT_DELETED, ack)
+
+    // 2. Broadcast event tới các client khác trong board
+    const event: ObjectDeletedEvent = {
+      boardId,
+      objectId,
+      operation: result.operation,
+    }
+    client.to(roomName).emit(ServerEvents.OBJECT_DELETED, event)
+
+    // 3. Trigger auto-snapshot check
+    void this.snapshotService.maybeAutoSnapshot(boardId)
   }
 }

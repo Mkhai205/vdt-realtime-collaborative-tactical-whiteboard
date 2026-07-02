@@ -6,6 +6,13 @@ import {
 } from "@rctw/shared-contracts"
 import { RedisService } from "../../../infrastructure/redis/redis.service"
 
+// Cấu trúc lưu trong Redis editing store
+export type EditingStateEntry = {
+  objectId: string
+  user: UserSummary
+  socketId: string
+}
+
 @Injectable()
 export class PresenceService {
   private readonly logger = new Logger(PresenceService.name)
@@ -36,6 +43,7 @@ export class PresenceService {
     const onlineUser: OnlineUser = {
       ...user,
       effectiveRole,
+      role: effectiveRole,
     }
 
     const presenceKey = this.getPresenceKey(boardId)
@@ -104,10 +112,18 @@ export class PresenceService {
     return boards ? boards.has(boardId) : false
   }
 
+  // ── Editing State (Awareness) ──
+
   /**
-   * Đánh dấu socket đang edit một object
+   * Đánh dấu socket đang edit một object, ghi vào Redis để chia sẻ cross-instance
    */
-  setEditing(socketId: string, boardId: string, objectId: string): void {
+  async setEditing(
+    socketId: string,
+    boardId: string,
+    objectId: string,
+    user: UserSummary,
+  ): Promise<void> {
+    // Cập nhật local tracking
     let editingMap = this.socketEditing.get(socketId)
     if (!editingMap) {
       editingMap = new Map()
@@ -119,14 +135,23 @@ export class PresenceService {
       objects = new Set()
       editingMap.set(boardId, objects)
     }
-
     objects.add(objectId)
+
+    // Ghi vào Redis (editing:boardId -> objectId -> JSON{user, socketId})
+    const editingKey = this.getEditingKey(boardId)
+    const entry: EditingStateEntry = { objectId, user, socketId }
+    await this.redis.hset(editingKey, objectId, JSON.stringify(entry))
   }
 
   /**
-   * Xóa đánh dấu socket đang edit một object
+   * Xóa đánh dấu socket đang edit một object, xóa khỏi Redis
    */
-  clearEditing(socketId: string, boardId: string, objectId: string): void {
+  async clearEditing(
+    socketId: string,
+    boardId: string,
+    objectId: string,
+  ): Promise<void> {
+    // Cập nhật local tracking
     const editingMap = this.socketEditing.get(socketId)
     if (editingMap) {
       const objects = editingMap.get(boardId)
@@ -140,6 +165,45 @@ export class PresenceService {
         this.socketEditing.delete(socketId)
       }
     }
+
+    // Xóa khỏi Redis — chỉ xóa nếu đúng socketId đang hold lock
+    const editingKey = this.getEditingKey(boardId)
+    const raw = await this.redis.hget(editingKey, objectId)
+    if (raw) {
+      try {
+        const entry = JSON.parse(raw) as EditingStateEntry
+        if (entry.socketId === socketId) {
+          await this.redis.hdel(editingKey, objectId)
+        }
+      } catch {
+        // Nếu parse lỗi thì xóa luôn để an toàn
+        await this.redis.hdel(editingKey, objectId)
+      }
+    }
+  }
+
+  /**
+   * Lấy toàn bộ trạng thái editing của một board từ Redis
+   * Dùng khi client join board để nhận trạng thái hiện tại
+   */
+  async getEditingStates(
+    boardId: string,
+  ): Promise<Array<{ objectId: string; user: UserSummary }>> {
+    const editingKey = this.getEditingKey(boardId)
+    const rawData = await this.redis.hgetall(editingKey)
+
+    const result: Array<{ objectId: string; user: UserSummary }> = []
+
+    for (const raw of Object.values(rawData)) {
+      try {
+        const entry = JSON.parse(raw) as EditingStateEntry
+        result.push({ objectId: entry.objectId, user: entry.user })
+      } catch (err) {
+        this.logger.error(`Error parsing editing state: ${String(err)}`)
+      }
+    }
+
+    return result
   }
 
   /**
@@ -211,9 +275,26 @@ export class PresenceService {
         const onlineUsers = await this.getOnlineUsers(boardId)
         affectedBoards.push({ boardId, onlineUsers })
 
-        // Clear editing states trên board này
+        // Clear editing states trên board này (local tracking)
         const editingStates = this.clearEditingForSocketBoard(socketId, boardId)
         endedEditingStates.push(...editingStates)
+
+        // Xóa các editing states này khỏi Redis
+        for (const state of editingStates) {
+          const editingKey = this.getEditingKey(boardId)
+          // Chỉ xóa nếu đúng socketId đang hold lock
+          const raw = await this.redis.hget(editingKey, state.objectId)
+          if (raw) {
+            try {
+              const entry = JSON.parse(raw) as EditingStateEntry
+              if (entry.socketId === socketId) {
+                await this.redis.hdel(editingKey, state.objectId)
+              }
+            } catch {
+              await this.redis.hdel(editingKey, state.objectId)
+            }
+          }
+        }
       }
     }
 
@@ -227,5 +308,9 @@ export class PresenceService {
 
   private getPresenceKey(boardId: string): string {
     return `presence:${boardId}`
+  }
+
+  private getEditingKey(boardId: string): string {
+    return `editing:${boardId}`
   }
 }
