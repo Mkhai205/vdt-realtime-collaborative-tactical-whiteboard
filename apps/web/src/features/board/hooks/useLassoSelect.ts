@@ -157,8 +157,11 @@ export function useLassoSelect(
 
     const selRect = normRect(start.x, start.y, wp.x, wp.y)
 
-    // Skip micro-drags (< 4px) — treat as a regular click
-    if (selRect.width < 4 && selRect.height < 4) return
+    // Skip micro-drags (< 4px) — treat as a regular click on stage (clear selection)
+    if (selRect.width < 4 && selRect.height < 4) {
+      useUIStore.getState().clearSelection()
+      return
+    }
 
     const objects = useBoardStore.getState().objects
     const matchingIds: string[] = []

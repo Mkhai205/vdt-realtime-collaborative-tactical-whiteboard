@@ -4,6 +4,7 @@ import { resolveStyle } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
 
 import { useBoardStore } from "@/stores/board.store"
+import { useUIStore } from "@/stores/ui.store"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,10 @@ export function RectangleObject({
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
   const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
+  const activeTool = useUIStore((s) => s.activeTool)
+  const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+  const isSelectTool = activeTool === "SELECT" && !isSpacePressed
+
   // Suppress unused — isSelected kept in props for future use (e.g. text highlight)
   void isSelected
 
@@ -59,7 +64,7 @@ export function RectangleObject({
       height={h}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditedByOther && !isViewer}
+      draggable={!isEditedByOther && !isViewer && isSelectTool}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}

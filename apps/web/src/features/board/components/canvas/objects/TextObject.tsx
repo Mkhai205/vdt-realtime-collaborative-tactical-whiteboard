@@ -70,6 +70,10 @@ export function TextObject({
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
   const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
+  const activeTool = useUIStore((s) => s.activeTool)
+  const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+  const isSelectTool = activeTool === "SELECT" && !isSpacePressed
+
   // ── Enter edit mode ────────────────────────────────────────────────────────
 
   const enterEdit = useCallback(() => {
@@ -184,7 +188,7 @@ export function TextObject({
       y={object.y}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditing && !isEditedByOther && !isViewer}
+      draggable={!isEditing && !isEditedByOther && !isViewer && isSelectTool}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDblClick={enterEdit}

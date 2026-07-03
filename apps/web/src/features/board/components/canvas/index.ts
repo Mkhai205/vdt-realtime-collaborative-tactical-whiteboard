@@ -15,3 +15,4 @@ export type { UseCanvasEventsReturn } from "./useCanvasEvents"
 // Plan 07 — Selection & Transform
 export { SelectionLayer } from "./SelectionLayer"
 export { SelectionBadge } from "./SelectionBadge"
+export { UndoRedoControls } from "./UndoRedoControls"

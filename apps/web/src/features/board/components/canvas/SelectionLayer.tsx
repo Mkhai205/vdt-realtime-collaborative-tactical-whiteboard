@@ -121,8 +121,8 @@ export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLa
       />
 
 
-      {/* Lasso rubber-band rect — updated imperatively by useLassoSelect */}
       <Rect
+        // eslint-disable-next-line react-hooks/refs
         ref={lassoSelect.setLassoRect}
         id="lasso-rect"
         fill="rgba(99,102,241,0.08)"

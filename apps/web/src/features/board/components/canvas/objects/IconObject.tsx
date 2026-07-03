@@ -114,6 +114,7 @@ function useIconImage(
 
 
 import { useBoardStore } from "@/stores/board.store"
+import { useUIStore } from "@/stores/ui.store"
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,10 @@ export function IconObject({
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
   const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
+  const activeTool = useUIStore((s) => s.activeTool)
+  const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+  const isSelectTool = activeTool === "SELECT" && !isSpacePressed
+
   const img = useIconImage(s.iconKey || "Circle", s.fill, iconSize)
 
   const isEditedByOther = !!editingUser
@@ -156,7 +161,7 @@ export function IconObject({
       y={object.y}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditedByOther && !isViewer}
+      draggable={!isEditedByOther && !isViewer && isSelectTool}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}

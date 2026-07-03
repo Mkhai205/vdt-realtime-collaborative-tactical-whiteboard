@@ -317,6 +317,7 @@ export function ShareTab({ boardId }: ShareTabProps) {
           <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
             {invitations.map((invite) => {
               const expiresDate = new Date(invite.expiresAt)
+              // eslint-disable-next-line react-hooks/purity
               const timeDiff = expiresDate.getTime() - Date.now()
               const hoursLeft = Math.max(0, Math.floor(timeDiff / (1000 * 60 * 60)))
 

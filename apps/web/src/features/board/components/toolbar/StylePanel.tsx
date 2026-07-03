@@ -1,10 +1,77 @@
 "use client"
 
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { ColorPicker } from "./ColorPicker"
 import { useUIStore } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
 import type { ShapeStyle } from "@rctw/shared-contracts"
+
+// ─── Sub-Component ─────────────────────────────────────────────────────────────
+
+interface StyleSliderProps {
+  id?: string
+  label: string
+  min: number
+  max: number
+  step: number
+  value: number
+  onChange: (val: number) => void
+  formatValue?: (val: number) => string | number
+}
+
+function StyleSlider({
+  id,
+  label,
+  min,
+  max,
+  step,
+  value,
+  onChange,
+  formatValue,
+}: StyleSliderProps) {
+  const [localVal, setLocalVal] = useState(value)
+  const [prevValue, setPrevValue] = useState(value)
+
+  if (value !== prevValue) {
+    setLocalVal(value)
+    setPrevValue(value)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalVal(parseFloat(e.target.value))
+  }
+
+  const handleCommit = () => {
+    if (localVal !== value) {
+      onChange(localVal)
+    }
+  }
+
+  const displayVal = formatValue ? formatValue(localVal) : localVal
+
+  return (
+    <div className="style-row style-row--col">
+      <span className="style-label">{label}</span>
+      <div className="style-slider-row">
+        <input
+          id={id}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          className="style-slider"
+          value={localVal}
+          onChange={handleInputChange}
+          onMouseUp={handleCommit}
+          onTouchEnd={handleCommit}
+          onKeyUp={handleCommit}
+          aria-label={label}
+        />
+        <span className="style-slider-val">{displayVal}</span>
+      </div>
+    </div>
+  )
+}
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -22,7 +89,11 @@ import type { ShapeStyle } from "@rctw/shared-contracts"
  * All changes are applied optimistically to the board store.
  * Socket emission is wired in Plan 08.
  */
-export function StylePanel() {
+interface StylePanelProps {
+  updateObject: (objectId: string, patch: { style: Partial<ShapeStyle> }) => void
+}
+
+export function StylePanel({ updateObject }: StylePanelProps) {
   const selectedIds = useUIStore((s) => s.selectedIds)
   const objects = useBoardStore((s) => s.objects)
 
@@ -39,14 +110,12 @@ export function StylePanel() {
       for (const id of useUIStore.getState().selectedIds) {
         const obj = currentObjects.get(id)
         if (!obj) continue
-        useBoardStore.getState().upsertObject({
-          ...obj,
+        updateObject(id, {
           style: { ...obj.style, ...patch },
         })
       }
     },
-    // No deps needed — reads from store directly at call time
-    [],
+    [updateObject],
   )
 
   if (selectedObjects.length === 0) return null
@@ -79,77 +148,43 @@ export function StylePanel() {
       </div>
 
       {/* ── Stroke width ── */}
-      <div className="style-row style-row--col">
-        <span className="style-label">Width</span>
-        <div className="style-slider-row">
-          <input
-            id="stroke-width-slider"
-            type="range"
-            min={0}
-            max={20}
-            step={0.5}
-            className="style-slider"
-            value={firstStyle.strokeWidth ?? 2}
-            onChange={(e) =>
-              applyStyle({ strokeWidth: parseFloat(e.target.value) })
-            }
-            aria-label="Stroke width"
-          />
-          <span className="style-slider-val">
-            {firstStyle.strokeWidth ?? 2}
-          </span>
-        </div>
-      </div>
+      <StyleSlider
+        id="stroke-width-slider"
+        label="Width"
+        min={0}
+        max={20}
+        step={0.5}
+        value={firstStyle.strokeWidth ?? 2}
+        onChange={(val) => applyStyle({ strokeWidth: val })}
+      />
 
       {/* ── Opacity ── */}
-      <div className="style-row style-row--col">
-        <span className="style-label">Opacity</span>
-        <div className="style-slider-row">
-          <input
-            id="opacity-slider"
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            className="style-slider"
-            value={firstStyle.opacity ?? 1}
-            onChange={(e) =>
-              applyStyle({ opacity: parseFloat(e.target.value) })
-            }
-            aria-label="Opacity"
-          />
-          <span className="style-slider-val">
-            {Math.round((firstStyle.opacity ?? 1) * 100)}%
-          </span>
-        </div>
-      </div>
+      <StyleSlider
+        id="opacity-slider"
+        label="Opacity"
+        min={0}
+        max={1}
+        step={0.05}
+        value={firstStyle.opacity ?? 1}
+        onChange={(val) => applyStyle({ opacity: val })}
+        formatValue={(val) => `${Math.round(val * 100)}%`}
+      />
 
       {/* ── TEXT-only: font controls ── */}
       {allText && (
         <>
           <div className="style-sep" aria-hidden />
 
-          <div className="style-row style-row--col">
-            <span className="style-label">Font size</span>
-            <div className="style-slider-row">
-              <input
-                id="font-size-slider"
-                type="range"
-                min={8}
-                max={96}
-                step={1}
-                className="style-slider"
-                value={firstStyle.fontSize ?? 16}
-                onChange={(e) =>
-                  applyStyle({ fontSize: parseInt(e.target.value, 10) })
-                }
-                aria-label="Font size"
-              />
-              <span className="style-slider-val">
-                {firstStyle.fontSize ?? 16}px
-              </span>
-            </div>
-          </div>
+          <StyleSlider
+            id="font-size-slider"
+            label="Font size"
+            min={8}
+            max={96}
+            step={1}
+            value={firstStyle.fontSize ?? 16}
+            onChange={(val) => applyStyle({ fontSize: val })}
+            formatValue={(val) => `${val}px`}
+          />
 
           <div className="style-row">
             <span className="style-label">Weight</span>

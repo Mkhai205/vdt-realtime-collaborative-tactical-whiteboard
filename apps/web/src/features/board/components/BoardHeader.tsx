@@ -13,8 +13,6 @@ import { PresenceBar } from "@/features/presence/components/PresenceBar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   ArrowLeft,
-  Undo2,
-  Redo2,
   Share2,
   Settings,
   LogOut,
@@ -25,24 +23,16 @@ import {
   Loader2,
   Edit2,
 } from "lucide-react"
+import { Toolbar } from "./toolbar/Toolbar"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 interface BoardHeaderProps {
   boardId: string
-  mutations: {
-    undo: () => void
-    redo: () => void
-  }
 }
 
-export function BoardHeader({ boardId, mutations }: BoardHeaderProps) {
+export function BoardHeader({ boardId }: BoardHeaderProps) {
   const router = useRouter()
   const { user, logout } = useAuth()
   const isAuthenticated = useIsAuthenticated()
@@ -135,10 +125,10 @@ export function BoardHeader({ boardId, mutations }: BoardHeaderProps) {
     <TooltipProvider delayDuration={200}>
       <header
         id="board-canvas-header"
-        className="absolute top-0 right-0 left-0 z-30 flex h-14 items-center justify-between border-b border-slate-200/80 bg-white/75 px-4 shadow-sm backdrop-blur-md select-none dark:border-slate-800/80 dark:bg-slate-900/75"
+        className="absolute top-0 right-0 left-0 z-30 flex h-16 items-start justify-between p-3 select-none pointer-events-none"
       >
         {/* Left Section: Back & Board Name */}
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3 bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800/80 rounded-xl px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md pointer-events-auto transition-all duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]">
           <Button
             size="icon"
             variant="ghost"
@@ -216,45 +206,13 @@ export function BoardHeader({ boardId, mutations }: BoardHeaderProps) {
           </div>
         </div>
 
-        {/* Middle Section: Undo / Redo */}
-        <div className="flex items-center gap-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={isViewer}
-                onClick={mutations.undo}
-                className="h-8.5 w-8.5 text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <Undo2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span>Undo {canEdit ? "(Ctrl+Z)" : ""}</span>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={isViewer}
-                onClick={mutations.redo}
-                className="h-8.5 w-8.5 text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <Redo2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span>Redo {canEdit ? "(Ctrl+Y)" : ""}</span>
-            </TooltipContent>
-          </Tooltip>
+        {/* Middle Section: Toolbar */}
+        <div className="pointer-events-auto transition-all duration-200 hover:scale-[1.02]">
+          <Toolbar />
         </div>
 
         {/* Right Section: Presence, Share, Settings, User */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800/80 rounded-xl px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md pointer-events-auto transition-all duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]">
           {/* Presence avatars list */}
           <PresenceBar />
 

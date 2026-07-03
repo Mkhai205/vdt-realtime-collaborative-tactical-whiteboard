@@ -37,6 +37,9 @@ interface UIState {
 
   /** ID of the user whose cursor we are currently following (null = none) */
   followingUserId: string | null
+
+  /** True while the spacebar is currently pressed down */
+  isSpacePressed: boolean
 }
 
 interface UIActions {
@@ -61,6 +64,8 @@ interface UIActions {
   setDrawingStartPoint: (point: DrawingStartPoint | null) => void
 
   setFollowingUserId: (id: string | null) => void
+
+  setIsSpacePressed: (pressed: boolean) => void
 }
 
 type UIStore = UIState & UIActions
@@ -82,6 +87,7 @@ export const useUIStore = create<UIStore>()((set) => ({
   isDrawing: false,
   drawingStartPoint: null,
   followingUserId: null,
+  isSpacePressed: false,
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -145,4 +151,6 @@ export const useUIStore = create<UIStore>()((set) => ({
   setDrawingStartPoint: (point) => set({ drawingStartPoint: point }),
 
   setFollowingUserId: (followingUserId) => set({ followingUserId }),
+
+  setIsSpacePressed: (pressed) => set({ isSpacePressed: pressed }),
 }))

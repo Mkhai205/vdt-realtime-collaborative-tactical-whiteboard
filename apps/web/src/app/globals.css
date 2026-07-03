@@ -278,6 +278,32 @@
   letter-spacing: 0.01em;
 }
 
+/* ─── Canvas: Undo/redo controls ──────────────────────────────────────────── */
+
+.undo-redo-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: oklch(1 0 0 / 90%);
+  border: 1px solid oklch(0 0 0 / 8%);
+  box-shadow:
+    0 2px 8px oklch(0 0 0 / 12%),
+    0 1px 2px oklch(0 0 0 / 8%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  user-select: none;
+}
+
+.dark .undo-redo-controls {
+  background: oklch(0.22 0.008 224 / 90%);
+  border-color: oklch(1 0 0 / 10%);
+  box-shadow:
+    0 2px 8px oklch(0 0 0 / 40%),
+    0 1px 2px oklch(0 0 0 / 30%);
+}
+
 /* ─── Canvas: Zoom indicator (transient) ──────────────────────────────────── */
 
 .zoom-indicator {
@@ -314,8 +340,8 @@
 
 .toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  gap: 4px;
   padding: 6px;
   border-radius: 14px;
   background: oklch(1 0 0 / 92%);
@@ -338,15 +364,15 @@
 
 .toolbar-group {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  gap: 4px;
 }
 
 .toolbar-sep {
-  width: 28px;
-  height: 1px;
+  width: 1px;
+  height: 24px;
   background: oklch(0 0 0 / 8%);
-  margin: 4px auto;
+  margin: auto 4px;
   border-radius: 1px;
 }
 
@@ -412,9 +438,9 @@
 
 .tool-tooltip {
   position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
   background: oklch(0.12 0.005 220);
   color: oklch(0.97 0 0);
   padding: 5px 10px;

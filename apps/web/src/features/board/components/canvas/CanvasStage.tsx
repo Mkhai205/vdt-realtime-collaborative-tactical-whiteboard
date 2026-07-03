@@ -70,13 +70,14 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
   const viewportHook = useViewport()
   const { stageRef } = viewportHook
-  const { viewport, activeTool } = useUIStore()
+  const { viewport, activeTool, isSpacePressed } = useUIStore()
 
   // Realtime Sync & mutations hooks
   const cursorEmit = useCursorEmit(boardId)
 
   const zoom = useZoom({ stageRef })
   const pan = usePan({ stageRef })
+  const { setSpaceDown } = pan
   const shapeCreation = useShapeCreation(stageRef, mutations.createObject)
   const lassoSelect = useLassoSelect(stageRef)
   const transform = useTransform(mutations.updateObject)
@@ -100,13 +101,15 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space" && e.target === document.body) {
         e.preventDefault()
-        pan.setSpaceDown(true)
+        setSpaceDown(true)
+        useUIStore.getState().setIsSpacePressed(true)
       }
     }
 
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === "Space") {
-        pan.setSpaceDown(false)
+        setSpaceDown(false)
+        useUIStore.getState().setIsSpacePressed(false)
       }
     }
 
@@ -116,12 +119,18 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
     return () => {
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
+      useUIStore.getState().setIsSpacePressed(false)
     }
-  }, [pan])
+  }, [setSpaceDown])
 
   // ── Cursor style based on active tool ─────────────────────────────────────
 
-  const cursorStyle = getCursorStyle(activeTool)
+  const cursorStyle =
+    activeTool === "HAND" || isSpacePressed
+      ? pan.isPanning
+        ? "grabbing"
+        : "grab"
+      : getCursorStyle(activeTool)
 
   // ── Prevent native scroll/zoom while canvas is active ─────────────────────
 

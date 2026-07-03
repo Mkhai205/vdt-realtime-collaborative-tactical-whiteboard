@@ -4,6 +4,7 @@ import { resolveStyle } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
 
 import { useBoardStore } from "@/stores/board.store"
+import { useUIStore } from "@/stores/ui.store"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,10 @@ export function CircleObject({
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
   const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
+  const activeTool = useUIStore((s) => s.activeTool)
+  const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+  const isSelectTool = activeTool === "SELECT" && !isSpacePressed
+
   // Suppress unused — kept for future hover/focus states
   void isSelected
 
@@ -62,7 +67,7 @@ export function CircleObject({
       y={object.y + ry}
       rotation={object.rotation}
       opacity={s.opacity}
-      draggable={!isEditedByOther && !isViewer}
+      draggable={!isEditedByOther && !isViewer && isSelectTool}
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}

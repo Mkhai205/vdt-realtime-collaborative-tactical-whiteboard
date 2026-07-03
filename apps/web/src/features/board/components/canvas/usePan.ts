@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type Konva from "konva"
 import { useUIStore } from "@/stores/ui.store"
 
@@ -16,6 +16,8 @@ export type UsePanReturn = {
   setSpaceDown: (down: boolean) => void
   /** Whether a pan is currently in progress (stable ref read) */
   getIsPanning: () => boolean
+  isSpaceDown: boolean
+  isPanning: boolean
 }
 
 /**
@@ -37,6 +39,9 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
     viewportRef.current = viewport
   }, [activeTool, viewport])
 
+  const [isSpaceDown, setIsSpaceDownState] = useState(false)
+  const [isPanning, setIsPanningState] = useState(false)
+
   const isPanningRef = useRef(false)
   const isSpaceDownRef = useRef(false)
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null)
@@ -45,9 +50,11 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
 
   const setSpaceDown = useCallback((down: boolean) => {
     isSpaceDownRef.current = down
+    setIsSpaceDownState(down)
     // If spacebar released mid-pan, end the pan
     if (!down && isPanningRef.current) {
       isPanningRef.current = false
+      setIsPanningState(false)
       lastPointerRef.current = null
     }
   }, [])
@@ -64,6 +71,7 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
       if (e.evt.button !== 0) return
 
       isPanningRef.current = true
+      setIsPanningState(true)
 
       const stage = stageRef.current
       if (!stage) return
@@ -105,6 +113,7 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
 
   const handlePanEnd = useCallback(() => {
     isPanningRef.current = false
+    setIsPanningState(false)
     lastPointerRef.current = null
   }, [])
 
@@ -116,5 +125,7 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
     handlePanEnd,
     setSpaceDown,
     getIsPanning,
+    isSpaceDown,
+    isPanning,
   }
 }

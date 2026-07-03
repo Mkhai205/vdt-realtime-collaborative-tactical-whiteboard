@@ -58,7 +58,7 @@ export function ConnectionStatus({ status }: ConnectionStatusProps) {
       style={{
         position: "absolute",
         bottom: 20,
-        left: 20,
+        right: 20,
         zIndex: 10,
         pointerEvents: "none",
 

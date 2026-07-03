@@ -3,7 +3,7 @@
 import { CanvasStage } from "./canvas/CanvasStage"
 import { ZoomControls } from "./canvas/ZoomControls"
 import { ZoomIndicator } from "./canvas/ZoomIndicator"
-import { Toolbar } from "./toolbar/Toolbar"
+import { UndoRedoControls } from "./canvas/UndoRedoControls"
 import { StylePanel } from "./toolbar/StylePanel"
 import { SelectionBadge } from "./canvas/SelectionBadge"
 import { useViewport } from "./canvas/useViewport"
@@ -52,43 +52,44 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}
     >
       {/* ── Header Top Bar ── */}
-      <BoardHeader boardId={boardId} mutations={mutations} />
+      <BoardHeader boardId={boardId} />
 
       {/* ── Canvas (absolute, full screen) ─── */}
       <CanvasStage boardId={boardId} mutations={mutations} />
 
-      {/* ── Left: floating toolbar + style panel ─── */}
+      {/* ── Left: style panel (floating solo) ─── */}
       <div
         id="board-left-panel"
         style={{
           position: "absolute",
           left: 16,
-          top: "55%",
-          transform: "translateY(-50%)",
+          top: 80,
           zIndex: 10,
           display: "flex",
           flexDirection: "column",
+          alignItems: "flex-start",
+          pointerEvents: "auto",
+        }}
+      >
+        <StylePanel updateObject={mutations.updateObject} />
+      </div>
+
+      {/* ── Bottom-left: zoom & history controls ─── */}
+      <div
+        id="board-bottom-left"
+        style={{
+          position: "absolute",
+          bottom: 20,
+          left: 20,
+          zIndex: 10,
+          display: "flex",
           alignItems: "center",
           gap: 8,
           pointerEvents: "auto",
         }}
       >
-        <Toolbar />
-        <StylePanel />
-      </div>
-
-      {/* ── Bottom-right: zoom controls ─── */}
-      <div
-        id="board-zoom-controls"
-        style={{
-          position: "absolute",
-          bottom: 20,
-          right: 20,
-          zIndex: 10,
-          pointerEvents: "auto",
-        }}
-      >
         <ZoomControls viewport={viewport} />
+        <UndoRedoControls mutations={mutations} />
       </div>
 
       {/* ── Transient zoom indicator ─── */}
