@@ -1,21 +1,40 @@
-import { useCallback } from "react"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useCallback, useMemo } from "react"
 import type Konva from "konva"
 import type { KonvaEventObject } from "konva/lib/Node"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
+import { getSocket } from "@/lib/socket/socket"
+import { ClientEvents } from "@rctw/shared-contracts"
+
+// ─── Throttle Helper ────────────────────────────────────────────────────────────
+
+function throttle<T extends (...args: any[]) => void>(
+  func: T,
+  limit: number,
+): T {
+  let inThrottle = false
+  return function (this: any, ...args: any[]) {
+    if (!inThrottle) {
+      func.apply(this, args)
+      inThrottle = true
+      setTimeout(() => {
+        inThrottle = false
+      }, limit)
+    }
+  } as any
+}
 
 // ─── Hook ───────────────────────────────────────────────────────────────────────
 
 /**
- * Handles Konva Transformer `transformstart` and `transformend` events.
+ * Handles Konva Transformer `transformstart`, `transform`, and `transformend` events.
  *
  * When Konva scales a node via resize handles it modifies `scaleX/scaleY`
  * rather than `width/height`. This hook converts scale back into real
- * dimensions and persists to the board store (optimistic; socket emit in Plan 08).
+ * dimensions and persists to the board store.
  *
- * Special cases:
- * - CIRCLE: Konva stores ellipse at center, so x/y must be adjusted by radius.
- * - LINE/PATH: points-aware resize is deferred; only x/y/rotation updated.
+ * Ephemeral updates are broadcast to other clients in real-time during transforming.
  */
 export function useTransform(
   updateObject: (
@@ -30,8 +49,37 @@ export function useTransform(
   ) => void,
   setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void,
 ) {
+  const boardId = useBoardStore((s) => s.boardId)
+
+  const throttledEmit = useMemo(
+    () =>
+      throttle(
+        (
+          objectId: string,
+          coords: {
+            x?: number
+            y?: number
+            width?: number
+            height?: number
+            rotation?: number
+          },
+        ) => {
+          const socket = getSocket()
+          if (socket.connected && boardId) {
+            socket.emit(ClientEvents.OBJECT_MOVE_EPHEMERAL, {
+              boardId,
+              objectId,
+              ...coords,
+            })
+          }
+        },
+        50,
+      ),
+    [boardId],
+  )
+
   const onTransformStart = useCallback(
-    (_e: KonvaEventObject<Event>) => {
+    () => {
       const { selectedIds } = useUIStore.getState()
       if (setObjectEditingState) {
         for (const id of selectedIds) {
@@ -42,6 +90,53 @@ export function useTransform(
     [setObjectEditingState],
   )
 
+  const onTransform = useCallback(
+    (e: KonvaEventObject<Event>) => {
+      const node = e.target as Konva.Node
+      const id = node.id()
+      const objects = useBoardStore.getState().objects
+      const obj = objects.get(id)
+      if (!obj) return
+
+      const scaleX = node.scaleX()
+      const scaleY = node.scaleY()
+      const rotation = node.rotation()
+      const nodeX = node.x()
+      const nodeY = node.y()
+
+      let newX = nodeX
+      let newY = nodeY
+      let newWidth: number | undefined
+      let newHeight: number | undefined
+
+      if (obj.type === "CIRCLE") {
+        const originalW = obj.width ?? 100
+        const originalH = obj.height ?? 100
+        newWidth = originalW * scaleX
+        newHeight = originalH * scaleY
+        const rx = newWidth / 2
+        const ry = newHeight / 2
+        newX = nodeX - rx
+        newY = nodeY - ry
+      } else if (obj.type === "LINE" || obj.type === "PATH") {
+        newWidth = obj.width ?? undefined
+        newHeight = obj.height ?? undefined
+      } else {
+        newWidth = (obj.width ?? 100) * scaleX
+        newHeight = (obj.height ?? 80) * scaleY
+      }
+
+      throttledEmit(id, {
+        x: newX,
+        y: newY,
+        width: newWidth,
+        height: newHeight,
+        rotation,
+      })
+    },
+    [throttledEmit],
+  )
+
   const onTransformEnd = useCallback(
     (e: KonvaEventObject<Event>) => {
       const node = e.target as Konva.Node
@@ -50,7 +145,6 @@ export function useTransform(
       const obj = objects.get(id)
       if (!obj) return
 
-      // Konva scales the node — convert back to real dimensions
       const scaleX = node.scaleX()
       const scaleY = node.scaleY()
       node.scaleX(1)
@@ -66,27 +160,22 @@ export function useTransform(
       let newHeight: number | undefined
 
       if (obj.type === "CIRCLE") {
-        // Konva ellipse Group is placed at center (x + rx, y + ry)
         const originalW = obj.width ?? 100
         const originalH = obj.height ?? 100
-        newWidth = (originalW / 2) * scaleX * 2 // = originalW * scaleX
-        newHeight = (originalH / 2) * scaleY * 2
+        newWidth = originalW * scaleX
+        newHeight = originalH * scaleY
         const rx = newWidth / 2
         const ry = newHeight / 2
-        // node.x/y() is the center — derive top-left
         newX = nodeX - rx
         newY = nodeY - ry
       } else if (obj.type === "LINE" || obj.type === "PATH") {
-        // Points-aware resize deferred; just update position + rotation
         newWidth = obj.width ?? undefined
         newHeight = obj.height ?? undefined
       } else {
-        // RECTANGLE, TEXT, ICON, etc.
         newWidth = (obj.width ?? 100) * scaleX
         newHeight = (obj.height ?? 80) * scaleY
       }
 
-      // Optimistic update — socket emit wired in Plan 08
       updateObject(id, {
         x: newX,
         y: newY,
@@ -95,7 +184,6 @@ export function useTransform(
         rotation,
       })
 
-      // Emit ENDED status for all currently selected objects
       const { selectedIds } = useUIStore.getState()
       if (setObjectEditingState) {
         for (const selId of selectedIds) {
@@ -106,7 +194,7 @@ export function useTransform(
     [updateObject, setObjectEditingState],
   )
 
-  return { onTransformStart, onTransformEnd }
+  return { onTransformStart, onTransform, onTransformEnd }
 }
 
 export type UseTransformReturn = ReturnType<typeof useTransform>

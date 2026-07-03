@@ -63,6 +63,9 @@ interface BoardActions {
   /** Upsert (add or replace) a single object in the map */
   upsertObject: (obj: BoardObjectDto) => void
 
+  /** Update specific fields of a board object in the map without replacing it entirely */
+  updateObjectFields: (objectId: string, fields: Partial<BoardObjectDto>) => void
+
   /** Remove an object from the map (soft delete already handled by server) */
   removeObject: (objectId: string) => void
 
@@ -172,6 +175,17 @@ export const useBoardStore = create<BoardStore>()((set, get) => ({
     set((state) => {
       const next = new Map(state.objects)
       next.set(obj.id, obj)
+      return { objects: next }
+    })
+  },
+
+  updateObjectFields: (objectId, fields) => {
+    set((state) => {
+      const next = new Map(state.objects)
+      const current = next.get(objectId)
+      if (current) {
+        next.set(objectId, { ...current, ...fields })
+      }
       return { objects: next }
     })
   },

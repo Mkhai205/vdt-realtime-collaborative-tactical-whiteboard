@@ -13,6 +13,8 @@ import {
   type ObjectCreateRequest,
   type ObjectUpdateRequest,
   type ObjectDeleteRequest,
+  type ObjectMoveEphemeralRequest,
+  type ObjectMoveEphemeralEvent,
 } from "@rctw/shared-contracts"
 import { WhiteboardMutationService } from "../../board/service/board-objects.service"
 import { BoardSnapshotService } from "../../board/service/board-snapshot.service"
@@ -137,5 +139,28 @@ export class ObjectHandler {
 
     // 3. Trigger auto-snapshot check
     void this.snapshotService.maybeAutoSnapshot(boardId)
+  }
+
+  /**
+   * Broadcast ephemeral object move/resize/rotate update (realtime, no DB writes)
+   */
+  async moveEphemeral(
+    client: Socket,
+    dto: ObjectMoveEphemeralRequest,
+  ): Promise<void> {
+    const { boardId, objectId, ...coords } = dto
+    const roomName = toBoardSocketName(boardId)
+
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
+
+    const event: ObjectMoveEphemeralEvent = {
+      boardId,
+      objectId,
+      ...coords,
+    }
+
+    // Broadcast to other clients in the board (except sender)
+    client.to(roomName).emit(ServerEvents.OBJECT_MOVE_EPHEMERAL, event)
   }
 }

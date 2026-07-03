@@ -15,6 +15,7 @@ interface ObjectRendererProps {
   editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
+  onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
   onTextChange: (id: string, text: string) => void
   setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void
@@ -34,6 +35,7 @@ export function ObjectRenderer({
   editingUser,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragEnd,
   onTextChange,
   setObjectEditingState,
@@ -47,6 +49,7 @@ export function ObjectRenderer({
           editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
+          onDragMove={onDragMove}
           onDragEnd={onDragEnd}
         />
       )
@@ -59,6 +62,7 @@ export function ObjectRenderer({
           editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
+          onDragMove={onDragMove}
           onDragEnd={onDragEnd}
         />
       )
@@ -81,6 +85,7 @@ export function ObjectRenderer({
           editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
+          onDragMove={onDragMove}
           onDragEnd={onDragEnd}
           onTextChange={onTextChange}
           setObjectEditingState={setObjectEditingState}
@@ -105,6 +110,7 @@ export function ObjectRenderer({
           editingUser={editingUser}
           onSelect={onSelect}
           onDragStart={onDragStart}
+          onDragMove={onDragMove}
           onDragEnd={onDragEnd}
         />
       )

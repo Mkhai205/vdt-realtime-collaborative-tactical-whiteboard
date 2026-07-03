@@ -14,6 +14,7 @@ interface RectangleObjectProps {
   editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
+  onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
 }
 
@@ -34,6 +35,7 @@ export function RectangleObject({
   editingUser,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragEnd,
 }: RectangleObjectProps) {
   const s = resolveStyle("RECTANGLE", object.style)
@@ -68,6 +70,7 @@ export function RectangleObject({
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}
+      onDragMove={(e) => onDragMove(object.id, e.target.x(), e.target.y(), e)}
       onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
     >
       {/* Main shape */}

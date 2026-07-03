@@ -17,6 +17,7 @@ import type {
   PresenceUpdateEvent,
   ObjectEditingEvent,
   WsErrorPayload,
+  ObjectMoveEphemeralEvent,
 } from "@rctw/shared-contracts"
 import { toast } from "sonner"
 
@@ -31,6 +32,7 @@ export function useBoardEvents(boardId: string) {
     commitPendingOp,
     rollbackPendingOp,
     revision,
+    updateObjectFields,
   } = useBoardStore()
 
   useEffect(() => {
@@ -151,6 +153,11 @@ export function useBoardEvents(boardId: string) {
       }
     }
 
+    const handleObjectMoveEphemeral = (event: ObjectMoveEphemeralEvent) => {
+      const { objectId, ...coords } = event
+      updateObjectFields(objectId, coords)
+    }
+
     socket.on(ServerEvents.BOARD_STATE, handleBoardState)
     socket.on(ServerEvents.OBJECT_CREATED, onObjectCreated)
     socket.on(ServerEvents.OBJECT_UPDATED, onObjectUpdated)
@@ -158,6 +165,7 @@ export function useBoardEvents(boardId: string) {
     socket.on(ServerEvents.UNDO_REDO, handleUndoRedo)
     socket.on(ServerEvents.PRESENCE_UPDATE, handlePresence)
     socket.on(ServerEvents.OBJECT_EDITING, handleObjectEditing)
+    socket.on(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
     socket.on(ServerEvents.ERROR, handleWsError)
 
     return () => {
@@ -168,6 +176,7 @@ export function useBoardEvents(boardId: string) {
       socket.off(ServerEvents.UNDO_REDO, handleUndoRedo)
       socket.off(ServerEvents.PRESENCE_UPDATE, handlePresence)
       socket.off(ServerEvents.OBJECT_EDITING, handleObjectEditing)
+      socket.off(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
       socket.off(ServerEvents.ERROR, handleWsError)
     }
   }, [
@@ -181,5 +190,6 @@ export function useBoardEvents(boardId: string) {
     setEditingState,
     commitPendingOp,
     rollbackPendingOp,
+    updateObjectFields,
   ])
 }

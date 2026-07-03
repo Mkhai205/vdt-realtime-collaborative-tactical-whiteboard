@@ -31,7 +31,7 @@ export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
   const { selectedIds, setSelectedIds, addToSelection, clearSelection } =
     useUIStore()
 
-  const { onDragStart, onDragEnd } = useDragMove(
+  const { onDragStart, onDragMove, onDragEnd } = useDragMove(
     mutations.updateObject,
     mutations.setObjectEditingState,
   )
@@ -90,6 +90,7 @@ export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
           editingUser={editingStates.get(obj.id)?.user}
           onSelect={handleSelect}
           onDragStart={onDragStart}
+          onDragMove={onDragMove}
           onDragEnd={onDragEnd}
           onTextChange={handleTextChange}
           setObjectEditingState={mutations.setObjectEditingState}

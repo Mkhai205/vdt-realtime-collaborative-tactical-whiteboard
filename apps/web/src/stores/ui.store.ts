@@ -1,7 +1,17 @@
 import { create } from "zustand"
-import type { BoardObjectDto, Tool } from "@rctw/shared-contracts"
+import type { BoardObjectDto, Tool, ObjectType } from "@rctw/shared-contracts"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
+
+export type PreviewShape = {
+  type: ObjectType
+  x: number
+  y: number
+  width?: number
+  height?: number
+  points?: number[]
+  style: BoardObjectDto["style"]
+}
 
 export type Viewport = {
   /** Canvas-to-screen X translation (pixels) */
@@ -40,6 +50,9 @@ interface UIState {
 
   /** True while the spacebar is currently pressed down */
   isSpacePressed: boolean
+
+  /** The current in-progress drawing preview shape */
+  previewShape: PreviewShape | null
 }
 
 interface UIActions {
@@ -66,6 +79,8 @@ interface UIActions {
   setFollowingUserId: (id: string | null) => void
 
   setIsSpacePressed: (pressed: boolean) => void
+
+  setPreviewShape: (shape: PreviewShape | null) => void
 }
 
 type UIStore = UIState & UIActions
@@ -88,6 +103,7 @@ export const useUIStore = create<UIStore>()((set) => ({
   drawingStartPoint: null,
   followingUserId: null,
   isSpacePressed: false,
+  previewShape: null,
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -96,6 +112,7 @@ export const useUIStore = create<UIStore>()((set) => ({
       // Switching tools clears any in-progress drawing
       isDrawing: false,
       drawingStartPoint: null,
+      previewShape: null,
     }),
 
   setSelectedIds: (ids) => set({ selectedIds: new Set(ids) }),
@@ -153,4 +170,6 @@ export const useUIStore = create<UIStore>()((set) => ({
   setFollowingUserId: (followingUserId) => set({ followingUserId }),
 
   setIsSpacePressed: (pressed) => set({ isSpacePressed: pressed }),
+
+  setPreviewShape: (previewShape) => set({ previewShape }),
 }))

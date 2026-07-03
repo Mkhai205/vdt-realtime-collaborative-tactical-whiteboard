@@ -32,7 +32,7 @@ export function BoardSettingsPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => onOpenChange(false)}
-            className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-xs select-none"
+            className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-xs select-none pointer-events-auto"
           />
 
           {/* Slide-over Panel */}
@@ -41,7 +41,7 @@ export function BoardSettingsPanel({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 220 }}
-            className="fixed top-0 right-0 bottom-0 z-50 flex h-full w-full flex-col border-l border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md sm:max-w-105 dark:border-slate-800 dark:bg-slate-900/95"
+            className="fixed top-0 right-0 bottom-0 z-50 flex h-full w-full flex-col border-l border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md sm:max-w-105 dark:border-slate-800 dark:bg-slate-900/95 pointer-events-auto"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800/80">

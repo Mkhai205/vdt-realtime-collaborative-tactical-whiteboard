@@ -36,7 +36,7 @@ function JoinContent() {
       try {
         const response = await shareLinkApi.joinByLink({ token })
         toast.success("Joined board successfully!")
-        router.replace(`/board/${response.id}`)
+        router.replace(`/board/${response.boardId}`)
       } catch (err: any) {
         let msg = "Failed to join board. The link might be expired or invalid."
         if (axios.isAxiosError(err)) {

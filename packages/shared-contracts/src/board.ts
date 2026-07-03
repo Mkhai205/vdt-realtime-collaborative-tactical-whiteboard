@@ -241,6 +241,11 @@ export type BoardShareLinkResponse = {
   createdAt: string
 }
 
+export type JoinBoardByLinkResponse = {
+  boardId: string
+  role: string
+}
+
 // --- Board Invitation schemas ---
 
 export const createBoardInvitationRequestSchema = z.object({

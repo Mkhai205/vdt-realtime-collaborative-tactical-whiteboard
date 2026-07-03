@@ -118,6 +118,29 @@ export const objectEditingRequestSchema = z.object({
 })
 export type ObjectEditingRequest = z.infer<typeof objectEditingRequestSchema>
 
+// --- Ephemeral object move schema ---
+
+export const objectMoveEphemeralRequestSchema = z.object({
+  boardId: z.uuid(),
+  objectId: z.uuid(),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  rotation: z.number().optional(),
+})
+export type ObjectMoveEphemeralRequest = z.infer<typeof objectMoveEphemeralRequestSchema>
+
+export type ObjectMoveEphemeralEvent = {
+  boardId: string
+  objectId: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  rotation?: number
+}
+
 // ─── Server → Client: Event Types ─────────────────────────────────────────────
 
 /** User đang online trên một board */
@@ -265,6 +288,7 @@ export const ClientEvents = {
   OPERATION_REDO: "operation:redo",
   CURSOR_MOVE: "cursor:move",
   OBJECT_EDITING: "object:editing",
+  OBJECT_MOVE_EPHEMERAL: "object:move-ephemeral",
 } as const
 export type ClientEvent = (typeof ClientEvents)[keyof typeof ClientEvents]
 
@@ -279,6 +303,7 @@ export const ServerEvents = {
   PRESENCE_UPDATE: "presence:update",
   CURSOR_MOVED: "cursor:moved",
   OBJECT_EDITING: "object:editing",
+  OBJECT_MOVE_EPHEMERAL: "object:move-ephemeral",
   JOIN_REQUEST_CREATED: "join-request:created",
   ERROR: "error",
 } as const

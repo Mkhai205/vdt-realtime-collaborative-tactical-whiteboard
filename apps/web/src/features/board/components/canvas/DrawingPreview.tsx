@@ -1,21 +1,21 @@
 "use client"
 
 import { Layer, Rect, Ellipse, Arrow, Line } from "react-konva"
-import { sharedPreviewRef } from "@/features/board/hooks/useShapeCreation"
+import { useUIStore } from "@/stores/ui.store"
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 /**
  * The UI layer (Layer 3) that renders the in-progress drawing preview.
  *
- * Reads from the module-level `sharedPreviewRef` (updated synchronously during
- * mouse events) and re-renders on every animation frame via `onAnimationFrame`.
+ * Reads from the Zustand `ui` store's `previewShape` to update in real-time
+ * during drawing.
  *
  * Uses dashed strokes and reduced opacity to visually distinguish previews
  * from committed objects.
  */
 export function DrawingPreview() {
-  const preview = sharedPreviewRef.current
+  const preview = useUIStore((s) => s.previewShape)
   if (!preview) return <Layer id="ui-layer" listening={false} />
 
   const { type, x, y, width = 0, height = 0, points, style } = preview

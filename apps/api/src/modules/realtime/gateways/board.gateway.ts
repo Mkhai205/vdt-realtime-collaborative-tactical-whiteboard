@@ -32,6 +32,7 @@ import {
   type UndoRequest,
   type RedoRequest,
   type ObjectEditingRequest,
+  type ObjectMoveEphemeralRequest,
 } from "@rctw/shared-contracts"
 
 @WebSocketGateway({
@@ -158,5 +159,13 @@ export class BoardGateway
     @MessageBody() dto: ObjectEditingRequest,
   ) {
     return this.selectionHandler.handleObjectEditing(client, dto)
+  }
+
+  @SubscribeMessage(ClientEvents.OBJECT_MOVE_EPHEMERAL)
+  async moveObjectEphemeral(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() dto: ObjectMoveEphemeralRequest,
+  ) {
+    return this.objectHandler.moveEphemeral(client, dto)
   }
 }

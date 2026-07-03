@@ -14,6 +14,7 @@ interface IconObjectProps {
   editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
+  onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
 }
 
@@ -130,6 +131,7 @@ export function IconObject({
   editingUser,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragEnd,
 }: IconObjectProps) {
   const s = resolveStyle("ICON", object.style)
@@ -165,6 +167,7 @@ export function IconObject({
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}
+      onDragMove={(e) => onDragMove(object.id, e.target.x(), e.target.y(), e)}
       onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
     >
       {img ? (

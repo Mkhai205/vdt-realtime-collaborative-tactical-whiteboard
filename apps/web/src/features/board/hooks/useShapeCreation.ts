@@ -6,21 +6,11 @@ import type {
   ObjectType,
   ObjectCreatePayload,
 } from "@rctw/shared-contracts"
-import { useUIStore } from "@/stores/ui.store"
+import { useUIStore, type PreviewShape } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
 import { DEFAULT_STYLES } from "../components/canvas/objects/shapeDefaults"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-
-export type PreviewShape = {
-  type: ObjectType
-  x: number
-  y: number
-  width?: number
-  height?: number
-  points?: number[]
-  style: BoardObjectDto["style"]
-}
 
 export type UseShapeCreationReturn = {
   previewShape: PreviewShape | null
@@ -37,16 +27,6 @@ const MIN_DRAG_PX = 5
 const DEFAULT_SIZE = 100
 /** Minimum distance between successive PATH samples (world px) */
 const PATH_SAMPLE_DIST = 4
-
-// ─── Module-level shared preview ref ───────────────────────────────────────────
-
-/**
- * Module-level ref so DrawingPreview can read the current preview without
- * prop-drilling. Updated synchronously during mouse events (no setState).
- */
-export const sharedPreviewRef: React.MutableRefObject<PreviewShape | null> = {
-  current: null,
-}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -199,7 +179,7 @@ export function useShapeCreation(
         wp.x,
         wp.y,
       ])
-      sharedPreviewRef.current = previewRef.current
+      useUIStore.getState().setPreviewShape(previewRef.current)
     },
     [stageRef, commitShape],
   )
@@ -245,12 +225,7 @@ export function useShapeCreation(
         previewRef.current = buildPreview(tool, x, y, w, h, undefined)
       }
 
-      sharedPreviewRef.current = previewRef.current
-
-      // Trigger the UI layer to redraw
-      stage.getLayers().forEach((l) => {
-        if (l.id() === "ui-layer") l.batchDraw()
-      })
+      useUIStore.getState().setPreviewShape(previewRef.current)
     },
     [stageRef],
   )
@@ -268,7 +243,7 @@ export function useShapeCreation(
       const preview = previewRef.current
 
       // Clear preview regardless of outcome
-      sharedPreviewRef.current = null
+      useUIStore.getState().setPreviewShape(null)
       previewRef.current = null
 
       if (!stage || !start || !preview) {
@@ -308,7 +283,7 @@ export function useShapeCreation(
 
   return {
     get previewShape() {
-      return sharedPreviewRef.current
+      return useUIStore.getState().previewShape
     },
     onMouseDown,
     onMouseMove,

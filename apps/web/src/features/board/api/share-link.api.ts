@@ -3,7 +3,7 @@ import type {
   BoardShareLinkResponse,
   CreateBoardShareLinkRequest,
   JoinBoardByLinkRequest,
-  BoardDetailResponse,
+  JoinBoardByLinkResponse,
 } from "@rctw/shared-contracts"
 
 export const shareLinkApi = {
@@ -31,8 +31,8 @@ export const shareLinkApi = {
 
   joinByLink: async (
     payload: JoinBoardByLinkRequest,
-  ): Promise<BoardDetailResponse> => {
-    const { data } = await apiClient.post<BoardDetailResponse>(
+  ): Promise<JoinBoardByLinkResponse> => {
+    const { data } = await apiClient.post<JoinBoardByLinkResponse>(
       "/boards/join",
       payload,
     )

@@ -1,24 +1,18 @@
 "use client"
 
 import * as React from "react"
+import { MousePointer2 } from "lucide-react"
 
-const CursorSvg = ({ color }: { color: string }) => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    style={{ transform: "rotate(-10deg) translate(-2px, -2px)" }}
-  >
-    <path
-      d="M5.65376 12.3963L5.05031 4.82226C5.00693 4.2774 5.61746 3.91094 6.05928 4.23616L18.4239 13.3364C18.887 13.6772 18.6657 14.4244 18.0934 14.4552L13.8821 14.682L10.5985 20.3155C10.3188 20.7955 9.60156 20.6726 9.49397 20.1172L7.69708 14.4717L5.65376 12.3963Z"
-      fill={color}
-      stroke="#ffffff"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    />
-  </svg>
+const CursorIcon = ({ color }: { color: string }) => (
+  <MousePointer2
+    size={18}
+    fill={color}
+    stroke="#ffffff"
+    strokeWidth={1.5}
+    style={{
+      transform: "translate(-3px, -3px)",
+    }}
+  />
 )
 
 export function RemoteCursor({
@@ -55,7 +49,7 @@ export function RemoteCursor({
         zIndex: 9999,
       }}
     >
-      <CursorSvg color={avatarColor} />
+      <CursorIcon color={avatarColor} />
       <div
         style={{
           background: avatarColor,

@@ -22,30 +22,28 @@ const TRANSFORMER_CONFIG = {
   // Handle styling
   anchorSize: 8,
   anchorFill: "#ffffff",
-  anchorStroke: "#6366f1",
-  anchorStrokeWidth: 2,
-  anchorCornerRadius: 2,
+  anchorStroke: "#a5b4fc",
+  anchorStrokeWidth: 1.5,
+  anchorCornerRadius: 4,
 
   // Border styling
-  borderStroke: "#6366f1",
+  borderStroke: "#a5b4fc",
   borderStrokeWidth: 1.5,
-  borderDash: [4, 4],
+  borderDash: [],
 
   // Rotation handle
   rotateEnabled: true,
   rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
   rotationSnapTolerance: 5,
+  rotateAnchorOffset: 15,
+  rotateLineVisible: false,
 
   // Resize
   keepRatio: false,
   enabledAnchors: [
     "top-left",
-    "top-center",
     "top-right",
-    "middle-right",
-    "middle-left",
     "bottom-left",
-    "bottom-center",
     "bottom-right",
   ] as string[],
 
@@ -117,6 +115,7 @@ export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLa
         rotateEnabled={!isViewer}
         enabledAnchors={isViewer ? [] : TRANSFORMER_CONFIG.enabledAnchors}
         onTransformStart={transform.onTransformStart}
+        onTransform={transform.onTransform}
         onTransformEnd={transform.onTransformEnd}
       />
 

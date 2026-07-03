@@ -14,6 +14,7 @@ interface CircleObjectProps {
   editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
+  onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
 }
 
@@ -36,6 +37,7 @@ export function CircleObject({
   editingUser,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragEnd,
 }: CircleObjectProps) {
   const s = resolveStyle("CIRCLE", object.style)
@@ -71,6 +73,9 @@ export function CircleObject({
       onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
       onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
       onDragStart={() => onDragStart(object.id)}
+      onDragMove={(e) =>
+        onDragMove(object.id, e.target.x() - rx, e.target.y() - ry, e)
+      }
       onDragEnd={(e) =>
         // Re-derive top-left from center
         onDragEnd(object.id, e.target.x() - rx, e.target.y() - ry)

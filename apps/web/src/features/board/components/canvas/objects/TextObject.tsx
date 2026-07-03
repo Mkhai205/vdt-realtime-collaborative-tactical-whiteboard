@@ -16,6 +16,7 @@ interface TextObjectProps {
   editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
   onDragStart: (id: string) => void
+  onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
   /** Called when user finishes editing to persist the new text */
   onTextChange: (id: string, text: string) => void
@@ -46,6 +47,7 @@ export function TextObject({
   editingUser,
   onSelect,
   onDragStart,
+  onDragMove,
   onDragEnd,
   onTextChange,
   setObjectEditingState,
@@ -186,6 +188,8 @@ export function TextObject({
       id={object.id}
       x={object.x}
       y={object.y}
+      width={w}
+      height={h}
       rotation={object.rotation}
       opacity={s.opacity}
       draggable={!isEditing && !isEditedByOther && !isViewer && isSelectTool}
@@ -194,8 +198,17 @@ export function TextObject({
       onDblClick={enterEdit}
       onDblTap={enterEdit}
       onDragStart={() => onDragStart(object.id)}
+      onDragMove={(e) => onDragMove(object.id, e.target.x(), e.target.y(), e)}
       onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
     >
+      {/* Invisible hit box covering the full width and height */}
+      <Rect
+        width={w}
+        height={h}
+        fill="rgba(0,0,0,0)"
+        listening={true}
+      />
+
       {/* Selection / focus border */}
       {(isSelected || isEditedByOther) && (
         <Rect
