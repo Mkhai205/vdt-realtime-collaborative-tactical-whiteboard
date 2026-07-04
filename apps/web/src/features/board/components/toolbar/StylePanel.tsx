@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
+import { useShallow } from "zustand/react/shallow"
 import { ColorPicker } from "./ColorPicker"
 import { useUIStore } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
-import type { ShapeStyle } from "@rctw/shared-contracts"
+import type { ShapeStyle, BoardObjectDto } from "@rctw/shared-contracts"
 import type { UseObjectMutationsReturn } from "../../hooks/useObjectMutations"
 import { Copy, Trash2, Link, ArrowDownToLine, ArrowDown, ArrowUp, ArrowUpToLine } from "lucide-react"
 import { toast } from "sonner"
@@ -100,7 +101,20 @@ export function StylePanel({ mutations }: StylePanelProps) {
   const { updateObject } = mutations
   const selectedIds = useUIStore((s) => s.selectedIds)
   const clearSelection = useUIStore((s) => s.clearSelection)
-  const objects = useBoardStore((s) => s.objects)
+
+  // Narrow selector: only triggers re-render when the selected objects themselves change.
+  const selectedObjects = useBoardStore(
+    useShallow((s) => {
+      const list = []
+      for (const id of selectedIds) {
+        const obj = s.objects.get(id)
+        if (obj) {
+          list.push(obj)
+        }
+      }
+      return list
+    })
+  ) as BoardObjectDto[]
 
   const handleDuplicate = () => {
     const currentObjects = useBoardStore.getState().objects
@@ -137,16 +151,18 @@ export function StylePanel({ mutations }: StylePanelProps) {
   }
 
   const handleSendToBack = useCallback(() => {
-    if (selectedIds.size === 0) return
-    const allObjects = [...objects.values()].sort((a, b) => {
+    const selected = useUIStore.getState().selectedIds
+    if (selected.size === 0) return
+    const currentObjects = useBoardStore.getState().objects
+    const allObjects = [...currentObjects.values()].sort((a, b) => {
       if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
       return a.createdAt.localeCompare(b.createdAt)
     })
 
-    const selected = allObjects.filter((o) => selectedIds.has(o.id))
-    const nonSelected = allObjects.filter((o) => !selectedIds.has(o.id))
+    const sel = allObjects.filter((o) => selected.has(o.id))
+    const nonSelected = allObjects.filter((o) => !selected.has(o.id))
 
-    const newOrder = [...selected, ...nonSelected]
+    const newOrder = [...sel, ...nonSelected]
     const originalZIndices = allObjects.map((o) => o.zIndex)
 
     newOrder.forEach((obj, idx) => {
@@ -155,11 +171,13 @@ export function StylePanel({ mutations }: StylePanelProps) {
         updateObject(obj.id, { zIndex: newZ })
       }
     })
-  }, [selectedIds, objects, updateObject])
+  }, [updateObject])
 
   const handleSendBackward = useCallback(() => {
-    if (selectedIds.size === 0) return
-    const allObjects = [...objects.values()].sort((a, b) => {
+    const selected = useUIStore.getState().selectedIds
+    if (selected.size === 0) return
+    const currentObjects = useBoardStore.getState().objects
+    const allObjects = [...currentObjects.values()].sort((a, b) => {
       if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
       return a.createdAt.localeCompare(b.createdAt)
     })
@@ -168,7 +186,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
     for (let i = 1; i < nextOrder.length; i++) {
       const current = nextOrder[i]!
       const prev = nextOrder[i - 1]!
-      if (selectedIds.has(current.id) && !selectedIds.has(prev.id)) {
+      if (selected.has(current.id) && !selected.has(prev.id)) {
         nextOrder[i] = prev
         nextOrder[i - 1] = current
       }
@@ -182,11 +200,13 @@ export function StylePanel({ mutations }: StylePanelProps) {
         updateObject(obj.id, { zIndex: newZ })
       }
     })
-  }, [selectedIds, objects, updateObject])
+  }, [updateObject])
 
   const handleBringForward = useCallback(() => {
-    if (selectedIds.size === 0) return
-    const allObjects = [...objects.values()].sort((a, b) => {
+    const selected = useUIStore.getState().selectedIds
+    if (selected.size === 0) return
+    const currentObjects = useBoardStore.getState().objects
+    const allObjects = [...currentObjects.values()].sort((a, b) => {
       if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
       return a.createdAt.localeCompare(b.createdAt)
     })
@@ -195,7 +215,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
     for (let i = nextOrder.length - 2; i >= 0; i--) {
       const current = nextOrder[i]!
       const next = nextOrder[i + 1]!
-      if (selectedIds.has(current.id) && !selectedIds.has(next.id)) {
+      if (selected.has(current.id) && !selected.has(next.id)) {
         nextOrder[i] = next
         nextOrder[i + 1] = current
       }
@@ -209,19 +229,21 @@ export function StylePanel({ mutations }: StylePanelProps) {
         updateObject(obj.id, { zIndex: newZ })
       }
     })
-  }, [selectedIds, objects, updateObject])
+  }, [updateObject])
 
   const handleBringToFront = useCallback(() => {
-    if (selectedIds.size === 0) return
-    const allObjects = [...objects.values()].sort((a, b) => {
+    const selected = useUIStore.getState().selectedIds
+    if (selected.size === 0) return
+    const currentObjects = useBoardStore.getState().objects
+    const allObjects = [...currentObjects.values()].sort((a, b) => {
       if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
       return a.createdAt.localeCompare(b.createdAt)
     })
 
-    const selected = allObjects.filter((o) => selectedIds.has(o.id))
-    const nonSelected = allObjects.filter((o) => !selectedIds.has(o.id))
+    const sel = allObjects.filter((o) => selected.has(o.id))
+    const nonSelected = allObjects.filter((o) => !selected.has(o.id))
 
-    const newOrder = [...nonSelected, ...selected]
+    const newOrder = [...nonSelected, ...sel]
     const originalZIndices = allObjects.map((o) => o.zIndex)
 
     newOrder.forEach((obj, idx) => {
@@ -230,12 +252,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
         updateObject(obj.id, { zIndex: newZ })
       }
     })
-  }, [selectedIds, objects, updateObject])
-
-  const selectedObjects = useMemo(
-    () => [...selectedIds].map((id) => objects.get(id)).filter(Boolean),
-    [selectedIds, objects],
-  ) as NonNullable<ReturnType<typeof objects.get>>[]
+  }, [updateObject])
 
   // ── Apply style patch to all selected objects ────────────────────────────
   // Must be declared before any early return to satisfy React's rules of hooks.

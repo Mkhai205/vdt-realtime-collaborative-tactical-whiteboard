@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import type Konva from "konva"
 import { useUIStore } from "@/stores/ui.store"
 
@@ -29,15 +29,7 @@ export type UsePanReturn = {
  * handlers while a pan is in progress.
  */
 export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
-  const { activeTool, viewport, patchViewport } = useUIStore()
-
-  // Stable refs to avoid stale closures in event handlers
-  const activeToolRef = useRef(activeTool)
-  const viewportRef = useRef(viewport)
-  useEffect(() => {
-    activeToolRef.current = activeTool
-    viewportRef.current = viewport
-  }, [activeTool, viewport])
+  const patchViewport = useUIStore((s) => s.patchViewport)
 
   const [isSpaceDown, setIsSpaceDownState] = useState(false)
   const [isPanning, setIsPanningState] = useState(false)
@@ -63,7 +55,7 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
 
   const handlePanStart = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      const isHand = activeToolRef.current === "HAND"
+      const isHand = useUIStore.getState().activeTool === "HAND"
       const isSpace = isSpaceDownRef.current
 
       if (!isHand && !isSpace) return
@@ -96,9 +88,10 @@ export function usePan({ stageRef }: UsePanOptions): UsePanReturn {
       const dy = pointer.y - lastPointerRef.current.y
       lastPointerRef.current = pointer
 
+      const currentViewport = useUIStore.getState().viewport
       patchViewport({
-        x: viewportRef.current.x + dx,
-        y: viewportRef.current.y + dy,
+        x: currentViewport.x + dx,
+        y: currentViewport.y + dy,
       })
 
       if (useUIStore.getState().followingUserId) {

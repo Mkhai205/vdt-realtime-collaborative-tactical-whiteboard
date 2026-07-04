@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Line, Group } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle, safePoints } from "./shapeDefaults"
@@ -23,7 +24,7 @@ const EDIT_LOCK_STROKE = "#3b82f6"
  * points — flat [x1,y1,x2,y2,...] array stored in object.points (world space).
  * tension=0.3 gives a natural freehand feel; set to 0 for sharp polylines.
  */
-export function PathObject({
+export const PathObject = memo(function PathObject({
   object,
   isSelected,
   editingUser,
@@ -95,4 +96,4 @@ export function PathObject({
       )}
     </Group>
   )
-}
+})

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/auth.store"
 import { invitationApi } from "@/features/board/api/invitation.api"
@@ -15,7 +15,6 @@ function AcceptInvitationContent() {
   const token = searchParams.get("token")
 
   const { accessToken, isLoading: authLoading } = useAuthStore()
-  const [accepting, setAccepting] = useState(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -33,7 +32,6 @@ function AcceptInvitationContent() {
     }
 
     const performAccept = async () => {
-      setAccepting(true)
       try {
         const response = await invitationApi.acceptInvitation({ token })
         toast.success("Workspace invitation accepted!")
@@ -46,8 +44,6 @@ function AcceptInvitationContent() {
         }
         toast.error(msg)
         router.replace("/dashboard")
-      } finally {
-        setAccepting(false)
       }
     }
 

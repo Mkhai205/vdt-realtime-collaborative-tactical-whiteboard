@@ -41,7 +41,7 @@ export default function RootLayout({
           <ReactQueryProvider>
             <AuthProvider>
               <TooltipProvider>{children}</TooltipProvider>
-              <Toaster position="top-right" theme="system" richColors />
+              <Toaster position="bottom-right" theme="system" richColors />
             </AuthProvider>
           </ReactQueryProvider>
         </ThemeProvider>

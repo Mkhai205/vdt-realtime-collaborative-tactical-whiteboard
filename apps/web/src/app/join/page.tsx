@@ -4,7 +4,7 @@
 import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/auth.store"
-import { shareLinkApi } from "@/features/board/api/share-link.api"
+import { boardApi } from "@/features/board/api/board.api"
 import { Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -34,7 +34,7 @@ function JoinContent() {
     const performJoin = async () => {
       setJoining(true)
       try {
-        const response = await shareLinkApi.joinByLink({ token })
+        const response = await boardApi.joinBoardByLink({ token })
         toast.success("Joined board successfully!")
         router.replace(`/board/${response.boardId}`)
       } catch (err: any) {

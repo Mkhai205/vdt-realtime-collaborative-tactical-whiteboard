@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Arrow, Group } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle, safePoints } from "./shapeDefaults"
@@ -27,7 +28,7 @@ const EDIT_LOCK_STROKE = "#3b82f6"
  * Arrow head presence is controlled by style.arrowEnd / style.arrowStart.
  * Default: arrowEnd=true, arrowStart=false.
  */
-export function LineObject({
+export const LineObject = memo(function LineObject({
   object,
   isSelected,
   editingUser,
@@ -105,4 +106,4 @@ export function LineObject({
       )}
     </Group>
   )
-}
+})

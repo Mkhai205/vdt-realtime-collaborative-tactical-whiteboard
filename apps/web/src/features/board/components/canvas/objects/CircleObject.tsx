@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Ellipse, Group } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
@@ -31,7 +32,7 @@ const EDIT_LOCK_FILL = "rgba(59,130,246,0.08)"
  *
  * Selection highlight is handled by the Konva Transformer in SelectionLayer.
  */
-export function CircleObject({
+export const CircleObject = memo(function CircleObject({
   object,
   isSelected,
   editingUser,
@@ -114,4 +115,4 @@ export function CircleObject({
       )}
     </Group>
   )
-}
+})

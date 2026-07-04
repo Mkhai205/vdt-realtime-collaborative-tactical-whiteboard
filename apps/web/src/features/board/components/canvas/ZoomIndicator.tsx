@@ -9,8 +9,8 @@ import { useUIStore } from "@/stores/ui.store"
  * Matches Figma / Excalidraw UX.
  */
 export function ZoomIndicator() {
-  const { viewport } = useUIStore()
-  const pct = Math.round(viewport.scale * 100)
+  const scale = useUIStore((s) => s.viewport.scale)
+  const pct = Math.round(scale * 100)
 
   const [visible, setVisible] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)

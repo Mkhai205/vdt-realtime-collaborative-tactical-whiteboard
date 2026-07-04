@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Rect, Group } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
@@ -29,7 +30,7 @@ const EDIT_LOCK_FILL = "rgba(59,130,246,0.08)"
  * Renders a single RECTANGLE board object as a Konva Rect.
  * Selection highlight is handled by the Konva Transformer in SelectionLayer.
  */
-export function RectangleObject({
+export const RectangleObject = memo(function RectangleObject({
   object,
   isSelected,
   editingUser,
@@ -110,4 +111,4 @@ export function RectangleObject({
       )}
     </Group>
   )
-}
+})

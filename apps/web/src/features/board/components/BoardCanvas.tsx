@@ -1,6 +1,11 @@
 "use client"
 
-import { CanvasStage } from "./canvas/CanvasStage"
+import dynamic from "next/dynamic"
+
+const CanvasStage = dynamic(
+  () => import("./canvas/CanvasStage").then((mod) => mod.CanvasStage),
+  { ssr: false }
+)
 import { ZoomControls } from "./canvas/ZoomControls"
 import { ZoomIndicator } from "./canvas/ZoomIndicator"
 import { UndoRedoControls } from "./canvas/UndoRedoControls"

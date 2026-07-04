@@ -30,7 +30,9 @@ const KEY_TO_TOOL: Record<string, Tool> = {
  *   Delete / Backspace → delete all currently selected objects
  */
 export function useTool() {
-  const { activeTool, setActiveTool, clearSelection } = useUIStore()
+  const activeTool = useUIStore((s) => s.activeTool)
+  const setActiveTool = useUIStore((s) => s.setActiveTool)
+  const clearSelection = useUIStore((s) => s.clearSelection)
 
   const selectTool = useCallback(
     (tool: Tool) => {

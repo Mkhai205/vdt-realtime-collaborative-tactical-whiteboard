@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback } from "react"
 import type Konva from "konva"
 import { useUIStore, VIEWPORT_MIN_SCALE, VIEWPORT_MAX_SCALE } from "@/stores/ui.store"
 
@@ -25,12 +25,7 @@ export type UseZoomReturn = {
  * All limits are enforced via VIEWPORT_MIN_SCALE / VIEWPORT_MAX_SCALE.
  */
 export function useZoom({ stageRef }: UseZoomOptions): UseZoomReturn {
-  const { viewport, setViewport } = useUIStore()
-  // Keep a stable ref so the wheel handler doesn't stale-close over viewport
-  const viewportRef = useRef(viewport)
-  useEffect(() => {
-    viewportRef.current = viewport
-  }, [viewport])
+  const setViewport = useUIStore((s) => s.setViewport)
 
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -44,7 +39,7 @@ export function useZoom({ stageRef }: UseZoomOptions): UseZoomReturn {
         useUIStore.getState().setFollowingUserId(null)
       }
 
-      const { x: stageX, y: stageY, scale: oldScale } = viewportRef.current
+      const { x: stageX, y: stageY, scale: oldScale } = useUIStore.getState().viewport
 
       // ── Ctrl / Cmd: zoom ───────────────────────────────────────────────
       if (evt.ctrlKey || evt.metaKey) {

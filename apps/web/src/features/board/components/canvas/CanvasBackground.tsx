@@ -38,7 +38,7 @@ export function CanvasBackground({
   stageWidth,
   stageHeight,
 }: CanvasBackgroundProps) {
-  const { viewport } = useUIStore()
+  const viewport = useUIStore((s) => s.viewport)
   const { resolvedTheme } = useTheme()
 
   const isDark = resolvedTheme === "dark"
@@ -49,6 +49,9 @@ export function CanvasBackground({
   // ── Compute which dots are visible ────────────────────────────────────────
 
   const dots = useMemo(() => {
+    // Prevent rendering millions of dots and crashing the browser at low zoom scales
+    if (scale < 0.22) return []
+
     // World-space bounding box of the visible viewport
     const startX = Math.floor(-stageX / scale / GRID_SIZE) * GRID_SIZE
     const startY = Math.floor(-stageY / scale / GRID_SIZE) * GRID_SIZE

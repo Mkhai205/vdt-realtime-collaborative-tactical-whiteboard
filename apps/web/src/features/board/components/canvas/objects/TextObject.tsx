@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { Text, Group, Rect } from "react-konva"
 import type Konva from "konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
 import { useUIStore } from "@/stores/ui.store"
 import { EditingBadge } from "./EditingBadge"
+import { TextEditorOverlay } from "./TextEditorOverlay"
 
 import { useBoardStore } from "@/stores/board.store"
 import { getSocket } from "@/lib/socket/socket"
-import { toast } from "sonner"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -55,9 +56,7 @@ export function TextObject({
   setObjectEditingState,
 }: TextObjectProps) {
   const s = resolveStyle("TEXT", object.style)
-  const { viewport } = useUIStore()
   const textRef = useRef<Konva.Text>(null)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const [isEditing, setIsEditing] = useState(false)
   // editValue tracks in-progress keystrokes — only meaningful while isEditing.
@@ -131,11 +130,11 @@ export function TextObject({
   // Handle case where object is locked by another user while we are editing
   useEffect(() => {
     if (isEditing && isEditedByOther) {
-      setIsEditing(false)
-      useUIStore.getState().setEditingTextId(null)
-      if (textareaRef.current) {
-        textareaRef.current.remove()
-      }
+      const timer = setTimeout(() => {
+        setIsEditing(false)
+        useUIStore.getState().setEditingTextId(null)
+      }, 0)
+      return () => clearTimeout(timer)
     }
   }, [isEditing, isEditedByOther])
 
@@ -144,9 +143,6 @@ export function TextObject({
     const handleLockFailed = () => {
       setIsEditing(false)
       useUIStore.getState().setEditingTextId(null)
-      if (textareaRef.current) {
-        textareaRef.current.remove()
-      }
     }
     window.addEventListener(`object-lock-failed-${object.id}`, handleLockFailed)
     return () => {
@@ -203,150 +199,93 @@ export function TextObject({
     }
   }, [object.id, setObjectEditingState])
 
-  // ── Position textarea over the Konva Text node ─────────────────────────────
-
-  useEffect(() => {
-    if (!isEditing) return
-
-    const scale = viewport.scale
-    const areaX = object.x * scale + viewport.x
-    const areaY = object.y * scale + viewport.y
-    const scaledFontSize = s.fontSize * scale
-
-    const ta = document.createElement("textarea")
-    ta.id = `text-edit-${object.id}`
-    ta.value = editValue
-    ta.style.cssText = `
-      position: fixed;
-      left: ${areaX + PADDING * scale}px;
-      top: ${areaY + PADDING * scale}px;
-      width: ${Math.max((w - PADDING * 2) * scale, MIN_WIDTH * scale)}px;
-      min-height: ${Math.max((h - PADDING * 2) * scale, MIN_HEIGHT * scale)}px;
-      font-size: ${scaledFontSize}px;
-      font-family: ${s.fontFamily};
-      font-weight: ${s.fontWeight};
-      color: ${s.color};
-      background: transparent;
-      border: none;
-      outline: none;
-      resize: none;
-      padding: 0;
-      margin: 0;
-      line-height: 1.4;
-      overflow: hidden;
-      box-sizing: border-box;
-      z-index: 9999;
-      transform-origin: top left;
-      caret-color: ${s.color};
-    `
-
-    ta.addEventListener("input", (e) => {
-      const val = (e.target as HTMLTextAreaElement).value
-      setEditValue(val)
-      // Auto-resize height
-      ta.style.height = "auto"
-      ta.style.height = `${ta.scrollHeight}px`
-    })
-
-    ta.addEventListener("blur", commitEdit)
-
-    ta.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault()
-        cancelEdit()
-        ta.remove()
-      }
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault()
-        commitEdit()
-        ta.remove()
-      }
-      // Stop propagation so space doesn't trigger pan
-      e.stopPropagation()
-    })
-
-    document.body.appendChild(ta)
-    ta.focus()
-    ta.select()
-    textareaRef.current = ta
-
-    return () => {
-      ta.removeEventListener("blur", commitEdit)
-      ta.remove()
-      textareaRef.current = null
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing])
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Group
-      id={object.id}
-      x={object.x}
-      y={object.y}
-      width={w}
-      height={h}
-      rotation={object.rotation}
-      opacity={s.opacity}
-      draggable={!isEditing && !isEditedByOther && !isViewer && isSelectTool}
-      onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
-      onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
-      onDblClick={enterEdit}
-      onDblTap={enterEdit}
-      onDragStart={() => onDragStart(object.id)}
-      onDragMove={(e) => onDragMove(object.id, e.target.x(), e.target.y(), e)}
-      onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
-    >
-      {/* Invisible hit box covering the full width and height */}
-      <Rect
+    <>
+      <Group
+        id={object.id}
+        x={object.x}
+        y={object.y}
         width={w}
         height={h}
-        fill="rgba(0,0,0,0)"
-        listening={true}
-      />
-
-      {/* Selection / focus border */}
-      {(isSelected || isEditedByOther) && (
+        rotation={object.rotation}
+        opacity={s.opacity}
+        draggable={!isEditing && !isEditedByOther && !isViewer && isSelectTool}
+        onClick={(e) => onSelect(object.id, e.evt.shiftKey)}
+        onTap={(e) => onSelect(object.id, e.evt.shiftKey)}
+        onDblClick={enterEdit}
+        onDblTap={enterEdit}
+        onDragStart={() => onDragStart(object.id)}
+        onDragMove={(e) => onDragMove(object.id, e.target.x(), e.target.y(), e)}
+        onDragEnd={(e) => onDragEnd(object.id, e.target.x(), e.target.y())}
+      >
+        {/* Invisible hit box covering the full width and height */}
         <Rect
           width={w}
           height={h}
-          stroke={isEditedByOther ? borderStroke : SELECTION_STROKE}
-          strokeWidth={2}
-          fill="transparent"
-          dash={isEditedByOther ? [6, 4] : undefined}
-          cornerRadius={2}
+          fill="rgba(0,0,0,0)"
+          listening={true}
+        />
+
+        {/* Selection / focus border */}
+        {(isSelected || isEditedByOther) && (
+          <Rect
+            width={w}
+            height={h}
+            stroke={isEditedByOther ? borderStroke : SELECTION_STROKE}
+            strokeWidth={2}
+            fill="transparent"
+            dash={isEditedByOther ? [6, 4] : undefined}
+            cornerRadius={2}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        )}
+
+        {/* Text node — hidden while editing so the textarea takes over */}
+        <Text
+          ref={textRef}
+          x={PADDING}
+          y={PADDING}
+          width={w - PADDING * 2}
+          text={isEditing ? "" : (object.text ?? "")}
+          fontSize={s.fontSize}
+          fontFamily={s.fontFamily}
+          fontStyle={s.fontWeight === "bold" ? "bold" : "normal"}
+          fill={s.color}
+          align="left"
+          wrap="word"
           listening={false}
           perfectDrawEnabled={false}
         />
-      )}
 
-      {/* Text node — hidden while editing so the textarea takes over */}
-      <Text
-        ref={textRef}
-        x={PADDING}
-        y={PADDING}
-        width={w - PADDING * 2}
-        text={isEditing ? "" : (object.text ?? "")}
-        fontSize={s.fontSize}
-        fontFamily={s.fontFamily}
-        fontStyle={s.fontWeight === "bold" ? "bold" : "normal"}
-        fill={s.color}
-        align="left"
-        wrap="word"
-        listening={false}
-        perfectDrawEnabled={false}
-      />
+        {/* Editing-by-other badge */}
+        {isEditedByOther && (
+          <EditingBadge
+            x={Math.max(0, w - badgeWidth)}
+            y={-20}
+            name={editingUser.name}
+            color={borderStroke}
+          />
+        )}
+      </Group>
 
-      {/* Editing-by-other badge */}
-      {isEditedByOther && (
-        <EditingBadge
-          x={Math.max(0, w - badgeWidth)}
-          y={-20}
-          name={editingUser.name}
-          color={borderStroke}
-        />
+      {isEditing && typeof window !== "undefined" && createPortal(
+        <TextEditorOverlay
+          objectId={object.id}
+          x={object.x}
+          y={object.y}
+          w={w}
+          h={h}
+          style={s}
+          editValue={editValue}
+          setEditValue={setEditValue}
+          commitEdit={commitEdit}
+          cancelEdit={cancelEdit}
+        />,
+        document.body
       )}
-    </Group>
+    </>
   )
 }

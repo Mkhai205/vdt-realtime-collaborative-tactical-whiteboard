@@ -22,9 +22,6 @@ import {
   Plus,
   Loader2,
   AlertCircle,
-  Users,
-  Shield,
-  UserCheck,
 } from "lucide-react"
 import { toast } from "sonner"
 import axios from "axios"
@@ -50,7 +47,6 @@ export function MembersTab({ boardId }: MembersTabProps) {
   const {
     data: members = [],
     isLoading,
-    refetch,
   } = useQuery({
     queryKey: ["board-members", boardId],
     queryFn: () => memberApi.listMembers(boardId),

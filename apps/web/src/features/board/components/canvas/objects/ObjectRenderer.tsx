@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { RectangleObject } from "./RectangleObject"
 import { CircleObject } from "./CircleObject"
@@ -29,7 +30,7 @@ interface ObjectRendererProps {
  * Rendering priority (zIndex) is handled by the parent `ObjectsLayer`;
  * each renderer is responsible only for its own visual.
  */
-export function ObjectRenderer({
+export const ObjectRenderer = memo(function ObjectRenderer({
   object,
   isSelected,
   editingUser,
@@ -118,4 +119,4 @@ export function ObjectRenderer({
     default:
       return null
   }
-}
+})

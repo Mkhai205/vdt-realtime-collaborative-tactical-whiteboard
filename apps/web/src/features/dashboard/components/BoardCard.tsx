@@ -165,7 +165,7 @@ export function BoardCard({ board }: BoardCardProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-red-900/90 p-4 text-center text-white backdrop-blur-sm"
+                  className="absolute inset-0 z-30 flex flex-col items-center justify-center p-4 text-center backdrop-blur-sm"
                   onClick={(e) => e.preventDefault()}
                 >
                   <p className="mb-1 text-xs font-semibold tracking-wider text-red-200 uppercase">
@@ -177,9 +177,8 @@ export function BoardCard({ board }: BoardCardProps) {
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      variant="destructive"
                       onClick={confirmDelete}
-                      className="bg-red-600 font-semibold hover:bg-red-500"
+                      className="bg-red-600 text-white hover:bg-red-600/90"
                     >
                       Delete
                     </Button>
@@ -187,7 +186,6 @@ export function BoardCard({ board }: BoardCardProps) {
                       size="sm"
                       variant="secondary"
                       onClick={cancelDelete}
-                      className="border-none bg-white/20 font-semibold text-white hover:bg-white/30"
                     >
                       Cancel
                     </Button>

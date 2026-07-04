@@ -139,6 +139,7 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
     return () => {
       if (nameTimerRef.current) clearTimeout(nameTimerRef.current)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localName])
 
   // Autosave Description on change (debounced 500ms)
@@ -173,6 +174,7 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
     return () => {
       if (descTimerRef.current) clearTimeout(descTimerRef.current)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localDesc])
 
   // Handle visibility update
@@ -339,7 +341,6 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
           </p>
           <Button
             size="sm"
-            variant="destructive"
             onClick={() => setDeleteOpen(true)}
             className="mt-3 flex w-full items-center justify-center gap-1.5 bg-red-600 text-xs font-semibold shadow-sm hover:bg-red-500"
           >

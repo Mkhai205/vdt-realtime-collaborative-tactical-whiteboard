@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo } from "react"
 import { Image as KonvaImage, Group, Rect, Text } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
+import { useBoardStore } from "@/stores/board.store"
+import { useUIStore } from "@/stores/ui.store"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -113,10 +115,6 @@ function useIconImage(
   return iconImageCache.get(cacheKey) ?? null
 }
 
-
-import { useBoardStore } from "@/stores/board.store"
-import { useUIStore } from "@/stores/ui.store"
-
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 /**
@@ -125,7 +123,7 @@ import { useUIStore } from "@/stores/ui.store"
  * Uses Lucide icons rendered into an HTMLImageElement via custom SVG path logic,
  * then drawn on canvas using `react-konva.Image`.
  */
-export function IconObject({
+export const IconObject = memo(function IconObject({
   object,
   isSelected,
   editingUser,
@@ -231,4 +229,4 @@ export function IconObject({
       )}
     </Group>
   )
-}
+})

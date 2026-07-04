@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useRef } from "react"
 import type Konva from "konva"
 import { useUIStore } from "@/stores/ui.store"
 import type { UsePanReturn } from "./usePan"
@@ -59,12 +58,6 @@ export function useCanvasEvents({
   lassoSelect,
   cursorEmit,
 }: UseCanvasEventsOptions): UseCanvasEventsReturn {
-  const { activeTool } = useUIStore()
-  const activeToolRef = useRef(activeTool)
-  useEffect(() => {
-    activeToolRef.current = activeTool
-  })
-
   // RAF ref for mouse-move throttle
   const rafRef = useRef<number | null>(null)
 
@@ -72,7 +65,7 @@ export function useCanvasEvents({
 
   const onMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      const tool = activeToolRef.current
+      const tool = useUIStore.getState().activeTool
 
       // Pan takes absolute priority
       if (pan.getIsPanning() || tool === "HAND") {
@@ -119,7 +112,7 @@ export function useCanvasEvents({
           return
         }
 
-        const tool = activeToolRef.current
+        const tool = useUIStore.getState().activeTool
 
         if (DRAW_TOOLS.has(tool)) {
           shapeCreation.onMouseMove(e)
@@ -143,7 +136,7 @@ export function useCanvasEvents({
         return
       }
 
-      const tool = activeToolRef.current
+      const tool = useUIStore.getState().activeTool
 
       if (DRAW_TOOLS.has(tool)) {
         shapeCreation.onMouseUp(e)
@@ -172,7 +165,7 @@ export function useCanvasEvents({
   // ── Double-click ───────────────────────────────────────────────────────────
 
   const onDblClick = useCallback(
-    (_e: Konva.KonvaEventObject<MouseEvent>) => {
+    () => {
       // Plan 07+: SELECT + dblclick on text → inline edit (handled by TextObject internally)
       void stageRef
     },

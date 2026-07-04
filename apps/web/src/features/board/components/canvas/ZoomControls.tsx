@@ -20,9 +20,9 @@ interface ZoomControlsProps {
  * - [Fit] → fit all objects in view
  */
 export function ZoomControls({ viewport }: ZoomControlsProps) {
-  const { viewport: vp } = useUIStore()
+  const scale = useUIStore((s) => s.viewport.scale)
 
-  const pct = Math.round(vp.scale * 100)
+  const pct = Math.round(scale * 100)
 
   const handleResetZoom = useCallback(() => {
     viewport.resetZoom()
