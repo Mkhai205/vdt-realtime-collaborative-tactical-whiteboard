@@ -6,6 +6,8 @@ import {
   toBoardSocketName,
   ServerEvents,
   type ObjectEditingRequest,
+  type TextEditingRequest,
+  type TextEditingEvent,
 } from "@rctw/shared-contracts"
 import { PresenceService } from "../services/presence.service"
 import { AppException } from "../../../common/exceptions"
@@ -29,6 +31,16 @@ export class SelectionHandler {
 
     // Cập nhật trạng thái in-memory & Redis
     if (status === "STARTED") {
+      // Enforce selection/editing lock
+      const isLocked = await this.presenceService.isLockedByOther(
+        boardId,
+        objectId,
+        client.id,
+      )
+      if (isLocked) {
+        throw AppException.objectLocked("Object is locked", { objectId })
+      }
+
       await this.presenceService.setEditing(client.id, boardId, objectId, {
         id: currentUser.sub,
         name: currentUser.name,
@@ -54,5 +66,38 @@ export class SelectionHandler {
 
     // Broadcast tới các client khác trong board (ngoại trừ người gửi)
     client.to(roomName).emit(ServerEvents.OBJECT_EDITING, event)
+  }
+
+  /**
+   * Relay live typing preview
+   */
+  async handleTextEditing(
+    client: Socket,
+    dto: TextEditingRequest,
+  ): Promise<void> {
+    const { boardId, objectId, text } = dto
+    const roomName = toBoardSocketName(boardId)
+
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
+
+    // Enforce lock check
+    const isLocked = await this.presenceService.isLockedByOther(
+      boardId,
+      objectId,
+      client.id,
+    )
+    if (isLocked) {
+      throw AppException.objectLocked("Object is locked", { objectId })
+    }
+
+    const event: TextEditingEvent = {
+      boardId,
+      objectId,
+      text,
+      userId: currentUser.sub,
+    }
+
+    client.to(roomName).emit(ServerEvents.TEXT_EDITING, event)
   }
 }

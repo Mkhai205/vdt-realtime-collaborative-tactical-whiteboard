@@ -17,7 +17,7 @@ interface ObjectRendererProps {
   onDragStart: (id: string) => void
   onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
-  onTextChange: (id: string, text: string) => void
+  onTextChange: (id: string, text: string, width?: number, height?: number) => void
   setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void
 }
 

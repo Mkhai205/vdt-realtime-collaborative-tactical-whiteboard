@@ -122,7 +122,7 @@ export function useShapeCreation(
         width: width || undefined,
         height: height || undefined,
         points: points ?? undefined,
-        text: type === "TEXT" ? "Text" : undefined,
+        text: type === "TEXT" ? "" : undefined,
         rotation: 0,
         style,
         zIndex: useBoardStore.getState().objects.size,
@@ -133,6 +133,7 @@ export function useShapeCreation(
       // After creating any shape (except PATH mid-stroke), switch back to SELECT
       if (type !== "PATH") {
         useUIStore.getState().setActiveTool("SELECT")
+        useUIStore.getState().setJustCreatedShape(true)
       }
     },
     [createObject],
@@ -157,7 +158,7 @@ export function useShapeCreation(
 
       // Immediate-create tools (no drag needed)
       if (tool === "TEXT") {
-        commitShape("TEXT", wp.x, wp.y, DEFAULT_SIZE, DEFAULT_SIZE, undefined)
+        commitShape("TEXT", wp.x, wp.y, 240, 40, undefined)
         return
       }
       if (tool === "ICON") {

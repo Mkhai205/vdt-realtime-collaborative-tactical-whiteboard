@@ -7,6 +7,8 @@ import { useUIStore } from "@/stores/ui.store"
 import { EditingBadge } from "./EditingBadge"
 
 import { useBoardStore } from "@/stores/board.store"
+import { getSocket } from "@/lib/socket/socket"
+import { toast } from "sonner"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -19,7 +21,7 @@ interface TextObjectProps {
   onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
   /** Called when user finishes editing to persist the new text */
-  onTextChange: (id: string, text: string) => void
+  onTextChange: (id: string, text: string, width?: number, height?: number) => void
   setObjectEditingState?: (objectId: string, status: "STARTED" | "ENDED") => void
 }
 
@@ -62,6 +64,8 @@ export function TextObject({
   // We do NOT sync this from object.text; instead it is initialized fresh in enterEdit.
   const [editValue, setEditValue] = useState("")
 
+  const boardId = useBoardStore((s) => s.boardId)
+
   const w = object.width ?? MIN_WIDTH
   const h = object.height ?? MIN_HEIGHT
 
@@ -84,24 +88,116 @@ export function TextObject({
     // This is a callback (not an effect), so setState here is fine.
     setEditValue(object.text ?? "")
     setIsEditing(true)
+    useUIStore.getState().setEditingTextId(object.id)
     if (setObjectEditingState) {
       setObjectEditingState(object.id, "STARTED")
     }
   }, [isEditedByOther, isViewer, object.text, object.id, setObjectEditingState])
 
+  // Auto-enter edit mode for newly created empty text objects
+  const autoEditTriggeredRef = useRef(false)
+  useEffect(() => {
+    if (
+      isSelected &&
+      !isEditing &&
+      (object.text === "" || object.text === "Text") &&
+      !isEditedByOther &&
+      !isViewer &&
+      !autoEditTriggeredRef.current
+    ) {
+      autoEditTriggeredRef.current = true
+      enterEdit()
+    }
+  }, [isSelected, isEditing, object.text, isEditedByOther, isViewer, enterEdit])
+
+  // Ephemeral live typing preview emission
+  useEffect(() => {
+    if (!isEditing || !boardId) return
+
+    const socket = getSocket()
+    if (!socket.connected) return
+
+    const timeoutId = setTimeout(() => {
+      socket.emit("text:editing", {
+        boardId,
+        objectId: object.id,
+        text: editValue,
+      })
+    }, 150) // Debounce 150ms
+
+    return () => clearTimeout(timeoutId)
+  }, [editValue, isEditing, boardId, object.id])
+
+  // Handle case where object is locked by another user while we are editing
+  useEffect(() => {
+    if (isEditing && isEditedByOther) {
+      setIsEditing(false)
+      useUIStore.getState().setEditingTextId(null)
+      if (textareaRef.current) {
+        textareaRef.current.remove()
+      }
+    }
+  }, [isEditing, isEditedByOther])
+
+  // Handle lock failure events
+  useEffect(() => {
+    const handleLockFailed = () => {
+      setIsEditing(false)
+      useUIStore.getState().setEditingTextId(null)
+      if (textareaRef.current) {
+        textareaRef.current.remove()
+      }
+    }
+    window.addEventListener(`object-lock-failed-${object.id}`, handleLockFailed)
+    return () => {
+      window.removeEventListener(`object-lock-failed-${object.id}`, handleLockFailed)
+    }
+  }, [object.id])
+
+  // Handle external Enter trigger to edit text
+  useEffect(() => {
+    const handleTriggerEdit = () => {
+      enterEdit()
+    }
+    window.addEventListener(`trigger-text-edit-${object.id}`, handleTriggerEdit)
+    return () => {
+      window.removeEventListener(`trigger-text-edit-${object.id}`, handleTriggerEdit)
+    }
+  }, [object.id, enterEdit])
+
+
+  const isUnmountingRef = useRef(false)
+  useEffect(() => {
+    return () => {
+      isUnmountingRef.current = true
+    }
+  }, [])
 
   // ── Commit or cancel edit ──────────────────────────────────────────────────
 
   const commitEdit = useCallback(() => {
+    if (isUnmountingRef.current) return
     setIsEditing(false)
-    onTextChange(object.id, editValue)
+    useUIStore.getState().setEditingTextId(null)
+    const textNode = textRef.current
+    let finalWidth = w
+    let finalHeight = h
+    if (textNode) {
+      // Temporarily set the text to measure the size accurately
+      textNode.text(editValue)
+      const actualWidth = textNode.getTextWidth() + PADDING * 2
+      finalWidth = Math.max(Math.min(w, actualWidth), MIN_WIDTH)
+      finalHeight = Math.max(textNode.height() + PADDING * 2, MIN_HEIGHT)
+    }
+    onTextChange(object.id, editValue, finalWidth, finalHeight)
     if (setObjectEditingState) {
       setObjectEditingState(object.id, "ENDED")
     }
-  }, [object.id, editValue, onTextChange, setObjectEditingState])
+  }, [object.id, editValue, onTextChange, setObjectEditingState, w, h])
 
   const cancelEdit = useCallback(() => {
     setIsEditing(false)
+    useUIStore.getState().setEditingTextId(null)
     if (setObjectEditingState) {
       setObjectEditingState(object.id, "ENDED")
     }
@@ -124,23 +220,24 @@ export function TextObject({
       position: fixed;
       left: ${areaX + PADDING * scale}px;
       top: ${areaY + PADDING * scale}px;
-      width: ${Math.max(w * scale, MIN_WIDTH * scale)}px;
-      min-height: ${Math.max(h * scale, MIN_HEIGHT * scale)}px;
+      width: ${Math.max((w - PADDING * 2) * scale, MIN_WIDTH * scale)}px;
+      min-height: ${Math.max((h - PADDING * 2) * scale, MIN_HEIGHT * scale)}px;
       font-size: ${scaledFontSize}px;
       font-family: ${s.fontFamily};
       font-weight: ${s.fontWeight};
       color: ${s.color};
       background: transparent;
-      border: 2px solid #6366f1;
-      border-radius: 4px;
+      border: none;
       outline: none;
       resize: none;
-      padding: ${PADDING * scale}px;
+      padding: 0;
+      margin: 0;
       line-height: 1.4;
       overflow: hidden;
       box-sizing: border-box;
       z-index: 9999;
       transform-origin: top left;
+      caret-color: ${s.color};
     `
 
     ta.addEventListener("input", (e) => {

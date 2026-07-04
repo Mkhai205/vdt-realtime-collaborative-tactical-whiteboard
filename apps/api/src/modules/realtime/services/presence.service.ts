@@ -112,6 +112,25 @@ export class PresenceService {
     return boards ? boards.has(boardId) : false
   }
 
+  /**
+   * Kiểm tra xem object có đang bị khóa (chỉnh sửa) bởi một socket khác hay không
+   */
+  async isLockedByOther(
+    boardId: string,
+    objectId: string,
+    socketId: string,
+  ): Promise<boolean> {
+    const editingKey = this.getEditingKey(boardId)
+    const raw = await this.redis.hget(editingKey, objectId)
+    if (!raw) return false
+    try {
+      const entry = JSON.parse(raw) as EditingStateEntry
+      return entry.socketId !== socketId
+    } catch {
+      return false
+    }
+  }
+
   // ── Editing State (Awareness) ──
 
   /**

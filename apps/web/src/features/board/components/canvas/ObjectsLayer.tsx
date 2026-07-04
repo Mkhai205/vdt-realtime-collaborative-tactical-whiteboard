@@ -63,6 +63,12 @@ export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
 
   const handleStageClick = useCallback(
     (e: { target: { getStage: () => unknown } }) => {
+      const { justCreatedShape, setJustCreatedShape } = useUIStore.getState()
+      if (justCreatedShape) {
+        setJustCreatedShape(false)
+        return
+      }
+
       // Click on empty canvas → deselect all
       if (e.target === (e.target as { getStage: () => unknown }).getStage()) {
         clearSelection()
@@ -72,10 +78,19 @@ export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
   )
 
   const handleTextChange = useCallback(
-    (id: string, text: string) => {
-      mutations.updateObject(id, { text })
+    (id: string, text: string, width?: number, height?: number) => {
+      if (text.trim() === "") {
+        mutations.deleteObject(id)
+        clearSelection()
+      } else {
+        mutations.updateObject(id, {
+          text,
+          ...(width !== undefined && { width }),
+          ...(height !== undefined && { height }),
+        })
+      }
     },
-    [mutations],
+    [mutations, clearSelection],
   )
 
   // ── Render ────────────────────────────────────────────────────────────────

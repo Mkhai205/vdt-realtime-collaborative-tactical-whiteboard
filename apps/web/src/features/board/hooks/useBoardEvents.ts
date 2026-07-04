@@ -18,8 +18,10 @@ import type {
   ObjectEditingEvent,
   WsErrorPayload,
   ObjectMoveEphemeralEvent,
+  TextEditingEvent,
 } from "@rctw/shared-contracts"
 import { toast } from "sonner"
+import { discardedLocalOps } from "./useObjectMutations"
 
 export function useBoardEvents(boardId: string) {
   const {
@@ -45,6 +47,10 @@ export function useBoardEvents(boardId: string) {
 
     // ─── 2. Object Created ─────────────────────────────────────────────────────
     const handleObjectCreatedAck = (event: ObjectCreatedAck) => {
+      if (discardedLocalOps.has(event.clientOpId)) {
+        discardedLocalOps.delete(event.clientOpId)
+        return
+      }
       const tempId = `local-${event.clientOpId}`
       // Remove local optimistic temp object
       removeObject(tempId)
@@ -110,14 +116,22 @@ export function useBoardEvents(boardId: string) {
 
     // ─── 8. Socket Errors & Conflicts ─────────────────────────────────────────
     const handleWsError = (err: WsErrorPayload & { clientOpId?: string }) => {
+      if (err.clientOpId) {
+        rollbackPendingOp(err.clientOpId)
+      }
+
+      if (err.code === "OBJECT_LOCKED" && err.meta?.objectId) {
+        toast.error(err.message || "This object is locked by another user.")
+        const customEvent = new CustomEvent(`object-lock-failed-${err.meta.objectId}`)
+        window.dispatchEvent(customEvent)
+        return
+      }
+
       if (
         err.code === "OBJECT_VERSION_CONFLICT" ||
         err.code === "VERSION_CONFLICT"
       ) {
         toast.error("Edit conflict detected. whiteBoard state updated.")
-        if (err.clientOpId) {
-          rollbackPendingOp(err.clientOpId)
-        }
         // Sync to fetch latest server revision
         socket.emit(ClientEvents.BOARD_SYNC, {
           boardId,
@@ -158,6 +172,10 @@ export function useBoardEvents(boardId: string) {
       updateObjectFields(objectId, coords)
     }
 
+    const handleTextEditing = (event: TextEditingEvent) => {
+      updateObjectFields(event.objectId, { text: event.text })
+    }
+
     socket.on(ServerEvents.BOARD_STATE, handleBoardState)
     socket.on(ServerEvents.OBJECT_CREATED, onObjectCreated)
     socket.on(ServerEvents.OBJECT_UPDATED, onObjectUpdated)
@@ -166,6 +184,7 @@ export function useBoardEvents(boardId: string) {
     socket.on(ServerEvents.PRESENCE_UPDATE, handlePresence)
     socket.on(ServerEvents.OBJECT_EDITING, handleObjectEditing)
     socket.on(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
+    socket.on(ServerEvents.TEXT_EDITING, handleTextEditing)
     socket.on(ServerEvents.ERROR, handleWsError)
 
     return () => {
@@ -177,6 +196,7 @@ export function useBoardEvents(boardId: string) {
       socket.off(ServerEvents.PRESENCE_UPDATE, handlePresence)
       socket.off(ServerEvents.OBJECT_EDITING, handleObjectEditing)
       socket.off(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
+      socket.off(ServerEvents.TEXT_EDITING, handleTextEditing)
       socket.off(ServerEvents.ERROR, handleWsError)
     }
   }, [

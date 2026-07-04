@@ -5,6 +5,9 @@ import { ColorPicker } from "./ColorPicker"
 import { useUIStore } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
 import type { ShapeStyle } from "@rctw/shared-contracts"
+import type { UseObjectMutationsReturn } from "../../hooks/useObjectMutations"
+import { Copy, Trash2, Link, ArrowDownToLine, ArrowDown, ArrowUp, ArrowUpToLine } from "lucide-react"
+import { toast } from "sonner"
 
 // ─── Sub-Component ─────────────────────────────────────────────────────────────
 
@@ -90,12 +93,144 @@ function StyleSlider({
  * Socket emission is wired in Plan 08.
  */
 interface StylePanelProps {
-  updateObject: (objectId: string, patch: { style: Partial<ShapeStyle> }) => void
+  mutations: UseObjectMutationsReturn
 }
 
-export function StylePanel({ updateObject }: StylePanelProps) {
+export function StylePanel({ mutations }: StylePanelProps) {
+  const { updateObject } = mutations
   const selectedIds = useUIStore((s) => s.selectedIds)
+  const clearSelection = useUIStore((s) => s.clearSelection)
   const objects = useBoardStore((s) => s.objects)
+
+  const handleDuplicate = () => {
+    const currentObjects = useBoardStore.getState().objects
+    for (const id of selectedIds) {
+      const src = currentObjects.get(id)
+      if (!src) continue
+
+      const payload = {
+        type: src.type,
+        x: src.x + 20,
+        y: src.y + 20,
+        width: src.width ?? undefined,
+        height: src.height ?? undefined,
+        points: src.points ?? undefined,
+        text: src.text ?? undefined,
+        rotation: src.rotation,
+        style: src.style,
+        zIndex: currentObjects.size,
+      }
+      mutations.createObject(payload, "add")
+    }
+  }
+
+  const handleDelete = () => {
+    for (const id of selectedIds) {
+      mutations.deleteObject(id)
+    }
+    clearSelection()
+  }
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href)
+    toast.success("Board link copied to clipboard!")
+  }
+
+  const handleSendToBack = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const allObjects = [...objects.values()].sort((a, b) => {
+      if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
+      return a.createdAt.localeCompare(b.createdAt)
+    })
+
+    const selected = allObjects.filter((o) => selectedIds.has(o.id))
+    const nonSelected = allObjects.filter((o) => !selectedIds.has(o.id))
+
+    const newOrder = [...selected, ...nonSelected]
+    const originalZIndices = allObjects.map((o) => o.zIndex)
+
+    newOrder.forEach((obj, idx) => {
+      const newZ = originalZIndices[idx]!
+      if (obj.zIndex !== newZ) {
+        updateObject(obj.id, { zIndex: newZ })
+      }
+    })
+  }, [selectedIds, objects, updateObject])
+
+  const handleSendBackward = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const allObjects = [...objects.values()].sort((a, b) => {
+      if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
+      return a.createdAt.localeCompare(b.createdAt)
+    })
+
+    const nextOrder = [...allObjects]
+    for (let i = 1; i < nextOrder.length; i++) {
+      const current = nextOrder[i]!
+      const prev = nextOrder[i - 1]!
+      if (selectedIds.has(current.id) && !selectedIds.has(prev.id)) {
+        nextOrder[i] = prev
+        nextOrder[i - 1] = current
+      }
+    }
+
+    const originalZIndices = allObjects.map((o) => o.zIndex)
+
+    nextOrder.forEach((obj, idx) => {
+      const newZ = originalZIndices[idx]!
+      if (obj.zIndex !== newZ) {
+        updateObject(obj.id, { zIndex: newZ })
+      }
+    })
+  }, [selectedIds, objects, updateObject])
+
+  const handleBringForward = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const allObjects = [...objects.values()].sort((a, b) => {
+      if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
+      return a.createdAt.localeCompare(b.createdAt)
+    })
+
+    const nextOrder = [...allObjects]
+    for (let i = nextOrder.length - 2; i >= 0; i--) {
+      const current = nextOrder[i]!
+      const next = nextOrder[i + 1]!
+      if (selectedIds.has(current.id) && !selectedIds.has(next.id)) {
+        nextOrder[i] = next
+        nextOrder[i + 1] = current
+      }
+    }
+
+    const originalZIndices = allObjects.map((o) => o.zIndex)
+
+    nextOrder.forEach((obj, idx) => {
+      const newZ = originalZIndices[idx]!
+      if (obj.zIndex !== newZ) {
+        updateObject(obj.id, { zIndex: newZ })
+      }
+    })
+  }, [selectedIds, objects, updateObject])
+
+  const handleBringToFront = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const allObjects = [...objects.values()].sort((a, b) => {
+      if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex
+      return a.createdAt.localeCompare(b.createdAt)
+    })
+
+    const selected = allObjects.filter((o) => selectedIds.has(o.id))
+    const nonSelected = allObjects.filter((o) => !selectedIds.has(o.id))
+
+    const newOrder = [...nonSelected, ...selected]
+    const originalZIndices = allObjects.map((o) => o.zIndex)
+
+    newOrder.forEach((obj, idx) => {
+      const newZ = originalZIndices[idx]!
+      if (obj.zIndex !== newZ) {
+        updateObject(obj.id, { zIndex: newZ })
+      }
+    })
+  }, [selectedIds, objects, updateObject])
 
   const selectedObjects = useMemo(
     () => [...selectedIds].map((id) => objects.get(id)).filter(Boolean),
@@ -243,6 +378,116 @@ export function StylePanel({ updateObject }: StylePanelProps) {
           </div>
         </>
       )}
+
+      {/* ── Layers ── */}
+      <div className="style-sep" aria-hidden />
+      <div className="style-row style-row--col">
+        <span className="style-label" style={{ marginBottom: 4 }}>Layers</span>
+        <div className="style-toggle-group">
+          <button
+            className="style-toggle"
+            onClick={handleSendToBack}
+            title="Send to back"
+            aria-label="Send to back"
+          >
+            <ArrowDownToLine size={14} />
+          </button>
+          <button
+            className="style-toggle"
+            onClick={handleSendBackward}
+            title="Send backward"
+            aria-label="Send backward"
+          >
+            <ArrowDown size={14} />
+          </button>
+          <button
+            className="style-toggle"
+            onClick={handleBringForward}
+            title="Bring forward"
+            aria-label="Bring forward"
+          >
+            <ArrowUp size={14} />
+          </button>
+          <button
+            className="style-toggle"
+            onClick={handleBringToFront}
+            title="Bring to front"
+            aria-label="Bring to front"
+          >
+            <ArrowUpToLine size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Actions ── */}
+      <div className="style-sep" aria-hidden />
+      <div className="style-row style-row--col">
+        <span className="style-label" style={{ marginBottom: 4 }}>Actions</span>
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          {/* Duplicate button */}
+          <button
+            onClick={handleDuplicate}
+            title="Duplicate (Ctrl+D)"
+            style={{
+              width: 32,
+              height: 32,
+              background: "rgba(99, 102, 241, 0.08)",
+              border: "1px solid rgba(99, 102, 241, 0.2)",
+              borderRadius: 6,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#6366f1",
+              transition: "background 0.15s, border-color 0.15s"
+            }}
+          >
+            <Copy size={16} />
+          </button>
+
+          {/* Delete button */}
+          <button
+            onClick={handleDelete}
+            title="Delete (Delete)"
+            style={{
+              width: 32,
+              height: 32,
+              background: "rgba(239, 68, 68, 0.08)",
+              border: "1px solid rgba(239, 68, 68, 0.2)",
+              borderRadius: 6,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#ef4444",
+              transition: "background 0.15s, border-color 0.15s"
+            }}
+          >
+            <Trash2 size={16} />
+          </button>
+
+          {/* Link button */}
+          <button
+            onClick={handleCopyLink}
+            title="Copy board link"
+            style={{
+              width: 32,
+              height: 32,
+              background: "rgba(99, 102, 241, 0.08)",
+              border: "1px solid rgba(99, 102, 241, 0.2)",
+              borderRadius: 6,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#6366f1",
+              transition: "background 0.15s, border-color 0.15s"
+            }}
+          >
+            <Link size={16} />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

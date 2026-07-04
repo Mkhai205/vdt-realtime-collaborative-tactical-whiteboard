@@ -118,6 +118,20 @@ export const objectEditingRequestSchema = z.object({
 })
 export type ObjectEditingRequest = z.infer<typeof objectEditingRequestSchema>
 
+export const textEditingRequestSchema = z.object({
+  boardId: z.uuid(),
+  objectId: z.uuid(),
+  text: z.string(),
+})
+export type TextEditingRequest = z.infer<typeof textEditingRequestSchema>
+
+export type TextEditingEvent = {
+  boardId: string
+  objectId: string
+  text: string
+  userId: string
+}
+
 // --- Ephemeral object move schema ---
 
 export const objectMoveEphemeralRequestSchema = z.object({
@@ -272,6 +286,7 @@ export type WsErrorPayload = {
   code: string
   message: string
   errors?: string[]
+  meta?: any
 }
 
 // ─── Event Name Constants ──────────────────────────────────────────────────────
@@ -289,6 +304,7 @@ export const ClientEvents = {
   CURSOR_MOVE: "cursor:move",
   OBJECT_EDITING: "object:editing",
   OBJECT_MOVE_EPHEMERAL: "object:move-ephemeral",
+  TEXT_EDITING: "text:editing",
 } as const
 export type ClientEvent = (typeof ClientEvents)[keyof typeof ClientEvents]
 
@@ -304,6 +320,7 @@ export const ServerEvents = {
   CURSOR_MOVED: "cursor:moved",
   OBJECT_EDITING: "object:editing",
   OBJECT_MOVE_EPHEMERAL: "object:move-ephemeral",
+  TEXT_EDITING: "text:editing",
   JOIN_REQUEST_CREATED: "join-request:created",
   ERROR: "error",
 } as const

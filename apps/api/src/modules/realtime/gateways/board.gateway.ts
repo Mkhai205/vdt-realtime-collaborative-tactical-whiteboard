@@ -12,6 +12,7 @@ import {
 import type { Server, Socket } from "socket.io"
 import { WsAuthGuard } from "../guards/ws-auth.guard"
 import { WsExceptionFilter } from "../../../common/filters"
+import { AuthService } from "../../auth/auth.service"
 import {
   BoardHandler,
   ObjectHandler,
@@ -33,6 +34,7 @@ import {
   type RedoRequest,
   type ObjectEditingRequest,
   type ObjectMoveEphemeralRequest,
+  type TextEditingRequest,
 } from "@rctw/shared-contracts"
 
 @WebSocketGateway({
@@ -59,6 +61,7 @@ export class BoardGateway
     private readonly operationHandler: OperationHandler,
     private readonly presenceHandler: PresenceHandler,
     private readonly selectionHandler: SelectionHandler,
+    private readonly authService: AuthService,
   ) {}
 
   afterInit() {
@@ -66,6 +69,23 @@ export class BoardGateway
   }
 
   async handleConnection(client: Socket) {
+    try {
+      const authHeader: string =
+        client.handshake.auth?.token || client.handshake.headers?.authorization
+      if (authHeader) {
+        const token = authHeader.startsWith("Bearer ")
+          ? authHeader.substring(7)
+          : authHeader
+        if (token) {
+          const payload = await this.authService.verifyAccessToken(token)
+          client.data.currentUser = payload
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Auth failed on connection for client ${client.id}: ${err.message}`,
+      )
+    }
     await this.presenceHandler.handleConnection(client)
   }
 
@@ -159,6 +179,14 @@ export class BoardGateway
     @MessageBody() dto: ObjectEditingRequest,
   ) {
     return this.selectionHandler.handleObjectEditing(client, dto)
+  }
+
+  @SubscribeMessage(ClientEvents.TEXT_EDITING)
+  async textEditing(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() dto: TextEditingRequest,
+  ) {
+    return this.selectionHandler.handleTextEditing(client, dto)
   }
 
   @SubscribeMessage(ClientEvents.OBJECT_MOVE_EPHEMERAL)

@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
 import type {
@@ -41,6 +41,12 @@ export function useKeyboardActions(mutations: {
   undo: () => void
   redo: () => void
 }) {
+  const mutationsRef = useRef(mutations)
+
+  useEffect(() => {
+    mutationsRef.current = mutations
+  }, [mutations])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (isInputFocused()) return
@@ -64,7 +70,7 @@ export function useKeyboardActions(mutations: {
         if (selectedIds.size === 0) return
         e.preventDefault()
         for (const id of selectedIds) {
-          mutations.deleteObject(id)
+          mutationsRef.current.deleteObject(id)
         }
         clearSelection()
         return
@@ -80,6 +86,23 @@ export function useKeyboardActions(mutations: {
           setActiveTool("SELECT")
         }
         return
+      }
+
+      // ── Enter — edit selected text object ───────────────────────────────────
+
+      if (e.key === "Enter") {
+        if (selectedIds.size === 1) {
+          const id = Array.from(selectedIds)[0]
+          if (id) {
+            const obj = objects.get(id)
+            if (obj?.type === "TEXT") {
+              e.preventDefault()
+              const customEvent = new CustomEvent(`trigger-text-edit-${id}`)
+              window.dispatchEvent(customEvent)
+              return
+            }
+          }
+        }
       }
 
       // ── Arrow keys — nudge selected objects ───────────────────────────────
@@ -107,7 +130,10 @@ export function useKeyboardActions(mutations: {
         for (const id of selectedIds) {
           const obj = objects.get(id)
           if (obj) {
-            mutations.updateObject(id, { x: obj.x + dx, y: obj.y + dy })
+            mutationsRef.current.updateObject(id, {
+              x: obj.x + dx,
+              y: obj.y + dy,
+            })
           }
         }
         return
@@ -131,9 +157,9 @@ export function useKeyboardActions(mutations: {
           if (isViewer) break
           e.preventDefault()
           if (e.shiftKey) {
-            mutations.redo()
+            mutationsRef.current.redo()
           } else {
-            mutations.undo()
+            mutationsRef.current.undo()
           }
           break
         }
@@ -142,7 +168,7 @@ export function useKeyboardActions(mutations: {
         case "y": {
           if (isViewer) break
           e.preventDefault()
-          mutations.redo()
+          mutationsRef.current.redo()
           break
         }
 
@@ -180,7 +206,7 @@ export function useKeyboardActions(mutations: {
               style: src.style,
               zIndex: objects.size,
             }
-            mutations.createObject(payload, "add")
+            mutationsRef.current.createObject(payload, "add")
           }
           break
         }
@@ -192,5 +218,5 @@ export function useKeyboardActions(mutations: {
 
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [mutations])
+  }, [])
 }

@@ -11,6 +11,8 @@ import type {
 } from "@rctw/shared-contracts"
 import { useUIStore } from "@/stores/ui.store"
 
+export const discardedLocalOps = new Set<string>()
+
 export function useObjectMutations(boardId: string) {
   const objects = useBoardStore((s) => s.objects)
   const upsertObject = useBoardStore((s) => s.upsertObject)
@@ -105,6 +107,13 @@ export function useObjectMutations(boardId: string) {
 
       // Optimistic deletion
       removeObject(objectId)
+
+      if (objectId.startsWith("local-")) {
+        const tempClientOpId = objectId.replace("local-", "")
+        discardedLocalOps.add(tempClientOpId)
+        return
+      }
+
       addPendingOp(clientOpId, current)
 
       socket.emit(ClientEvents.OBJECT_DELETE, {

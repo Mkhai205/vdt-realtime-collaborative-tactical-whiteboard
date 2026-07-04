@@ -11,6 +11,8 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
 
   override catch(exception: unknown, host: ArgumentsHost): void {
     const client = host.switchToWs().getClient<Socket>()
+    const data = host.switchToWs().getData()
+    const clientOpId = data?.clientOpId
 
     if (exception instanceof AppException) {
       this.logger.warn(
@@ -21,12 +23,15 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
         code?: string
         message?: string
         errors?: string[]
+        meta?: any
       }
 
       client.emit(ServerEvents.ERROR, {
         code: body.code,
         message: body.message,
         errors: body.errors,
+        meta: body.meta,
+        clientOpId,
       })
 
       return
@@ -40,6 +45,7 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
       client.emit(ServerEvents.ERROR, {
         code: "WS_EXCEPTION",
         message: message || "WebSocket error",
+        clientOpId,
       })
 
       return
@@ -50,6 +56,7 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
     client.emit(ServerEvents.ERROR, {
       code: "INTERNAL_SERVER_ERROR",
       message: "Internal server error",
+      clientOpId,
     })
   }
 

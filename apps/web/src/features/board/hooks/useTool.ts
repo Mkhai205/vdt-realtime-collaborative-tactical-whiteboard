@@ -65,18 +65,7 @@ export function useTool() {
           return
         }
 
-        if (key === "delete" || key === "backspace") {
-          if (isViewer) return
-          // Delete selected objects — optimistic local removal; emit in Plan 08
-          const ids = useUIStore.getState().selectedIds
-          if (ids.size === 0) return
-          e.preventDefault()
-          for (const id of ids) {
-            useBoardStore.getState().removeObject(id)
-          }
-          clearSelection()
-          return
-        }
+
 
         const tool = KEY_TO_TOOL[key]
         if (tool) {

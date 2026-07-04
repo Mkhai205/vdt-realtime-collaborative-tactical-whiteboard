@@ -53,6 +53,12 @@ interface UIState {
 
   /** The current in-progress drawing preview shape */
   previewShape: PreviewShape | null
+
+  /** ID of the text object currently being edited by the local user */
+  editingTextId: string | null
+
+  /** Transient flag to prevent immediately clearing selection on shape creation click */
+  justCreatedShape: boolean
 }
 
 interface UIActions {
@@ -81,6 +87,10 @@ interface UIActions {
   setIsSpacePressed: (pressed: boolean) => void
 
   setPreviewShape: (shape: PreviewShape | null) => void
+
+  setEditingTextId: (id: string | null) => void
+
+  setJustCreatedShape: (val: boolean) => void
 }
 
 type UIStore = UIState & UIActions
@@ -104,6 +114,8 @@ export const useUIStore = create<UIStore>()((set) => ({
   followingUserId: null,
   isSpacePressed: false,
   previewShape: null,
+  editingTextId: null,
+  justCreatedShape: false,
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -172,4 +184,8 @@ export const useUIStore = create<UIStore>()((set) => ({
   setIsSpacePressed: (pressed) => set({ isSpacePressed: pressed }),
 
   setPreviewShape: (previewShape) => set({ previewShape }),
+
+  setEditingTextId: (editingTextId) => set({ editingTextId }),
+
+  setJustCreatedShape: (justCreatedShape) => set({ justCreatedShape }),
 }))

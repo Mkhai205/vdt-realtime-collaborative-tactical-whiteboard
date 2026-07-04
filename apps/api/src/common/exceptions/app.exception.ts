@@ -7,12 +7,14 @@ export class AppException extends HttpException {
     code: ErrorCode,
     message: string,
     errors?: string[],
+    meta?: any,
   ) {
     super(
       {
         code,
         message,
         errors,
+        meta,
       },
       statusCode,
     )
@@ -107,11 +109,13 @@ export class AppException extends HttpException {
     )
   }
 
-  static objectLocked(message = "Object is locked") {
+  static objectLocked(message = "Object is locked", meta?: any) {
     return new AppException(
       HttpStatus.CONFLICT,
       ErrorCodes.OBJECT_LOCKED,
       message,
+      undefined,
+      meta,
     )
   }
 

@@ -115,6 +115,10 @@ export class WhiteboardMutationService {
     clientOpId: string,
     baseVersion: number,
   ): Promise<MutationResult> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(objectId)) {
+      throw AppException.objectNotFound()
+    }
+
     await this.boardPermissionService.assertFormalEditor(
       currentUser.sub,
       boardId,
@@ -190,6 +194,10 @@ export class WhiteboardMutationService {
     clientOpId: string,
     baseVersion: number,
   ): Promise<DeleteResult> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(objectId)) {
+      throw AppException.objectNotFound()
+    }
+
     await this.boardPermissionService.assertFormalEditor(
       currentUser.sub,
       boardId,

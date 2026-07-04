@@ -18,6 +18,7 @@ import {
 } from "@rctw/shared-contracts"
 import { WhiteboardMutationService } from "../../board/service/board-objects.service"
 import { BoardSnapshotService } from "../../board/service/board-snapshot.service"
+import { PresenceService } from "../services/presence.service"
 import { AppException } from "../../../common/exceptions"
 
 @Injectable()
@@ -25,6 +26,7 @@ export class ObjectHandler {
   constructor(
     private readonly mutationService: WhiteboardMutationService,
     private readonly snapshotService: BoardSnapshotService,
+    private readonly presenceService: PresenceService,
   ) {}
 
   /**
@@ -74,6 +76,16 @@ export class ObjectHandler {
     const currentUser = client.data.currentUser as JwtPayload
     if (!currentUser) throw AppException.unauthenticated()
 
+    // Enforce lock check
+    const isLocked = await this.presenceService.isLockedByOther(
+      boardId,
+      objectId,
+      client.id,
+    )
+    if (isLocked) {
+      throw AppException.objectLocked("Object is locked", { objectId })
+    }
+
     const result = await this.mutationService.updateObject(
       currentUser,
       boardId,
@@ -112,6 +124,16 @@ export class ObjectHandler {
 
     const currentUser = client.data.currentUser as JwtPayload
     if (!currentUser) throw AppException.unauthenticated()
+
+    // Enforce lock check
+    const isLocked = await this.presenceService.isLockedByOther(
+      boardId,
+      objectId,
+      client.id,
+    )
+    if (isLocked) {
+      throw AppException.objectLocked("Object is locked", { objectId })
+    }
 
     const result = await this.mutationService.deleteObject(
       currentUser,
