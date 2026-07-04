@@ -273,14 +273,6 @@ export type ObjectEditingEvent = {
   timestamp: string // ISO string
 }
 
-/** join-request:created — emit đến OWNER khi có user xin tham gia board */
-export type JoinRequestCreatedEvent = {
-  boardId: string
-  requestId: string
-  user: UserSummary
-  createdAt: string // ISO string
-}
-
 /** WS error payload */
 export type WsErrorPayload = {
   code: string
@@ -321,7 +313,6 @@ export const ServerEvents = {
   OBJECT_EDITING: "object:editing",
   OBJECT_MOVE_EPHEMERAL: "object:move-ephemeral",
   TEXT_EDITING: "text:editing",
-  JOIN_REQUEST_CREATED: "join-request:created",
   ERROR: "error",
 } as const
 export type ServerEvent = (typeof ServerEvents)[keyof typeof ServerEvents]

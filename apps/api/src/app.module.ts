@@ -8,7 +8,6 @@ import { AuthModule } from "./modules/auth/auth.module"
 import { BoardModule } from "./modules/board/board.module"
 import { UserModule } from "./modules/user/user.module"
 import { RealtimeModule } from "./modules/realtime/realtime.module"
-import { EventBrokerModule } from "./infrastructure/event-broker/event-broker.module"
 import { RedisModule } from "./infrastructure/redis/redis.module"
 
 @Module({
@@ -21,7 +20,6 @@ import { RedisModule } from "./infrastructure/redis/redis.module"
     }),
     DatabaseModule,
     MailModule,
-    EventBrokerModule,
     RedisModule,
     AuthModule,
     BoardModule,

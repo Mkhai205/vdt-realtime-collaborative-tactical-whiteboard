@@ -210,13 +210,6 @@ export type BoardMemberSummary = {
 export type BoardMemberResponse = BoardMemberSummary
 export type ListBoardMembersResponse = BoardMemberSummary[]
 
-// --- Board Join Request schemas ---
-
-export const respondJoinRequestSchema = z.object({
-  action: z.enum(["APPROVE", "REJECT"]),
-})
-export type RespondJoinRequest = z.infer<typeof respondJoinRequestSchema>
-
 // --- Board Share Link schemas ---
 
 export const createBoardShareLinkRequestSchema = z.object({

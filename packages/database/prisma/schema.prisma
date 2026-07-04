@@ -19,12 +19,6 @@ enum BoardVisibility {
   PUBLIC
 }
 
-enum JoinRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 enum ObjectType {
   RECTANGLE
   CIRCLE
@@ -57,7 +51,6 @@ model User {
   objectsCreated    BoardObject[]      @relation("ObjectCreator")
   objectsUpdated    BoardObject[]      @relation("ObjectUpdater")
   refreshTokens     RefreshToken[]
-  boardJoinRequests BoardJoinRequest[]
   invitationsSent   BoardInvitation[]
 }
 
@@ -89,7 +82,6 @@ model Board {
   objects           BoardObject[]
   operations        BoardOperation[]
   snapshots         BoardSnapshot[]
-  boardJoinRequests BoardJoinRequest[]
   joinLinks         BoardJoinLink[]
   invitations       BoardInvitation[]
 
@@ -110,24 +102,6 @@ model BoardMember {
   @@unique([boardId, userId])
   @@index([boardId, role])
   @@index([userId])
-}
-
-model BoardJoinRequest {
-  id String @id @default(uuid()) @db.Uuid
-
-  boardId String @db.Uuid
-  userId  String @db.Uuid
-
-  status JoinRequestStatus @default(PENDING)
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-
-  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([boardId, userId])
-  @@index([boardId])
 }
 
 model BoardJoinLink {
