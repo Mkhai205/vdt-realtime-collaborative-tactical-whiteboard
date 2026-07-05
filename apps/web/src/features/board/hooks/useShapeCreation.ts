@@ -156,9 +156,6 @@ export function useShapeCreation(
       if (!DRAW_TOOLS.has(tool)) return
       if (e.evt.button !== 0) return
 
-      // Only start on the bare stage background, not on existing objects
-      if (e.target !== stage) return
-
       const wp = getWorldPos(stage)
       if (!wp) return
 

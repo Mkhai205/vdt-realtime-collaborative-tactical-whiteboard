@@ -60,6 +60,15 @@ export class WhiteboardMutationService {
     )
 
     return this.prisma.$transaction(async (tx) => {
+      // Clear redo stack on new action
+      await tx.boardOperation.deleteMany({
+        where: {
+          boardId,
+          actorId: currentUser.sub,
+          type: operationTypes.OBJECT_RESTORE,
+        },
+      })
+
       const revision = await this.incrementRevision(tx, boardId)
 
       const created = await tx.boardObject.create({
@@ -121,6 +130,15 @@ export class WhiteboardMutationService {
     )
 
     return this.prisma.$transaction(async (tx) => {
+      // Clear redo stack on new action
+      await tx.boardOperation.deleteMany({
+        where: {
+          boardId,
+          actorId: currentUser.sub,
+          type: operationTypes.OBJECT_RESTORE,
+        },
+      })
+
       const existing = await tx.boardObject.findFirst({
         where: { id: objectId, boardId, deletedAt: null },
       })
@@ -196,6 +214,15 @@ export class WhiteboardMutationService {
     )
 
     return this.prisma.$transaction(async (tx) => {
+      // Clear redo stack on new action
+      await tx.boardOperation.deleteMany({
+        where: {
+          boardId,
+          actorId: currentUser.sub,
+          type: operationTypes.OBJECT_RESTORE,
+        },
+      })
+
       const existing = await tx.boardObject.findFirst({
         where: { id: objectId, boardId, deletedAt: null },
       })
