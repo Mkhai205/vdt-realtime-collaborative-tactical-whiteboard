@@ -20,13 +20,16 @@ RUN pnpm install --frozen-lockfile
 # Copy codebase
 COPY . .
 
+# Set dummy DATABASE_URL for build-time Prisma client generation
+ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+
 # Generate Prisma client and build packages
 RUN pnpm --filter @rctw/database build
 RUN pnpm --filter @rctw/shared-contracts build
 RUN pnpm --filter @rctw/api build
 
 # Prune and deploy API package to standalone directory /app/deployed
-RUN pnpm --filter @rctw/api --prod deploy /app/deployed
+RUN pnpm --filter @rctw/api --prod --legacy deploy /app/deployed
 
 # Stage 2: Production runner stage
 FROM node:20-alpine AS runner
