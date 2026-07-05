@@ -14,6 +14,7 @@ import { Prisma } from "@rctw/database"
 import { userSummarySelect } from "../../user/user.service"
 import { PrismaService } from "../../../infrastructure/database"
 import { BoardPermissionService } from "./board-permission.service"
+import { BoardEventsService } from "./board-events.service"
 
 export const boardSelect = {
   id: true,
@@ -33,6 +34,7 @@ export class BoardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly boardPermissionService: BoardPermissionService,
+    private readonly boardEventsService: BoardEventsService,
   ) {}
 
   async createBoard(
@@ -89,11 +91,11 @@ export class BoardService {
   }
 
   async getBoard(
-    currentUser: JwtPayload,
+    currentUser: JwtPayload | undefined,
     boardId: string,
   ): Promise<BoardDetailResponse> {
     const { board, effectiveRole } =
-      await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
+      await this.boardPermissionService.resolveAccess(currentUser?.sub, boardId)
 
     return {
       ...toBoardResponse(board),
@@ -144,6 +146,13 @@ export class BoardService {
       },
       select: boardSelect,
     })
+
+    if (request.visibility !== undefined) {
+      this.boardEventsService.emitVisibilityChanged({
+        boardId: board.id,
+        visibility: board.visibility,
+      })
+    }
 
     return toBoardResponse(board)
   }

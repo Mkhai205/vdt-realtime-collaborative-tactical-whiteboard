@@ -19,7 +19,7 @@ export class WsAuthGuard implements CanActivate {
       client.handshake.auth?.token || client.handshake.headers?.authorization
 
     if (!authHeader) {
-      throw new WsException("Unauthorized: Missing auth token")
+      return true
     }
 
     try {
@@ -29,7 +29,7 @@ export class WsAuthGuard implements CanActivate {
         : authHeader
 
       if (!token) {
-        throw new WsException("Unauthorized: Invalid token format")
+        return true
       }
 
       const payload = await this.authService.verifyAccessToken(token)
@@ -39,7 +39,8 @@ export class WsAuthGuard implements CanActivate {
 
       return true
     } catch (err: any) {
-      throw new WsException(`Unauthorized: ${err.message || "Invalid token"}`)
+      // Cho phép kết nối tiếp tục với tư cách guest/unauthenticated
+      return true
     }
   }
 }

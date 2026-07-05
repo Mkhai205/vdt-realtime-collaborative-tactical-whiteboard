@@ -10,7 +10,6 @@ export const userSummarySelect = {
   id: true,
   name: true,
   avatarUrl: true,
-  avatarColor: true,
 } as const
 
 export const userProfileSelect = {
@@ -51,7 +50,6 @@ export class UserService {
       where: { id: userId },
       data: {
         name: data.name,
-        avatarColor: data.avatarColor,
       },
       select: userProfileSelect,
     })

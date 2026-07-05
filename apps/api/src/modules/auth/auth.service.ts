@@ -48,7 +48,6 @@ export class AuthService {
           email: googlePayload.email,
           name: googlePayload.name,
           avatarUrl: googlePayload.picture,
-          avatarColor: this.generateAvatarColor(),
         },
       })
     }
@@ -58,7 +57,6 @@ export class AuthService {
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl,
-      avatarColor: user.avatarColor,
     })
 
     const refreshToken = await this.createRefreshToken(user.id)
@@ -104,7 +102,6 @@ export class AuthService {
       name: existingToken.user.name,
       email: existingToken.user.email,
       avatarUrl: existingToken.user.avatarUrl,
-      avatarColor: existingToken.user.avatarColor,
     })
 
     return { accessToken, newRefreshToken, user: existingToken.user }
@@ -186,12 +183,5 @@ export class AuthService {
 
   private createHashToken(token: string): string {
     return crypto.createHash("sha256").update(token).digest("hex")
-  }
-
-  private generateAvatarColor() {
-    return (
-      avatarPalette[Math.floor(Math.random() * avatarPalette.length)] ??
-      "#3B82F6"
-    )
   }
 }

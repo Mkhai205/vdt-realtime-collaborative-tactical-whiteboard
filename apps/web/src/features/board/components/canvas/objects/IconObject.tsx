@@ -6,6 +6,7 @@ import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
 import { ICON_REGISTRY } from "./iconRegistry"
 import { EditingBadge } from "./EditingBadge"
+import { getAvatarColor } from "@/lib/utils"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
 
@@ -150,8 +151,8 @@ export const IconObject = memo(function IconObject({
   const img = useIconImage(s.iconKey || "Smile", s.fill)
 
   const isEditedByOther = !!editingUser
-  const borderStroke = editingUser?.avatarColor || EDIT_LOCK_STROKE
-  const borderFill = editingUser?.avatarColor ? `${editingUser.avatarColor}14` : "rgba(59,130,246,0.08)"
+  const borderStroke = editingUser ? getAvatarColor(editingUser.id) : EDIT_LOCK_STROKE
+  const borderFill = editingUser ? `${getAvatarColor(editingUser.id)}14` : "rgba(59,130,246,0.08)"
   const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
 
   return (

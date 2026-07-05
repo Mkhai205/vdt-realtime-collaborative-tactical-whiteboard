@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth"
 import { BoardSearch } from "./BoardSearch"
 import { Paintbrush, LogOut, User, ChevronDown } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAvatarColor } from "@/lib/utils"
 
 export function DashboardHeader() {
   const { user, logout } = useAuth()
@@ -70,7 +71,7 @@ export function DashboardHeader() {
                   alt={user?.name}
                 />
                 <AvatarFallback
-                  style={{ backgroundColor: user?.avatarColor || "#6366f1" }}
+                  style={{ backgroundColor: getAvatarColor(user?.id || "") }}
                   className="text-xs font-bold text-white"
                 >
                   {initials}

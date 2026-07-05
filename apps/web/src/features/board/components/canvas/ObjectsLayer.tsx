@@ -39,6 +39,9 @@ export const ObjectsLayer = memo(function ObjectsLayer({ mutations }: ObjectsLay
     mutations.setObjectEditingState,
   )
 
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+
   // ── Sort objects by zIndex once per render ────────────────────────────────
 
   const sortedObjects = useMemo(() => {
@@ -49,6 +52,7 @@ export const ObjectsLayer = memo(function ObjectsLayer({ mutations }: ObjectsLay
 
   const handleSelect = useCallback(
     (id: string, multi: boolean) => {
+      if (isViewer) return
       if (multi) {
         if (selectedIds.has(id)) {
           const next = new Set(selectedIds)
@@ -61,7 +65,7 @@ export const ObjectsLayer = memo(function ObjectsLayer({ mutations }: ObjectsLay
         setSelectedIds(new Set([id]))
       }
     },
-    [selectedIds, setSelectedIds, addToSelection],
+    [selectedIds, setSelectedIds, addToSelection, isViewer],
   )
 
   const handleStageClick = useCallback(

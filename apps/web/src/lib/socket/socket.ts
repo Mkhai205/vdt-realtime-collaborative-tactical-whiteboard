@@ -36,11 +36,11 @@ export function getSocket(): TypedSocket {
  * Connect the socket with a JWT access token.
  * Safe to call multiple times — re-connects with a fresh token if needed.
  */
-export function connectSocket(accessToken: string): void {
+export function connectSocket(accessToken?: string | null): void {
   const sock = getSocket()
 
   // Update auth token before connecting / reconnecting
-  sock.auth = { token: accessToken }
+  sock.auth = accessToken ? { token: accessToken } : {}
 
   if (!sock.connected) {
     sock.connect()
@@ -59,9 +59,9 @@ export function disconnectSocket(): void {
  * Update the JWT token stored in socket.auth without disconnecting.
  * Called after a silent token refresh so the next reconnect uses the new token.
  */
-export function updateSocketToken(accessToken: string): void {
+export function updateSocketToken(accessToken?: string | null): void {
   if (socket) {
-    socket.auth = { token: accessToken }
+    socket.auth = accessToken ? { token: accessToken } : {}
   }
 }
 

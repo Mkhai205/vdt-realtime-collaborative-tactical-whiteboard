@@ -21,11 +21,11 @@ export class WhiteboardQueryService {
    * Dùng khi client join board lần đầu hoặc cần full state.
    */
   async getBoardObjects(
-    currentUser: JwtPayload,
+    currentUser: JwtPayload | undefined,
     boardId: string,
   ): Promise<BoardObjectsResponse> {
     // Kiểm tra quyền truy cập (ném lỗi nếu không có quyền)
-    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
+    await this.boardPermissionService.resolveAccess(currentUser?.sub, boardId)
 
     const [board, objects] = await Promise.all([
       this.prisma.board.findUniqueOrThrow({
@@ -49,11 +49,11 @@ export class WhiteboardQueryService {
    * Dùng khi client reconnect để sync delta, không cần tải lại toàn bộ state.
    */
   async getBoardOperationReplay(
-    currentUser: JwtPayload,
+    currentUser: JwtPayload | undefined,
     boardId: string,
     query: BoardOperationsQuery,
   ): Promise<BoardOperationsResponse> {
-    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
+    await this.boardPermissionService.resolveAccess(currentUser?.sub, boardId)
 
     const page = query.page ?? 1
     const limit = query.limit ?? 20

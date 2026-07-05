@@ -6,18 +6,13 @@ export function middleware(request: NextRequest) {
   const isLoggedIn = request.cookies.has("rctw_logged_in")
 
   // Protected paths
-  const isProtectedPath =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/board")
+  const isProtectedPath = pathname.startsWith("/dashboard")
 
   // Auth paths (e.g., login page)
   const isAuthPath = pathname === "/login"
 
   if (isProtectedPath && !isLoggedIn) {
     const loginUrl = new URL("/login", request.url)
-    // Preserve the redirect path if trying to access a specific board
-    if (pathname.startsWith("/board/")) {
-      loginUrl.searchParams.set("redirect", pathname)
-    }
     return NextResponse.redirect(loginUrl)
   }
 

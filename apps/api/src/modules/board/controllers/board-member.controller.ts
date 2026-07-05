@@ -19,6 +19,7 @@ import {
   type UpdateBoardMemberRoleRequest,
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../../common/decorators/current-user.decorator"
+import { Public } from "../../../common/decorators/public.decorator"
 import { ZodBody } from "../../../common/pipes/zod-validation.pipe"
 import { BoardMemberService } from "../service/board-member.service"
 
@@ -26,9 +27,10 @@ import { BoardMemberService } from "../service/board-member.service"
 export class BoardMemberController {
   constructor(private readonly boardMemberService: BoardMemberService) {}
 
+  @Public()
   @Get()
   async listBoardMembers(
-    @CurrentUser() currentUser: JwtPayload,
+    @CurrentUser() currentUser: JwtPayload | undefined,
     @Param("boardId", ParseUUIDPipe) boardId: string,
   ): Promise<ListBoardMembersResponse> {
     return this.boardMemberService.listBoardMembers(currentUser, boardId)

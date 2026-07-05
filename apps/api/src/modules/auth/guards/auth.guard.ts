@@ -23,6 +23,19 @@ export class AuthGuard implements CanActivate {
     ])
 
     if (isPublic) {
+      const request = context.switchToHttp().getRequest<RequestWithCurrentUser>()
+      const authorization = request.headers.authorization
+      if (authorization) {
+        try {
+          const [type, accessToken] = authorization.split(" ")
+          if (type === "Bearer" && accessToken) {
+            const payload = await this.authService.verifyAccessToken(accessToken)
+            request.currentUser = payload
+          }
+        } catch {
+          // ignore error since it is public
+        }
+      }
       return true
     }
 

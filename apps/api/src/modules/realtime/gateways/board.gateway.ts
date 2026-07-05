@@ -34,7 +34,12 @@ import {
   type RedoRequest,
   type ObjectEditingRequest,
   type ObjectMoveEphemeralRequest,
+  type JwtPayload,
+  toBoardSocketName,
+  ServerEvents,
 } from "@rctw/shared-contracts"
+import { BoardEventsService } from "../../board/service/board-events.service"
+import { PrismaService } from "../../../infrastructure/database"
 
 @WebSocketGateway({
   namespace: "/boards",
@@ -61,10 +66,62 @@ export class BoardGateway
     private readonly presenceHandler: PresenceHandler,
     private readonly selectionHandler: SelectionHandler,
     private readonly authService: AuthService,
+    private readonly boardEventsService: BoardEventsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   afterInit() {
     this.logger.log("BoardGateway initialized")
+
+    // Lắng nghe sự kiện thay đổi visibility của board để kick các user không có quyền
+    this.boardEventsService.visibilityChanged.subscribe(async (event) => {
+      const { boardId, visibility } = event
+      if (visibility === "PRIVATE") {
+        await this.kickUnauthorizedUsers(boardId)
+      }
+    })
+  }
+
+  private async kickUnauthorizedUsers(boardId: string): Promise<void> {
+    const roomName = toBoardSocketName(boardId)
+    const sockets = await this.server.in(roomName).fetchSockets()
+
+    for (const socket of sockets) {
+      const currentUser = socket.data.currentUser as JwtPayload | undefined
+
+      let isAllowed = false
+
+      if (currentUser) {
+        // Kiểm tra xem user có phải là member của board này không
+        const member = await this.prisma.boardMember.findUnique({
+          where: {
+            boardId_userId: {
+              boardId,
+              userId: currentUser.sub,
+            },
+          },
+        })
+        if (member) {
+          isAllowed = true
+        }
+      }
+
+      if (!isAllowed) {
+        this.logger.log(
+          `Kicking socket ${socket.id} (user: ${currentUser?.name || "Guest"}) from board ${boardId} (set to PRIVATE)`,
+        )
+
+        // Gửi lỗi permission denied
+        socket.emit(ServerEvents.ERROR, {
+          code: "PERMISSION_DENIED",
+          message: "This board has been set to private. You no longer have access.",
+        })
+
+        // Rời khỏi phòng socket và ngắt kết nối
+        await socket.leave(roomName)
+        socket.disconnect(true)
+      }
+    }
   }
 
   async handleConnection(client: Socket) {

@@ -5,6 +5,7 @@ import type { CursorMovedEvent } from "@rctw/shared-contracts"
 import { useCursorStore } from "../store/cursor.store"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
+import { getAvatarColor } from "@/lib/utils"
 
 export function useCursorSync(boardId: string) {
   useEffect(() => {
@@ -16,7 +17,7 @@ export function useCursorSync(boardId: string) {
       const onlineUsers = useBoardStore.getState().onlineUsers
       const userProfile = onlineUsers.find((u) => u.id === event.user.id)
 
-      const avatarColor = userProfile?.avatarColor || "#6366f1"
+      const avatarColor = getAvatarColor(event.user.id)
       const avatarUrl = userProfile?.avatarUrl || undefined
 
       // Update cursor store

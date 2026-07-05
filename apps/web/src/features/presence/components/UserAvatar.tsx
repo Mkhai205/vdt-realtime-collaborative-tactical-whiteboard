@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { UserSummary } from "@rctw/shared-contracts"
-import { cn } from "@/lib/utils"
+import { cn, getAvatarColor } from "@/lib/utils"
 import { User } from "lucide-react"
 
 function getInitials(name: string): string {
@@ -40,7 +40,7 @@ export function UserAvatar({
     lg: "h-10 w-10 text-sm",
   }
 
-  const avatarColor = user.avatarColor || "#6366f1"
+  const avatarColor = getAvatarColor(user.id)
 
   return (
     <div className={cn("flex items-center gap-2", className)} style={style}>

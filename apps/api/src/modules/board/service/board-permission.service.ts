@@ -23,18 +23,20 @@ export class BoardPermissionService {
   }
 
   async resolveAccess(
-    userId: string,
+    userId: string | undefined,
     boardId: string,
   ): Promise<{ board: BoardRecord; effectiveRole: EffectiveBoardRole }> {
     const boardData = await this.prisma.board.findUnique({
       where: { id: boardId },
       select: {
         ...boardSelect,
-        members: {
-          where: { userId },
-          select: { role: true },
-          take: 1,
-        },
+        members: userId
+          ? {
+              where: { userId },
+              select: { role: true },
+              take: 1,
+            }
+          : undefined,
       },
     })
 
@@ -44,7 +46,7 @@ export class BoardPermissionService {
 
     const { members, ...board } = boardData
 
-    const memberRole = members.at(0)?.role
+    const memberRole = members && members.length > 0 ? members[0]?.role : undefined
     const visibility = board.visibility
 
     if (visibility === boardVisibility.PRIVATE && !memberRole) {

@@ -6,7 +6,6 @@ export type JwtPayload = {
   name: string
   email: string | null
   avatarUrl?: string | null
-  avatarColor?: string | null
 }
 
 export const loginGoogleSchema = z.object({

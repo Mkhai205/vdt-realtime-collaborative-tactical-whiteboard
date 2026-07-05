@@ -90,6 +90,9 @@ export function useLassoSelect(
 
   const onMouseDown = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
+      const role = useBoardStore.getState().effectiveRole
+      if (role === "VIEWER" || role === "PUBLIC_VIEWER") return
+
       const stage = stageRef.current
       if (!stage) return
       // Only start on bare stage background

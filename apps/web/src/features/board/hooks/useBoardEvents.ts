@@ -119,6 +119,12 @@ export function useBoardEvents(boardId: string) {
         rollbackPendingOp(err.clientOpId)
       }
 
+      if (err.code === "PERMISSION_DENIED") {
+        toast.error(err.message || "Permission Denied. You do not have access to this board.")
+        window.location.replace("/dashboard")
+        return
+      }
+
       if (err.code === "OBJECT_LOCKED" && err.meta?.objectId) {
         toast.error(err.message || "This object is locked by another user.")
         const customEvent = new CustomEvent(`object-lock-failed-${err.meta.objectId}`)

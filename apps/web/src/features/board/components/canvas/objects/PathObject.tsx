@@ -3,6 +3,7 @@ import { Line, Group } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle, safePoints } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
+import { getAvatarColor } from "@/lib/utils"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
 
@@ -51,7 +52,7 @@ export const PathObject = memo(function PathObject({
   if (pts.length < 4) return null
 
   const isEditedByOther = !!editingUser
-  const borderStroke = editingUser?.avatarColor || EDIT_LOCK_STROKE
+  const borderStroke = editingUser ? getAvatarColor(editingUser.id) : EDIT_LOCK_STROKE
   const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
 
   const strokeColor = isSelected

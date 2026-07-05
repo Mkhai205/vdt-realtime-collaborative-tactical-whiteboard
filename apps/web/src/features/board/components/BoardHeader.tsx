@@ -27,6 +27,7 @@ import { Toolbar } from "./toolbar/Toolbar"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { getAvatarColor } from "@/lib/utils"
 
 interface BoardHeaderProps {
   boardId: string
@@ -237,8 +238,8 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
             <Settings className="h-4.5 w-4.5" />
           </Button>
 
-          {/* User Profile dropdown */}
-          {isAuthenticated && (
+          {/* User Profile dropdown or Guest indicator */}
+          {isAuthenticated ? (
             <div ref={userDropdownRef} className="relative">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
@@ -250,7 +251,7 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
                     alt={user?.name}
                   />
                   <AvatarFallback
-                    style={{ backgroundColor: user?.avatarColor || "#6366f1" }}
+                    style={{ backgroundColor: getAvatarColor(user?.id) }}
                     className="text-[10px] font-bold text-white"
                   >
                     {initials}
@@ -278,6 +279,47 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
                       className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20"
                     >
                       <LogOut className="h-3.5 w-3.5" /> Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div ref={userDropdownRef} className="relative">
+              <button
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className="flex cursor-pointer items-center gap-1 rounded-full p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <Avatar className="h-7 w-7 border border-slate-200 shadow-sm dark:border-slate-800">
+                  <AvatarFallback
+                    style={{ backgroundColor: "#94a3b8" }}
+                    className="text-[10px] font-bold text-white"
+                  >
+                    GT
+                  </AvatarFallback>
+                </Avatar>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+
+              {userDropdownOpen && (
+                <div className="absolute right-0 z-50 mt-1.5 w-52 origin-top-right rounded-xl border border-slate-200 bg-card p-1 shadow-lg dark:border-slate-800">
+                  <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800/80">
+                    <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                      Role: PUBLIC_VIEWER
+                    </p>
+                    <p className="mt-0.5 truncate text-xs font-bold text-slate-800 dark:text-slate-100">
+                      Guest User
+                    </p>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setUserDropdownOpen(false)
+                        router.push(`/login?redirect=/board/${boardId}`)
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/20"
+                    >
+                      <LogOut className="h-3.5 w-3.5" /> Sign in
                     </button>
                   </div>
                 </div>

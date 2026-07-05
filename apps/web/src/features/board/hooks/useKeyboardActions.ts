@@ -130,6 +130,7 @@ export function useKeyboardActions(mutations: {
       switch (e.key.toLowerCase()) {
         // Ctrl+A — select all
         case "a": {
+          if (isViewer) break
           e.preventDefault()
           const allIds = new Set([...objects.keys()])
           setSelectedIds(allIds)

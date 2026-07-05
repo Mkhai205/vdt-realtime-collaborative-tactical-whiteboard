@@ -12,6 +12,7 @@ import { WhiteboardMutationService } from "./service/board-objects.service"
 import { BoardSnapshotService } from "./service/board-snapshot.service"
 import { BoardShareLinkService } from "./service/board-share-link.service"
 import { BoardInvitationService } from "./service/board-invitation.service"
+import { BoardEventsService } from "./service/board-events.service"
 
 @Module({
   controllers: [
@@ -30,6 +31,7 @@ import { BoardInvitationService } from "./service/board-invitation.service"
     BoardSnapshotService,
     BoardShareLinkService,
     BoardInvitationService,
+    BoardEventsService,
   ],
   exports: [
     BoardService,
@@ -40,6 +42,7 @@ import { BoardInvitationService } from "./service/board-invitation.service"
     BoardSnapshotService,
     BoardShareLinkService,
     BoardInvitationService,
+    BoardEventsService,
   ],
 })
 export class BoardModule {}

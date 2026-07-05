@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAvatarColor } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -213,7 +214,7 @@ export function MembersTab({ boardId }: MembersTabProps) {
                     <Avatar className="h-8 w-8 border border-slate-200 shadow-xs dark:border-slate-800">
                       <AvatarImage src={member.user.avatarUrl || undefined} alt={member.user.name} />
                       <AvatarFallback
-                        style={{ backgroundColor: member.user.avatarColor || "#6366f1" }}
+                        style={{ backgroundColor: getAvatarColor(member.user.id) }}
                         className="text-[10px] font-bold text-white"
                       >
                         {userInitials}

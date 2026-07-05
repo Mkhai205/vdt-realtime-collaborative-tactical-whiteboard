@@ -6,6 +6,7 @@ import { X, Settings, Users, Link2 } from "lucide-react"
 import { GeneralTab } from "./settings/GeneralTab"
 import { MembersTab } from "./settings/MembersTab"
 import { ShareTab } from "./settings/ShareTab"
+import { useBoardStore } from "@/stores/board.store"
 
 interface BoardSettingsPanelProps {
   boardId: string
@@ -21,6 +22,8 @@ export function BoardSettingsPanel({
   onOpenChange,
 }: BoardSettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("general")
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
   return (
     <AnimatePresence>
@@ -84,16 +87,18 @@ export function BoardSettingsPanel({
               >
                 <Users className="h-3.5 w-3.5" /> Members
               </button>
-              <button
-                onClick={() => setActiveTab("share")}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
-                  activeTab === "share"
-                    ? "bg-white text-violet-600 shadow-xs dark:bg-slate-800 dark:text-violet-400"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800/50 dark:hover:text-slate-300"
-                }`}
-              >
-                <Link2 className="h-3.5 w-3.5" /> Share & Invite
-              </button>
+              {!isViewer && (
+                <button
+                  onClick={() => setActiveTab("share")}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                    activeTab === "share"
+                      ? "bg-white text-violet-600 shadow-xs dark:bg-slate-800 dark:text-violet-400"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800/50 dark:hover:text-slate-300"
+                  }`}
+                >
+                  <Link2 className="h-3.5 w-3.5" /> Share & Invite
+                </button>
+              )}
             </div>
 
             {/* Content Body */}
@@ -109,7 +114,7 @@ export function BoardSettingsPanel({
                 >
                   {activeTab === "general" && <GeneralTab boardId={boardId} />}
                   {activeTab === "members" && <MembersTab boardId={boardId} />}
-                  {activeTab === "share" && <ShareTab boardId={boardId} />}
+                  {activeTab === "share" && !isViewer && <ShareTab boardId={boardId} />}
                 </motion.div>
               </AnimatePresence>
             </div>

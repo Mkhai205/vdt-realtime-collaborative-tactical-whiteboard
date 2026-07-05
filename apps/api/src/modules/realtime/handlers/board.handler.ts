@@ -30,10 +30,10 @@ export class BoardHandler {
   async join(client: Socket, dto: BoardJoinRequest): Promise<void> {
     const { boardId } = dto
 
-    const currentUser = client.data.currentUser as JwtPayload
-    if (!currentUser) throw AppException.unauthenticated()
-
-    const userSummary = toUserSummary(currentUser)
+    const currentUser = client.data.currentUser as JwtPayload | undefined
+    const userSummary = currentUser
+      ? toUserSummary(currentUser)
+      : toGuestUser(client.id)
 
     // Kiểm tra quyền truy cập board
     const joinResponse = await this.boardService.getBoard(currentUser, boardId)
@@ -117,10 +117,10 @@ export class BoardHandler {
   async sync(client: Socket, dto: SyncRequest): Promise<void> {
     const { boardId, lastSeenRevision } = dto
 
-    const currentUser = client.data.currentUser as JwtPayload
-    if (!currentUser) throw AppException.unauthenticated()
-
-    const userSummary = toUserSummary(currentUser)
+    const currentUser = client.data.currentUser as JwtPayload | undefined
+    const userSummary = currentUser
+      ? toUserSummary(currentUser)
+      : toGuestUser(client.id)
 
     // Kiểm tra quyền truy cập board
     const joinResponse = await this.boardService.getBoard(currentUser, boardId)
@@ -207,6 +207,13 @@ function toUserSummary(currentUser: JwtPayload): UserSummary {
     id: currentUser.sub,
     name: currentUser.name,
     avatarUrl: currentUser.avatarUrl,
-    avatarColor: currentUser.avatarColor,
+  }
+}
+
+export function toGuestUser(socketId: string): UserSummary {
+  const shortId = socketId.substring(0, 4)
+  return {
+    id: `guest_${socketId}`,
+    name: `Guest ${shortId}`,
   }
 }

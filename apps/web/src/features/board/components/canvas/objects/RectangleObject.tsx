@@ -3,6 +3,7 @@ import { Rect, Group } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
+import { getAvatarColor } from "@/lib/utils"
 
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
@@ -54,8 +55,8 @@ export const RectangleObject = memo(function RectangleObject({
   void isSelected
 
   const isEditedByOther = !!editingUser
-  const borderStroke = editingUser?.avatarColor || EDIT_LOCK_STROKE
-  const borderFill = editingUser?.avatarColor ? `${editingUser.avatarColor}14` : EDIT_LOCK_FILL
+  const borderStroke = editingUser ? getAvatarColor(editingUser.id) : EDIT_LOCK_STROKE
+  const borderFill = editingUser ? `${getAvatarColor(editingUser.id)}14` : EDIT_LOCK_FILL
   const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
 
   return (

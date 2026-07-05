@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/ui.store"
 import { useCursorStore } from "../../cursor/store/cursor.store"
 import { UserAvatar } from "./UserAvatar"
 import { AnimatePresence, motion } from "framer-motion"
+import { getAvatarColor } from "@/lib/utils"
 import {
   Tooltip,
   TooltipContent,
@@ -67,7 +68,7 @@ export function PresenceBar() {
               const isEditing = [...editingStates.values()].some(
                 (entry) => entry.user.id === user.id,
               )
-              const avatarColor = user.avatarColor || "#6366f1"
+              const avatarColor = getAvatarColor(user.id)
 
               return (
                 <motion.div

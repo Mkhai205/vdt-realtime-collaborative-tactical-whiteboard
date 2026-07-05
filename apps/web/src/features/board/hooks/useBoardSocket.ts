@@ -18,8 +18,6 @@ export function useBoardSocket(boardId: string) {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(
     () => {
       if (typeof window !== "undefined") {
-        const token = useAuthStore.getState().accessToken
-        if (!token) return "disconnected"
         // If socket is already initialized and connected, start as "connected"
         const socket = getSocket()
         return socket.connected ? "connected" : "connecting"
@@ -34,7 +32,6 @@ export function useBoardSocket(boardId: string) {
 
   useEffect(() => {
     const accessToken = useAuthStore.getState().accessToken
-    if (!accessToken) return
 
     const socket = getSocket()
 

@@ -24,6 +24,7 @@ import {
   type UpdateBoardSettingsRequest,
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../../common/decorators/current-user.decorator"
+import { Public } from "../../../common/decorators/public.decorator"
 import { ZodBody, ZodQuery } from "../../../common/pipes"
 import { BoardService } from "../service/board.service"
 
@@ -47,9 +48,10 @@ export class BoardController {
     return this.boardService.listBoards(currentUser, query)
   }
 
+  @Public()
   @Get(":boardId")
   async getBoard(
-    @CurrentUser() currentUser: JwtPayload,
+    @CurrentUser() currentUser: JwtPayload | undefined,
     @Param("boardId", ParseUUIDPipe) boardId: string,
   ): Promise<BoardDetailResponse> {
     return this.boardService.getBoard(currentUser, boardId)

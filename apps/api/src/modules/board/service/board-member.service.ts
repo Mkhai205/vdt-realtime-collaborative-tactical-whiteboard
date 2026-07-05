@@ -32,10 +32,10 @@ export class BoardMemberService {
   ) {}
 
   async listBoardMembers(
-    currentUser: JwtPayload,
+    currentUser: JwtPayload | undefined,
     boardId: string,
   ): Promise<ListBoardMembersResponse> {
-    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
+    await this.boardPermissionService.resolveAccess(currentUser?.sub, boardId)
 
     const members = await this.prisma.boardMember.findMany({
       where: { boardId },

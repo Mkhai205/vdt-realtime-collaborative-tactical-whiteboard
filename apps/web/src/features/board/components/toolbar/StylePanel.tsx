@@ -128,6 +128,9 @@ export function StylePanel({ mutations }: StylePanelProps) {
   const toolStyles = useUIStore((s) => s.toolStyles)
   const setToolStyle = useUIStore((s) => s.setToolStyle)
 
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+
   // Narrow selector: only triggers re-render when the selected objects themselves change.
   const selectedObjects = useBoardStore(
     useShallow((s) => {
@@ -303,6 +306,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
   )
 
   const isDrawingToolActive = DRAWING_TOOLS.has(activeTool)
+  if (isViewer) return null
   if (selectedObjects.length === 0 && !isDrawingToolActive) return null
 
   // Derived values — safe here because they're not hooks
