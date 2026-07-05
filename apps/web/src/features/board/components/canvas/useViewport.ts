@@ -32,7 +32,8 @@ export type UseViewportReturn = {
  */
 export function useViewport(): UseViewportReturn {
   const stageRef = useRef<Konva.Stage | null>(null)
-  const { viewport, setViewport, patchViewport } = useUIStore()
+  const setViewport = useUIStore((s) => s.setViewport)
+  const patchViewport = useUIStore((s) => s.patchViewport)
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -53,29 +54,31 @@ export function useViewport(): UseViewportReturn {
         VIEWPORT_MAX_SCALE,
         Math.max(VIEWPORT_MIN_SCALE, scale),
       )
-      const { x: stageX, y: stageY, scale: oldScale } = viewport
+      const { x: stageX, y: stageY, scale: oldScale } = useUIStore.getState().viewport
 
       const newX = centerX - (centerX - stageX) * (clampedScale / oldScale)
       const newY = centerY - (centerY - stageY) * (clampedScale / oldScale)
 
       setViewport({ x: newX, y: newY, scale: clampedScale })
     },
-    [viewport, setViewport],
+    [setViewport],
   )
 
   const zoomIn = useCallback(() => {
     const stage = stageRef.current
     const cx = stage ? stage.width() / 2 : window.innerWidth / 2
     const cy = stage ? stage.height() / 2 : window.innerHeight / 2
-    zoomTo(viewport.scale * 1.1, cx, cy)
-  }, [viewport.scale, zoomTo])
+    const scale = useUIStore.getState().viewport.scale
+    zoomTo(scale * 1.1, cx, cy)
+  }, [zoomTo])
 
   const zoomOut = useCallback(() => {
     const stage = stageRef.current
     const cx = stage ? stage.width() / 2 : window.innerWidth / 2
     const cy = stage ? stage.height() / 2 : window.innerHeight / 2
-    zoomTo(viewport.scale / 1.1, cx, cy)
-  }, [viewport.scale, zoomTo])
+    const scale = useUIStore.getState().viewport.scale
+    zoomTo(scale / 1.1, cx, cy)
+  }, [zoomTo])
 
   const resetZoom = useCallback(() => {
     const stage = stageRef.current
@@ -135,11 +138,14 @@ export function useViewport(): UseViewportReturn {
    * screenX = worldX * scale + stageX
    */
   const worldToScreen = useCallback(
-    (worldX: number, worldY: number) => ({
-      x: worldX * viewport.scale + viewport.x,
-      y: worldY * viewport.scale + viewport.y,
-    }),
-    [viewport],
+    (worldX: number, worldY: number) => {
+      const { scale, x, y } = useUIStore.getState().viewport
+      return {
+        x: worldX * scale + x,
+        y: worldY * scale + y,
+      }
+    },
+    [],
   )
 
   /**
@@ -147,11 +153,14 @@ export function useViewport(): UseViewportReturn {
    * worldX = (screenX - stageX) / scale
    */
   const screenToWorld = useCallback(
-    (screenX: number, screenY: number) => ({
-      x: (screenX - viewport.x) / viewport.scale,
-      y: (screenY - viewport.y) / viewport.scale,
-    }),
-    [viewport],
+    (screenX: number, screenY: number) => {
+      const { scale, x, y } = useUIStore.getState().viewport
+      return {
+        x: (screenX - x) / scale,
+        y: (screenY - y) / scale,
+      }
+    },
+    [],
   )
 
   return {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, memo } from "react"
 import { Layer, Transformer, Rect } from "react-konva"
 import type Konva from "konva"
 import { useUIStore } from "@/stores/ui.store"
@@ -72,7 +72,7 @@ const TRANSFORMER_CONFIG = {
  * The Transformer is the single source of truth for resize/rotate visual.
  * It fires `onTransformEnd` which is handled by `useTransform`.
  */
-export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLayerProps) {
+export const SelectionLayer = memo(function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLayerProps) {
   const transformerRef = useRef<Konva.Transformer | null>(null)
   const selectedIds = useUIStore((s) => s.selectedIds)
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
@@ -134,4 +134,4 @@ export function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLa
       />
     </Layer>
   )
-}
+})

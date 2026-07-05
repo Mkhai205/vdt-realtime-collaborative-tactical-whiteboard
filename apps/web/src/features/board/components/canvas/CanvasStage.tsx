@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Stage } from "react-konva"
 import { useUIStore } from "@/stores/ui.store"
-import { CanvasBackground } from "./CanvasBackground"
+import { useTheme } from "next-themes"
 import { ObjectsLayer } from "./ObjectsLayer"
 import { DrawingPreview } from "./DrawingPreview"
 import { SelectionLayer } from "./SelectionLayer"
@@ -71,7 +71,14 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
   const viewportHook = useViewport()
   const { stageRef } = viewportHook
-  const { viewport, activeTool, isSpacePressed } = useUIStore()
+
+  const viewport = useUIStore((s) => s.viewport)
+  const activeTool = useUIStore((s) => s.activeTool)
+  const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
+  const dotColor = isDark ? "#374151" : "#d1d5db"
 
   // Realtime Sync & mutations hooks
   const cursorEmit = useCursorEmit(boardId)
@@ -149,6 +156,15 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
   if (stageSize.width === 0) return null
 
+  // CSS grid background styles matching the Konva-based dots
+  const gridStyle = viewport.scale >= 0.22
+    ? {
+        backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1.5px)`,
+        backgroundSize: `${20 * viewport.scale}px ${20 * viewport.scale}px`,
+        backgroundPosition: `${viewport.x - 10 * viewport.scale}px ${viewport.y - 10 * viewport.scale}px`,
+      }
+    : {}
+
   return (
     <div
       ref={containerRef}
@@ -158,6 +174,7 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
         inset: 0,
         cursor: cursorStyle,
         overflow: "hidden",
+        ...gridStyle,
       }}
     >
       <Stage
@@ -176,12 +193,6 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
         // Prevent right-click context menu on the stage
         onContextMenu={(e) => e.evt.preventDefault()}
       >
-        {/* Layer 0 — Background grid (listening=false for perf) */}
-        <CanvasBackground
-          stageWidth={stageSize.width}
-          stageHeight={stageSize.height}
-        />
-
         {/* Layer 1 — Board objects (sorted by zIndex) */}
         <ObjectsLayer mutations={mutations} />
 

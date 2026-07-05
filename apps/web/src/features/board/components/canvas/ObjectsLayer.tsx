@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useCallback } from "react"
+import { useMemo, useCallback, memo } from "react"
 import { Layer } from "react-konva"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
@@ -25,11 +25,14 @@ interface ObjectsLayerProps {
  * SelectionLayer; individual shapes no longer draw their own selection border.
  * The `isSelected` prop is still forwarded for text object focus border.
  */
-export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
+export const ObjectsLayer = memo(function ObjectsLayer({ mutations }: ObjectsLayerProps) {
   const objects = useBoardStore((s) => s.objects)
   const editingStates = useBoardStore((s) => s.editingStates)
-  const { selectedIds, setSelectedIds, addToSelection, clearSelection } =
-    useUIStore()
+  
+  const selectedIds = useUIStore((s) => s.selectedIds)
+  const setSelectedIds = useUIStore((s) => s.setSelectedIds)
+  const addToSelection = useUIStore((s) => s.addToSelection)
+  const clearSelection = useUIStore((s) => s.clearSelection)
 
   const { onDragStart, onDragMove, onDragEnd } = useDragMove(
     mutations.updateObject,
@@ -113,4 +116,4 @@ export function ObjectsLayer({ mutations }: ObjectsLayerProps) {
       ))}
     </Layer>
   )
-}
+})

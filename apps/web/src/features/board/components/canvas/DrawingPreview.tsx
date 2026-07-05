@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { Layer, Rect, Ellipse, Arrow, Line } from "react-konva"
 import { useUIStore } from "@/stores/ui.store"
 
@@ -14,7 +15,7 @@ import { useUIStore } from "@/stores/ui.store"
  * Uses dashed strokes and reduced opacity to visually distinguish previews
  * from committed objects.
  */
-export function DrawingPreview() {
+export const DrawingPreview = memo(function DrawingPreview() {
   const preview = useUIStore((s) => s.previewShape)
   if (!preview) return <Layer id="ui-layer" listening={false} />
 
@@ -92,4 +93,4 @@ export function DrawingPreview() {
       )}
     </Layer>
   )
-}
+})
