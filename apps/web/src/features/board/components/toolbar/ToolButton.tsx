@@ -49,7 +49,6 @@ export function ToolButton({
           opacity: disabled ? 0.4 : undefined,
           cursor: disabled ? "not-allowed" : undefined,
         }}
-        title={disabled ? disabledTooltip : `${label} — ${shortcut}`}
       >
         <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
       </button>

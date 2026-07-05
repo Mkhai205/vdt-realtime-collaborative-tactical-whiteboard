@@ -713,3 +713,49 @@
   color: oklch(0.88 0.005 220);
 }
 
+/* ─── Icon Selector Grid ─────────────────────────────────────────────────── */
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.icon-grid-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid oklch(0 0 0 / 8%);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: oklch(0.3 0.01 220);
+}
+
+.dark .icon-grid-btn {
+  border-color: oklch(1 0 0 / 10%);
+  color: oklch(0.8 0.01 220);
+}
+
+.icon-grid-btn:hover {
+  background: oklch(0 0 0 / 4%);
+  border-color: oklch(0 0 0 / 15%);
+}
+
+.dark .icon-grid-btn:hover {
+  background: oklch(1 0 0 / 6%);
+  border-color: oklch(1 0 0 / 20%);
+}
+
+.icon-grid-btn--active {
+  background: oklch(0.63 0.16 262 / 10%) !important;
+  border-color: oklch(0.63 0.16 262) !important;
+  color: oklch(0.63 0.16 262) !important;
+}
+
+

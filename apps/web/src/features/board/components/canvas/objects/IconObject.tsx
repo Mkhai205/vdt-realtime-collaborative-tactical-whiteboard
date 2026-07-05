@@ -4,6 +4,7 @@ import { useEffect, useState, memo } from "react"
 import { Image as KonvaImage, Group, Rect, Text } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle } from "./shapeDefaults"
+import { ICON_REGISTRY } from "./iconRegistry"
 import { EditingBadge } from "./EditingBadge"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
@@ -32,14 +33,14 @@ const FALLBACK_SIZE = 48
 function svgStringToImage(
   svgStr: string,
   color: string,
-  size: number,
 ): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     // Replace currentColor with the desired fill colour
+    // Replace width/height with 100% to make the SVG responsive on canvas
     const coloured = svgStr
       .replace(/currentColor/g, color)
-      .replace(/width="[^"]*"/, `width="${size}"`)
-      .replace(/height="[^"]*"/, `height="${size}"`)
+      .replace(/width="[^"]*"/, 'width="100%"')
+      .replace(/height="[^"]*"/, 'height="100%"')
 
     const blob = new Blob([coloured], { type: "image/svg+xml" })
     const url = URL.createObjectURL(blob)
@@ -64,9 +65,8 @@ const iconImageCache = new Map<string, HTMLImageElement>()
 function useIconImage(
   iconKey: string,
   color: string,
-  size: number,
 ): HTMLImageElement | null {
-  const cacheKey = `${iconKey}::${color}::${size}`
+  const cacheKey = `${iconKey}::${color}`
 
   // A plain counter is all we need to trigger a re-render after an async load.
   // The image itself is read directly from the module-level cache at render time
@@ -81,21 +81,21 @@ function useIconImage(
 
     ;(async () => {
       try {
-        const lucide = await import("lucide-react")
-        const IconComponent = (lucide as Record<string, unknown>)[iconKey]
-        if (typeof IconComponent !== "function") return
+        const IconComponent = ICON_REGISTRY[iconKey] || ICON_REGISTRY.Circle
+        if (!IconComponent) return
 
         const { renderToStaticMarkup } = await import("react-dom/server")
         const { createElement } = await import("react")
 
+        // Render at default size, it will be replaced by 100% in svgStringToImage
         const svgStr = renderToStaticMarkup(
-          createElement(IconComponent as React.ComponentType<{ size: number }>, {
-            size,
+          createElement(IconComponent, {
+            size: 24,
           }),
         )
 
         if (cancelled) return
-        const loaded = await svgStringToImage(svgStr, color, size)
+        const loaded = await svgStringToImage(svgStr, color)
         if (cancelled) return
 
         iconImageCache.set(cacheKey, loaded)
@@ -109,7 +109,7 @@ function useIconImage(
     return () => {
       cancelled = true
     }
-  }, [cacheKey, iconKey, color, size])
+  }, [cacheKey, iconKey, color])
 
   // Read directly from cache during render — pure, no side effects.
   return iconImageCache.get(cacheKey) ?? null
@@ -147,7 +147,7 @@ export const IconObject = memo(function IconObject({
   const isSpacePressed = useUIStore((s) => s.isSpacePressed)
   const isSelectTool = activeTool === "SELECT" && !isSpacePressed
 
-  const img = useIconImage(s.iconKey || "Circle", s.fill, iconSize)
+  const img = useIconImage(s.iconKey || "Smile", s.fill)
 
   const isEditedByOther = !!editingUser
   const borderStroke = editingUser?.avatarColor || EDIT_LOCK_STROKE

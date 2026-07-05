@@ -94,7 +94,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     color: "#6366f1",
     arrowStart: false,
     arrowEnd: false,
-    iconKey: "Circle",
+    iconKey: "Smile",
     assetUrl: "",
     scale: 1,
     label: "",

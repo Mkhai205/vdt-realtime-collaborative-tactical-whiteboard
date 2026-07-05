@@ -5,11 +5,24 @@ import { useShallow } from "zustand/react/shallow"
 import { ColorPicker } from "./ColorPicker"
 import { useUIStore } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
-import type { ShapeStyle, BoardObjectDto, ObjectType } from "@rctw/shared-contracts"
+import type {
+  ShapeStyle,
+  BoardObjectDto,
+  ObjectType,
+} from "@rctw/shared-contracts"
 import type { UseObjectMutationsReturn } from "../../hooks/useObjectMutations"
-import { Copy, Trash2, Link, ArrowDownToLine, ArrowDown, ArrowUp, ArrowUpToLine } from "lucide-react"
+import {
+  Copy,
+  Trash2,
+  Link,
+  ArrowDownToLine,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpToLine,
+} from "lucide-react"
 import { toast } from "sonner"
 import { DEFAULT_STYLES } from "../canvas/objects/shapeDefaults"
+import { ICON_REGISTRY } from "../canvas/objects/iconRegistry"
 
 // ─── Sub-Component ─────────────────────────────────────────────────────────────
 
@@ -98,7 +111,14 @@ interface StylePanelProps {
   mutations: UseObjectMutationsReturn
 }
 
-const DRAWING_TOOLS = new Set(["RECTANGLE", "CIRCLE", "LINE", "PATH", "ICON", "TEXT"])
+const DRAWING_TOOLS = new Set([
+  "RECTANGLE",
+  "CIRCLE",
+  "LINE",
+  "PATH",
+  "ICON",
+  "TEXT",
+])
 
 export function StylePanel({ mutations }: StylePanelProps) {
   const { updateObject } = mutations
@@ -119,7 +139,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
         }
       }
       return list
-    })
+    }),
   ) as BoardObjectDto[]
 
   const handleDuplicate = () => {
@@ -286,13 +306,26 @@ export function StylePanel({ mutations }: StylePanelProps) {
   if (selectedObjects.length === 0 && !isDrawingToolActive) return null
 
   // Derived values — safe here because they're not hooks
-  const firstStyle = selectedObjects.length > 0
-    ? selectedObjects[0]!.style
-    : (toolStyles[activeTool] || DEFAULT_STYLES[activeTool as ObjectType] || DEFAULT_STYLES.RECTANGLE)
+  const firstStyle =
+    selectedObjects.length > 0
+      ? selectedObjects[0]!.style
+      : toolStyles[activeTool] ||
+        DEFAULT_STYLES[activeTool as ObjectType] ||
+        DEFAULT_STYLES.RECTANGLE
 
-  const allLine = selectedObjects.length > 0
-    ? selectedObjects.every((o) => o.type === "LINE")
-    : activeTool === "LINE"
+  const allLine =
+    selectedObjects.length > 0
+      ? selectedObjects.every((o) => o.type === "LINE")
+      : activeTool === "LINE"
+
+  const hasIcon =
+    selectedObjects.length > 0
+      ? selectedObjects.some((o) => o.type === "ICON")
+      : activeTool === "ICON"
+
+  const handleSelectIcon = (iconName: string) => {
+    applyStyle({ iconKey: iconName })
+  }
 
   return (
     <div id="style-panel" className="style-panel" aria-label="Style options">
@@ -339,7 +372,32 @@ export function StylePanel({ mutations }: StylePanelProps) {
         formatValue={(val) => `${Math.round(val * 100)}%`}
       />
 
-
+      {/* ── Icon Picker (ICON only) ── */}
+      {hasIcon && (
+        <>
+          <div className="style-sep" aria-hidden />
+          <div className="style-row style-row--col">
+            <span className="style-label">Icon</span>
+            <div className="icon-grid">
+              {Object.entries(ICON_REGISTRY).map(([name, IconComponent]) => {
+                const isActive = firstStyle.iconKey === name
+                return (
+                  <button
+                    key={name}
+                    className={`icon-grid-btn${isActive ? "icon-grid-btn--active" : ""}`}
+                    onClick={() => handleSelectIcon(name)}
+                    title={name}
+                    aria-label={`Select ${name} icon`}
+                    aria-pressed={isActive}
+                  >
+                    <IconComponent size={16} />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── LINE-only: arrow type ── */}
       {allLine && (
@@ -349,7 +407,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
             <span className="style-label">Arrows</span>
             <div className="style-toggle-group">
               <button
-                className={`style-toggle${firstStyle.arrowStart ? " style-toggle--active" : ""}`}
+                className={`style-toggle${firstStyle.arrowStart ? "style-toggle--active" : ""}`}
                 onClick={() =>
                   applyStyle({ arrowStart: !firstStyle.arrowStart })
                 }
@@ -359,10 +417,8 @@ export function StylePanel({ mutations }: StylePanelProps) {
                 ←
               </button>
               <button
-                className={`style-toggle${firstStyle.arrowEnd !== false ? " style-toggle--active" : ""}`}
-                onClick={() =>
-                  applyStyle({ arrowEnd: !firstStyle.arrowEnd })
-                }
+                className={`style-toggle${firstStyle.arrowEnd !== false ? "style-toggle--active" : ""}`}
+                onClick={() => applyStyle({ arrowEnd: !firstStyle.arrowEnd })}
                 aria-pressed={firstStyle.arrowEnd !== false}
                 title="Arrow at end"
               >
@@ -378,7 +434,9 @@ export function StylePanel({ mutations }: StylePanelProps) {
         <>
           <div className="style-sep" aria-hidden />
           <div className="style-row style-row--col">
-            <span className="style-label" style={{ marginBottom: 4 }}>Layers</span>
+            <span className="style-label" style={{ marginBottom: 4 }}>
+              Layers
+            </span>
             <div className="style-toggle-group">
               <button
                 className="style-toggle"
@@ -420,7 +478,9 @@ export function StylePanel({ mutations }: StylePanelProps) {
       {/* ── Actions ── */}
       <div className="style-sep" aria-hidden />
       <div className="style-row style-row--col">
-        <span className="style-label" style={{ marginBottom: 4 }}>Actions</span>
+        <span className="style-label" style={{ marginBottom: 4 }}>
+          Actions
+        </span>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
           {selectedObjects.length > 0 && (
             <>
@@ -439,7 +499,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#6366f1",
-                  transition: "background 0.15s, border-color 0.15s"
+                  transition: "background 0.15s, border-color 0.15s",
                 }}
               >
                 <Copy size={16} />
@@ -460,7 +520,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#ef4444",
-                  transition: "background 0.15s, border-color 0.15s"
+                  transition: "background 0.15s, border-color 0.15s",
                 }}
               >
                 <Trash2 size={16} />
@@ -483,7 +543,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
               alignItems: "center",
               justifyContent: "center",
               color: "#6366f1",
-              transition: "background 0.15s, border-color 0.15s"
+              transition: "background 0.15s, border-color 0.15s",
             }}
           >
             <Link size={16} />
