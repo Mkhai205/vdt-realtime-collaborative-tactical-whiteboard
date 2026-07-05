@@ -88,6 +88,11 @@ export class StorageService implements OnModuleInit {
         },
       )
 
+      const publicUrl = this.configService.get<string>("MINIO_PUBLIC_URL")
+      if (publicUrl) {
+        return `${publicUrl}/${key}`
+      }
+
       const endpoint = this.configService.get<string>("MINIO_ENDPOINT")
       const port = this.configService.get<number>("MINIO_PORT")
       const useSsl = this.configService.get<boolean>("MINIO_USE_SSL")

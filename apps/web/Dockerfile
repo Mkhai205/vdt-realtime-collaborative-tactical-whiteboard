@@ -1,56 +1,52 @@
-# syntax=docker/dockerfile:1
-
-FROM node:22-bookworm-slim AS base
-
-ENV PNPM_HOME="/pnpm" \
-    COREPACK_HOME="/tmp/corepack" \
-    HOME="/tmp" \
-    PATH="/pnpm:${PATH}"
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates openssl \
-    && rm -rf /var/lib/apt/lists/* \
-    && corepack enable \
-    && corepack prepare pnpm@10.33.2 --activate
+# Stage 1: Build stage
+FROM node:20-alpine AS builder
+RUN apk add --no-cache libc6-compat
+RUN npm install -g pnpm@10.33.2
 
 WORKDIR /app
 
-FROM base AS deps
+# Copy workspace configuration and lockfile
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
-COPY apps/api/package.json apps/api/package.json
-COPY apps/web/package.json apps/web/package.json
-COPY packages/database/package.json packages/database/package.json
-COPY packages/shared-contracts/package.json packages/shared-contracts/package.json
+# Copy package.json files for dependency caching
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY packages/database/package.json ./packages/database/
+COPY packages/shared-contracts/package.json ./packages/shared-contracts/
 
+# Install workspace dependencies
 RUN pnpm install --frozen-lockfile
 
-FROM deps AS build
-
-ARG NEXT_PUBLIC_API_BASE_URL="http://localhost:3001/api/v1"
-ARG NEXT_PUBLIC_SOCKET_URL="http://localhost:3001"
-
-ENV NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL}" \
-    NEXT_PUBLIC_SOCKET_URL="${NEXT_PUBLIC_SOCKET_URL}"
-
+# Copy codebase
 COPY . .
 
-RUN pnpm exec turbo run build --filter=@rctw/web --ui=stream
+# Build shared contracts
+RUN pnpm --filter @rctw/shared-contracts build
 
-FROM base AS runner
+# Build-time environment variables for Next.js (baked into client-side build bundle)
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_SOCKET_URL
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
-ARG NEXT_PUBLIC_API_BASE_URL="http://localhost:3001/api/v1"
-ARG NEXT_PUBLIC_SOCKET_URL="http://localhost:3001"
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
-ENV NODE_ENV="production" \
-    PORT="3000" \
-    NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL}" \
-    NEXT_PUBLIC_SOCKET_URL="${NEXT_PUBLIC_SOCKET_URL}"
+# Build Next.js Web App
+RUN pnpm --filter @rctw/web build
+
+# Stage 2: Production runner stage
+FROM node:20-alpine AS runner
+RUN apk add --no-cache libc6-compat
+RUN npm install -g pnpm@10.33.2
 
 WORKDIR /app
 
-COPY --from=build /app ./
+# Copy built workspace from builder
+COPY --from=builder /app ./
 
 EXPOSE 3000
+ENV NODE_ENV=production
 
-CMD ["pnpm", "--filter", "@rctw/web", "exec", "next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
+# Start the Next.js server
+CMD pnpm --filter @rctw/web start

@@ -13,6 +13,7 @@ export function validateMinioConfig(config: RawEnv) {
   const secretKey =
     normalizeRequiredString(config.MINIO_SECRET_KEY) || "admin123456"
   const bucket = normalizeRequiredString(config.MINIO_BUCKET) || "whiteboard"
+  const publicUrl = normalizeRequiredString(config.MINIO_PUBLIC_URL)
 
   return {
     MINIO_ENDPOINT: endpoint,
@@ -21,5 +22,6 @@ export function validateMinioConfig(config: RawEnv) {
     MINIO_ACCESS_KEY: accessKey,
     MINIO_SECRET_KEY: secretKey,
     MINIO_BUCKET: bucket,
+    MINIO_PUBLIC_URL: publicUrl,
   }
 }

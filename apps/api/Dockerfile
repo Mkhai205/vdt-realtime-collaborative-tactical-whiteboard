@@ -1,47 +1,49 @@
-# syntax=docker/dockerfile:1
-
-FROM node:22-bookworm-slim AS base
-
-ENV PNPM_HOME="/pnpm" \
-    COREPACK_HOME="/tmp/corepack" \
-    HOME="/tmp" \
-    PATH="/pnpm:${PATH}"
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates openssl \
-    && rm -rf /var/lib/apt/lists/* \
-    && corepack enable \
-    && corepack prepare pnpm@10.33.2 --activate
+# Stage 1: Build stage
+FROM node:20-alpine AS builder
+RUN apk add --no-cache libc6-compat
+RUN npm install -g pnpm@10.33.2
 
 WORKDIR /app
 
-FROM base AS deps
+# Copy workspace configuration and lockfile
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
-COPY apps/api/package.json apps/api/package.json
-COPY apps/web/package.json apps/web/package.json
-COPY packages/database/package.json packages/database/package.json
-COPY packages/shared-contracts/package.json packages/shared-contracts/package.json
+# Copy package.json files for dependency caching
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY packages/database/package.json ./packages/database/
+COPY packages/shared-contracts/package.json ./packages/shared-contracts/
 
+# Install workspace dependencies
 RUN pnpm install --frozen-lockfile
 
-FROM deps AS build
-
-ENV DATABASE_URL="postgresql://whiteboard:whiteboard@postgres:5432/tactical_whiteboard_db?schema=public"
-
+# Copy codebase
 COPY . .
 
-RUN pnpm exec turbo run build --filter=@rctw/api --ui=stream
+# Generate Prisma client and build packages
+RUN pnpm --filter @rctw/database build
+RUN pnpm --filter @rctw/shared-contracts build
+RUN pnpm --filter @rctw/api build
 
-FROM base AS runner
+# Prune and deploy API package to standalone directory /app/deployed
+RUN pnpm --filter @rctw/api --prod deploy /app/deployed
 
-ENV NODE_ENV="production" \
-    PORT="3001"
-
+# Stage 2: Production runner stage
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-COPY --from=build /app ./
+# Copy the standalone deployed folder
+COPY --from=builder /app/deployed ./
+
+# Copy database migrations and schema for runtime prisma migration execution
+COPY --from=builder /app/packages/database/prisma ./packages/database/prisma
+COPY --from=builder /app/packages/database/package.json ./packages/database/package.json
+
+# Install prisma CLI globally for migration deployment
+RUN npm install -g prisma@7.1.0
 
 EXPOSE 3001
+ENV NODE_ENV=production
 
-CMD ["pnpm", "--filter", "@rctw/api", "start:prod"]
+# Run database migrations and start the NestJS server
+CMD npx prisma migrate deploy --schema=./packages/database/prisma/schema.prisma && node dist/main.js
