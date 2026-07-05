@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Stage } from "react-konva"
 import { useUIStore } from "@/stores/ui.store"
+import { useBoardStore } from "@/stores/board.store"
 import { useTheme } from "next-themes"
 import { ObjectsLayer } from "./ObjectsLayer"
 import { DrawingPreview } from "./DrawingPreview"
@@ -18,6 +19,8 @@ import { useKeyboardActions } from "@/features/board/hooks/useKeyboardActions"
 
 import { type UseObjectMutationsReturn } from "@/features/board/hooks/useObjectMutations"
 import { useCursorEmit } from "@/features/board/hooks/useCursorEmit"
+import { boardApi } from "@/features/board/api/board.api"
+import { DEFAULT_STYLES } from "./objects/shapeDefaults"
 
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
@@ -152,6 +155,158 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
     return () => el.removeEventListener("wheel", preventNative)
   }, [])
 
+  // ── Clipboard paste handler ─────────────────────────────────────────────
+
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      )
+        return
+
+      const items = e.clipboardData?.items
+      if (!items || !boardId) return
+
+      const imageFiles: File[] = []
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile()
+          if (file) imageFiles.push(file)
+        }
+      }
+
+      if (imageFiles.length === 0) return
+      e.preventDefault()
+
+      const centerX = (window.innerWidth / 2 - viewport.x) / viewport.scale
+      const centerY = (window.innerHeight / 2 - viewport.y) / viewport.scale
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i]!
+        try {
+          const result = await boardApi.uploadImage(boardId, file)
+
+          const img = new window.Image()
+          img.src = result.url
+          img.onload = () => {
+            let w = img.naturalWidth || 200
+            let h = img.naturalHeight || 200
+
+            const maxDim = 400
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = (maxDim / w) * h
+                w = maxDim
+              } else {
+                w = (maxDim / h) * w
+                h = maxDim
+              }
+            }
+
+            const offsetX = i * 20
+            const offsetY = i * 20
+            const x = centerX - w / 2 + offsetX
+            const y = centerY - h / 2 + offsetY
+
+            const preferredStyle = useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
+            const style = {
+              ...preferredStyle,
+              assetUrl: result.url,
+            }
+
+            mutations.createObject({
+              type: "IMAGE",
+              x,
+              y,
+              width: w,
+              height: h,
+              rotation: 0,
+              style,
+              zIndex: useBoardStore.getState().objects.size,
+            })
+          }
+        } catch (err) {
+          console.error("Failed to upload pasted image:", err)
+        }
+      }
+    }
+
+    window.addEventListener("paste", handlePaste)
+    return () => window.removeEventListener("paste", handlePaste)
+  }, [boardId, viewport.x, viewport.y, viewport.scale, mutations])
+
+  // ── Drag & Drop handler ──────────────────────────────────────────────────
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+
+    const files = Array.from(e.dataTransfer.files)
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"))
+    if (imageFiles.length === 0 || !boardId) return
+
+    const container = containerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const screenX = e.clientX - rect.left
+    const screenY = e.clientY - rect.top
+
+    const worldX = (screenX - viewport.x) / viewport.scale
+    const worldY = (screenY - viewport.y) / viewport.scale
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i]!
+      try {
+        const result = await boardApi.uploadImage(boardId, file)
+
+        const img = new window.Image()
+        img.src = result.url
+        img.onload = () => {
+          let w = img.naturalWidth || 200
+          let h = img.naturalHeight || 200
+
+          const maxDim = 400
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = (maxDim / w) * h
+              w = maxDim
+            } else {
+              w = (maxDim / h) * w
+              h = maxDim
+            }
+          }
+
+          const offsetX = i * 20
+          const offsetY = i * 20
+          const x = worldX - w / 2 + offsetX
+          const y = worldY - h / 2 + offsetY
+
+          const preferredStyle = useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
+          const style = {
+            ...preferredStyle,
+            assetUrl: result.url,
+          }
+
+          mutations.createObject({
+            type: "IMAGE",
+            x,
+            y,
+            width: w,
+            height: h,
+            rotation: 0,
+            style,
+            zIndex: useBoardStore.getState().objects.size,
+          })
+        }
+      } catch (err) {
+        console.error("Failed to upload dropped image:", err)
+      }
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (stageSize.width === 0) return null
@@ -169,6 +324,8 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
     <div
       ref={containerRef}
       id="canvas-stage-container"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
       style={{
         position: "absolute",
         inset: 0,

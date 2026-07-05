@@ -4,6 +4,7 @@ import {
   validateDatabaseConfig,
   validateMailConfig,
   validateRedisConfig,
+  validateMinioConfig,
 } from "./topics"
 
 export type RawEnv = Record<string, unknown>
@@ -16,5 +17,6 @@ export function validateEnv(config: RawEnv) {
     ...validateDatabaseConfig(config),
     ...validateMailConfig(config),
     ...validateRedisConfig(config),
+    ...validateMinioConfig(config),
   }
 }

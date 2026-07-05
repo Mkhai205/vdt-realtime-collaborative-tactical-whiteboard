@@ -99,6 +99,22 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     scale: 1,
     label: "",
   },
+  IMAGE: {
+    fill: "transparent",
+    stroke: "transparent",
+    strokeWidth: 0,
+    opacity: 1,
+    fontSize: 16,
+    fontFamily: "Inter, sans-serif",
+    fontWeight: "normal",
+    color: "#1f2937",
+    arrowStart: false,
+    arrowEnd: false,
+    iconKey: "",
+    assetUrl: "",
+    scale: 1,
+    label: "",
+  },
 }
 
 /** Merge object style with per-type defaults, keeping explicit values. */

@@ -14,6 +14,7 @@ const KEY_TO_TOOL: Record<string, Tool> = {
   p: "PATH",
   i: "ICON",
   t: "TEXT",
+  u: "IMAGE",
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────────

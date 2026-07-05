@@ -96,4 +96,21 @@ export const boardApi = {
     )
     return responseData
   },
+
+  uploadImage: async (
+    boardId: string,
+    file: File,
+  ): Promise<{ url: string; filename: string }> => {
+    const formData = new FormData()
+    formData.append("file", file)
+    const { data: responseData } = await apiClient.post<{
+      url: string
+      filename: string
+    }>(`/boards/${boardId}/upload`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    })
+    return responseData
+  },
 }

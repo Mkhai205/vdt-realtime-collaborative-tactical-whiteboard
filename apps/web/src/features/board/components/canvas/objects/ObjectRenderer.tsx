@@ -6,6 +6,7 @@ import { LineObject } from "./LineObject"
 import { PathObject } from "./PathObject"
 import { IconObject } from "./IconObject"
 import { TextObject } from "./TextObject"
+import { ImageObject } from "./ImageObject"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,19 @@ export const ObjectRenderer = memo(function ObjectRenderer({
           onDragMove={onDragMove}
           onDragEnd={onDragEnd}
           onTextChange={onTextChange}
+        />
+      )
+
+    case "IMAGE":
+      return (
+        <ImageObject
+          object={object}
+          isSelected={isSelected}
+          editingUser={editingUser}
+          onSelect={onSelect}
+          onDragStart={onDragStart}
+          onDragMove={onDragMove}
+          onDragEnd={onDragEnd}
         />
       )
 

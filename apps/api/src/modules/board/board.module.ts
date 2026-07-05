@@ -3,6 +3,7 @@ import { BoardController } from "./controllers/board.controller"
 import { BoardMemberController } from "./controllers/board-member.controller"
 import { BoardShareLinkController } from "./controllers/board-share-link.controller"
 import { BoardInvitationController } from "./controllers/board-invitation.controller"
+import { UploadController } from "./controllers/upload.controller"
 import { BoardService } from "./service/board.service"
 import { BoardMemberService } from "./service/board-member.service"
 import { BoardPermissionService } from "./service/board-permission.service"
@@ -18,6 +19,7 @@ import { BoardInvitationService } from "./service/board-invitation.service"
     BoardMemberController,
     BoardShareLinkController,
     BoardInvitationController,
+    UploadController,
   ],
   providers: [
     BoardService,

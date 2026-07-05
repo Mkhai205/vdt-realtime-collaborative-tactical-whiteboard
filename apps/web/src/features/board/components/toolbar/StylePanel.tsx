@@ -315,13 +315,13 @@ export function StylePanel({ mutations }: StylePanelProps) {
 
   const hasFill =
     selectedObjects.length > 0
-      ? selectedObjects.every((o) => o.type !== "LINE" && o.type !== "PATH")
-      : activeTool !== "LINE" && activeTool !== "PATH"
+      ? selectedObjects.every((o) => o.type !== "LINE" && o.type !== "PATH" && o.type !== "IMAGE")
+      : activeTool !== "LINE" && activeTool !== "PATH" && activeTool !== "IMAGE"
 
   const hasStroke =
     selectedObjects.length > 0
-      ? selectedObjects.every((o) => o.type !== "ICON" && o.type !== "TEXT")
-      : activeTool !== "ICON" && activeTool !== "TEXT"
+      ? selectedObjects.every((o) => o.type !== "ICON" && o.type !== "TEXT" && o.type !== "IMAGE")
+      : activeTool !== "ICON" && activeTool !== "TEXT" && activeTool !== "IMAGE"
 
   const hasIcon =
     selectedObjects.length > 0

@@ -9,6 +9,7 @@ import { BoardModule } from "./modules/board/board.module"
 import { UserModule } from "./modules/user/user.module"
 import { RealtimeModule } from "./modules/realtime/realtime.module"
 import { RedisModule } from "./infrastructure/redis/redis.module"
+import { StorageModule } from "./infrastructure/storage/storage.module"
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { RedisModule } from "./infrastructure/redis/redis.module"
     DatabaseModule,
     MailModule,
     RedisModule,
+    StorageModule,
     AuthModule,
     BoardModule,
     RealtimeModule,
