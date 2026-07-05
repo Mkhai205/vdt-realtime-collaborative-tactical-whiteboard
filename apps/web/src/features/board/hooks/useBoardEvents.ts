@@ -20,9 +20,10 @@ import type {
   ObjectMoveEphemeralEvent,
 } from "@rctw/shared-contracts"
 import { toast } from "sonner"
-import { discardedLocalOps } from "./useObjectMutations"
+import { discardedLocalOps, pendingLocalUpdates, useObjectMutations } from "./useObjectMutations"
 
 export function useBoardEvents(boardId: string) {
+  const { updateObject } = useObjectMutations(boardId)
   const {
     initBoard,
     upsertObject,
@@ -53,18 +54,37 @@ export function useBoardEvents(boardId: string) {
       const tempId = `local-${event.clientOpId}`
       // Remove local optimistic temp object
       removeObject(tempId)
-      // Upsert real object from server
-      upsertObject(event.object)
+
+      // Apply any pending updates that were queued while waiting for this ACK
+      const pendingPatch = pendingLocalUpdates.get(tempId)
+      if (pendingPatch) {
+        pendingLocalUpdates.delete(tempId)
+        // Merge patch to avoid visual text reversion/flicker
+        const mergedObject = {
+          ...event.object,
+          ...pendingPatch,
+        }
+        upsertObject(mergedObject)
+        // Emit update request to server with real UUID
+        updateObject(event.object.id, pendingPatch)
+      } else {
+        // Upsert real object from server
+        upsertObject(event.object)
+      }
+
       // Commit optimistic op
       commitPendingOp(event.clientOpId)
 
-      // Keep selection state in sync
-      const { selectedIds, setSelectedIds } = useUIStore.getState()
+      // Keep selection & editing state in sync
+      const { selectedIds, setSelectedIds, editingTextId, setEditingTextId } = useUIStore.getState()
       if (selectedIds.has(tempId)) {
         const next = new Set(selectedIds)
         next.delete(tempId)
         next.add(event.object.id)
         setSelectedIds(next)
+      }
+      if (editingTextId === tempId) {
+        setEditingTextId(event.object.id)
       }
     }
 
@@ -210,5 +230,6 @@ export function useBoardEvents(boardId: string) {
     commitPendingOp,
     rollbackPendingOp,
     updateObjectFields,
+    updateObject,
   ])
 }

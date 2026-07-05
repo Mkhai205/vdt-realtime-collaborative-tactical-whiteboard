@@ -116,7 +116,10 @@ export function useShapeCreation(
       points: number[] | undefined,
     ) => {
       const preferredStyle = useUIStore.getState().toolStyles[type] || DEFAULT_STYLES[type]
-      const style = { ...preferredStyle }
+      const style: ShapeStyle = { ...preferredStyle }
+      if (type === "TEXT") {
+        style.autoWidth = true
+      }
 
       const payload = {
         type,

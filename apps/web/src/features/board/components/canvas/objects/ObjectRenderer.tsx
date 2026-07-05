@@ -39,7 +39,7 @@ export const ObjectRenderer = memo(function ObjectRenderer({
   onDragStart,
   onDragMove,
   onDragEnd,
-  onTextChange,
+  onTextChange: _onTextChange,
 }: ObjectRendererProps) {
   switch (object.type) {
     case "RECTANGLE":
@@ -117,7 +117,6 @@ export const ObjectRenderer = memo(function ObjectRenderer({
           onDragStart={onDragStart}
           onDragMove={onDragMove}
           onDragEnd={onDragEnd}
-          onTextChange={onTextChange}
         />
       )
 

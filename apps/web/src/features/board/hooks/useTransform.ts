@@ -201,13 +201,21 @@ export function useTransform(
         newHeight = (obj.height ?? 80) * scaleY
       }
 
-      updateObject(id, {
+      const patch: any = {
         x: newX,
         y: newY,
         width: newWidth,
         height: newHeight,
         rotation,
-      })
+      }
+      if (obj.type === "TEXT" && obj.style?.autoWidth) {
+        patch.style = {
+          ...obj.style,
+          autoWidth: false,
+        }
+      }
+
+      updateObject(id, patch)
 
       const { selectedIds } = useUIStore.getState()
       if (setObjectEditingState) {

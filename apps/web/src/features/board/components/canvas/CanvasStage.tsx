@@ -8,6 +8,7 @@ import { useTheme } from "next-themes"
 import { ObjectsLayer } from "./ObjectsLayer"
 import { DrawingPreview } from "./DrawingPreview"
 import { SelectionLayer } from "./SelectionLayer"
+import { TextEditorOverlay } from "./TextEditorOverlay"
 import { useViewport } from "./useViewport"
 import { useZoom } from "./useZoom"
 import { usePan } from "./usePan"
@@ -373,6 +374,9 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
         {/* Layer 3 — Drawing preview */}
         <DrawingPreview />
       </Stage>
+
+      {/* Text Editor Overlay */}
+      <TextEditorOverlay mutations={mutations} />
     </div>
   )
 }
@@ -391,6 +395,8 @@ function getCursorStyle(tool: string): string {
     case "PATH":
     case "ICON":
       return "crosshair"
+    case "TEXT":
+      return "text"
 
     default:
       return "default"

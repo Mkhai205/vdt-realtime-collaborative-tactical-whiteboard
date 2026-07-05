@@ -75,6 +75,7 @@ const TRANSFORMER_CONFIG = {
 export const SelectionLayer = memo(function SelectionLayer({ stageRef, lassoSelect, transform }: SelectionLayerProps) {
   const transformerRef = useRef<Konva.Transformer | null>(null)
   const selectedIds = useUIStore((s) => s.selectedIds)
+  const editingTextId = useUIStore((s) => s.editingTextId)
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
   const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
@@ -92,16 +93,17 @@ export const SelectionLayer = memo(function SelectionLayer({ stageRef, lassoSele
       return
     }
 
-    // Find Konva nodes by ID from the objects layer
+    // Find Konva nodes by ID from the objects layer, skipping the one currently being edited
     const nodes: Konva.Node[] = []
     for (const id of selectedIds) {
+      if (id === editingTextId) continue
       const node = stage.findOne(`#${id}`)
       if (node) nodes.push(node)
     }
 
     tr.nodes(nodes)
     tr.getLayer()?.batchDraw()
-  }, [selectedIds, stageRef])
+  }, [selectedIds, editingTextId, stageRef])
 
   // ── Render ────────────────────────────────────────────────────────────────
 

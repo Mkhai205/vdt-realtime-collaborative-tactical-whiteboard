@@ -12,6 +12,7 @@ import type {
 import { useUIStore } from "@/stores/ui.store"
 
 export const discardedLocalOps = new Set<string>()
+export const pendingLocalUpdates = new Map<string, ObjectUpdatePatch>()
 
 export function useObjectMutations(boardId: string) {
   const objects = useBoardStore((s) => s.objects)
@@ -89,6 +90,12 @@ export function useObjectMutations(boardId: string) {
       upsertObject(updatedObj)
       addPendingOp(clientOpId, current) // save original for rollback
 
+      if (objectId.startsWith("local-")) {
+        const existingPatch = pendingLocalUpdates.get(objectId) || {}
+        pendingLocalUpdates.set(objectId, { ...existingPatch, ...patch })
+        return
+      }
+
       socket.emit(ClientEvents.OBJECT_UPDATE, {
         clientOpId,
         boardId,
@@ -113,6 +120,7 @@ export function useObjectMutations(boardId: string) {
       if (objectId.startsWith("local-")) {
         const tempClientOpId = objectId.replace("local-", "")
         discardedLocalOps.add(tempClientOpId)
+        pendingLocalUpdates.delete(objectId)
         return
       }
 

@@ -35,6 +35,7 @@ const DRAW_TOOLS = new Set([
   "LINE",
   "PATH",
   "ICON",
+  "TEXT",
 ])
 
 // Suppress unused-var; PAN_TOOLS will be used for future cursor-override checks
