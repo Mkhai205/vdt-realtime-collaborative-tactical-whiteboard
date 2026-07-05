@@ -17,6 +17,9 @@ export type EditingStateEntry = {
 export class PresenceService {
   private readonly logger = new Logger(PresenceService.name)
 
+  // Local set of all active socket IDs connected to this server instance
+  private readonly activeSockets = new Set<string>()
+
   // Local mapping để tối ưu hóa việc dọn dẹp khi socket disconnect:
   // socketId -> Set<boardId> (do một socket connection chỉ thuộc về một node instance)
   private readonly socketBoards = new Map<string, Set<string>>()
@@ -30,6 +33,14 @@ export class PresenceService {
 
   constructor(private readonly redis: RedisService) {}
 
+  addActiveSocket(socketId: string): void {
+    this.activeSockets.add(socketId)
+  }
+
+  removeActiveSocket(socketId: string): void {
+    this.activeSockets.delete(socketId)
+  }
+
   /**
    * User tham gia vào board
    */
@@ -40,13 +51,30 @@ export class PresenceService {
     effectiveRole: EffectiveBoardRole
   }): Promise<OnlineUser[]> {
     const { socketId, boardId, user, effectiveRole } = params
+
+    // Add to active sockets
+    this.activeSockets.add(socketId)
+
+    // Clean up stale presence entries on this board in Redis
+    const presenceKey = this.getPresenceKey(boardId)
+    try {
+      const rawData = await this.redis.hgetall(presenceKey)
+      for (const sId of Object.keys(rawData)) {
+        if (!this.activeSockets.has(sId)) {
+          await this.redis.hdel(presenceKey, sId)
+          this.logger.log(`🧹 Cleaned up stale presence socket ${sId} from Redis`)
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to clean up stale presence keys: ${err.message}`)
+    }
+
     const onlineUser: OnlineUser = {
       ...user,
       effectiveRole,
       role: effectiveRole,
     }
 
-    const presenceKey = this.getPresenceKey(boardId)
     await this.redis.hset(presenceKey, socketId, JSON.stringify(onlineUser))
 
     // Lưu local tracking
@@ -213,9 +241,17 @@ export class PresenceService {
 
     const result: Array<{ objectId: string; user: UserSummary }> = []
 
-    for (const raw of Object.values(rawData)) {
+    for (const [objId, raw] of Object.entries(rawData)) {
       try {
         const entry = JSON.parse(raw) as EditingStateEntry
+
+        // If the socket holding the editing lock is no longer active, clean it up!
+        if (!this.activeSockets.has(entry.socketId)) {
+          await this.redis.hdel(editingKey, objId)
+          this.logger.log(`🧹 Cleaned up stale editing lock on object ${objId} from Redis`)
+          continue
+        }
+
         result.push({ objectId: entry.objectId, user: entry.user })
       } catch (err) {
         this.logger.error(`Error parsing editing state: ${String(err)}`)
@@ -272,6 +308,7 @@ export class PresenceService {
       user: UserSummary
     }>
   }> {
+    this.activeSockets.delete(socketId)
     const user = this.socketUsers.get(socketId)
     const boards = this.socketBoards.get(socketId)
     const affectedBoards: Array<{

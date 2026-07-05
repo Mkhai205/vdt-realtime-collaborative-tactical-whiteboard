@@ -103,6 +103,9 @@ export const cursorMoveRequestSchema = z.object({
   boardId: z.uuid(),
   x: z.number(),
   y: z.number(),
+  viewportCenterX: z.number().optional(),
+  viewportCenterY: z.number().optional(),
+  viewportScale: z.number().optional(),
 })
 export type CursorMoveRequest = z.infer<typeof cursorMoveRequestSchema>
 
@@ -250,6 +253,9 @@ export type CursorMovedEvent = {
   user: Pick<UserSummary, "id" | "name">
   x: number
   y: number
+  viewportCenterX?: number
+  viewportCenterY?: number
+  viewportScale?: number
 }
 
 /** object:editing — broadcast awareness khi user bắt đầu/kết thúc chỉnh sửa object */

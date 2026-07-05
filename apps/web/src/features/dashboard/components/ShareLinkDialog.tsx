@@ -4,6 +4,7 @@ import { useState } from "react"
 import axios from "axios"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { boardApi } from "@/features/board/api/board.api"
+import { useBoardStore } from "@/stores/board.store"
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -21,7 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Copy, Trash2, Loader2, Link2, AlertCircle } from "lucide-react"
+import {
+  Copy,
+  Trash2,
+  Loader2,
+  Link2,
+  AlertCircle,
+  Globe,
+  Lock,
+} from "lucide-react"
 import { toast } from "sonner"
 
 interface ShareLinkDialogProps {
@@ -36,6 +46,10 @@ export function ShareLinkDialog({
   onOpenChange,
 }: ShareLinkDialogProps) {
   const [newLinkRole, setNewLinkRole] = useState<"EDITOR" | "VIEWER">("EDITOR")
+
+  const storeBoardId = useBoardStore((s) => s.boardId)
+  const storeVisibility = useBoardStore((s) => s.boardVisibility)
+  const boardVisibility = storeBoardId === boardId ? storeVisibility : "PRIVATE"
 
   // Use TanStack Query to manage fetch, load, and cache state
   const {
@@ -90,13 +104,7 @@ export function ShareLinkDialog({
   }
 
   const handleCopy = (url: string) => {
-    // Generate full frontend URL using link token
-    const urlObj = new URL(url)
-    const token =
-      urlObj.pathname.split("/").pop() || urlObj.searchParams.get("token") || ""
-    const frontendUrl = `${window.location.origin}/join?token=${token}`
-
-    navigator.clipboard.writeText(frontendUrl)
+    navigator.clipboard.writeText(url)
     toast.success("Copied to clipboard!")
   }
 
@@ -113,6 +121,55 @@ export function ShareLinkDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Direct Board Link Section */}
+          <div className="space-y-2.5">
+            <Label className="block text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+              {boardVisibility === "PUBLIC"
+                ? "Public Board Link"
+                : "Direct Board Link"}
+            </Label>
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="mb-2 flex items-center gap-2">
+                {boardVisibility === "PUBLIC" ? (
+                  <>
+                    <Globe className="h-4 w-4 text-emerald-500" />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Public Access
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Private Access
+                    </span>
+                  </>
+                )}
+              </div>
+              <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">
+                {boardVisibility === "PUBLIC"
+                  ? "Anyone on the internet with this link can view this board."
+                  : "Only invited members can view or edit this board."}
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={`${window.location.origin}/board/${boardId}`}
+                  className="h-9 bg-background text-xs text-slate-600 select-all focus-visible:ring-violet-500 dark:text-slate-400"
+                />
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    handleCopy(`${window.location.origin}/board/${boardId}`)
+                  }
+                  className="h-9 shrink-0 bg-violet-600 font-semibold text-white hover:bg-violet-500"
+                >
+                  <Copy className="mr-1 h-3.5 w-3.5" /> Copy
+                </Button>
+              </div>
+            </div>
+          </div>
+
           {/* Create New Link Section */}
           <div className="flex items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
             <div className="flex flex-1 flex-col gap-1.5">

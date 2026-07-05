@@ -134,6 +134,16 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
     }
   }, [setSpaceDown])
 
+  // ── Viewport change broadcast ─────────────────────────────────────────────
+
+  useEffect(() => {
+    const stage = stageRef.current
+    const isFollowing = useUIStore.getState().followingUserId !== null
+    if (stage && !isFollowing) {
+      cursorEmit.onCursorMove(stage)
+    }
+  }, [viewport.x, viewport.y, viewport.scale, cursorEmit, stageRef])
+
   // ── Cursor style based on active tool ─────────────────────────────────────
 
   const cursorStyle =

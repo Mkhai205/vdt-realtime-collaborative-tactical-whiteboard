@@ -17,6 +17,7 @@ export class PresenceHandler {
    * Xử lý khi socket mới kết nối
    */
   async handleConnection(client: Socket): Promise<void> {
+    this.presenceService.addActiveSocket(client.id)
     const currentUser = client.data.currentUser as JwtPayload
     if (currentUser) {
       this.logger.log(
@@ -32,6 +33,7 @@ export class PresenceHandler {
    */
   async handleDisconnect(client: Socket): Promise<void> {
     this.logger.log(`🔴 Socket disconnected: ${client.id}`)
+    this.presenceService.removeActiveSocket(client.id)
 
     try {
       // Dọn dẹp presence & editing states của socket trong Redis & memory

@@ -30,17 +30,33 @@ export function useCursorSync(boardId: string) {
         lastActive: Date.now(),
       })
 
-      // If we are following this user, center our viewport on their cursor
+      // If we are following this user, sync our viewport to their viewport or center on cursor
       const followingUserId = useUIStore.getState().followingUserId
       if (followingUserId === event.user.id) {
         const { viewport, setViewport } = useUIStore.getState()
-        const newX = window.innerWidth / 2 - event.x * viewport.scale
-        const newY = window.innerHeight / 2 - event.y * viewport.scale
-        setViewport({
-          x: newX,
-          y: newY,
-          scale: viewport.scale,
-        })
+        if (
+          event.viewportCenterX !== undefined &&
+          event.viewportCenterY !== undefined &&
+          event.viewportScale !== undefined
+        ) {
+          const targetScale = event.viewportScale
+          const newX = window.innerWidth / 2 - event.viewportCenterX * targetScale
+          const newY = window.innerHeight / 2 - event.viewportCenterY * targetScale
+          setViewport({
+            x: newX,
+            y: newY,
+            scale: targetScale,
+          })
+        } else {
+          // Fallback to legacy behavior: center on their cursor
+          const newX = window.innerWidth / 2 - event.x * viewport.scale
+          const newY = window.innerHeight / 2 - event.y * viewport.scale
+          setViewport({
+            x: newX,
+            y: newY,
+            scale: viewport.scale,
+          })
+        }
       }
     }
 

@@ -24,9 +24,12 @@ import {
   Mail,
   Plus,
   Clock,
+  Globe,
+  Lock,
 } from "lucide-react"
 import { toast } from "sonner"
 import axios from "axios"
+
 
 interface ShareTabProps {
   boardId: string
@@ -35,6 +38,7 @@ interface ShareTabProps {
 export function ShareTab({ boardId }: ShareTabProps) {
   const queryClient = useQueryClient()
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const boardVisibility = useBoardStore((s) => s.boardVisibility)
   const isViewer =
     effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
@@ -158,6 +162,54 @@ export function ShareTab({ boardId }: ShareTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* ── Direct Board Link Section ── */}
+      <div className="space-y-2.5">
+        <Label className="text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+          {boardVisibility === "PUBLIC" ? "Public Board Link" : "Direct Board Link"}
+        </Label>
+        <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-900/30">
+          <div className="flex items-center gap-1.5 mb-2">
+            {boardVisibility === "PUBLIC" ? (
+              <>
+                <Globe className="h-4 w-4 text-emerald-500" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Public Access
+                </span>
+              </>
+            ) : (
+              <>
+                <Lock className="h-4 w-4 text-amber-500" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Private Access
+                </span>
+              </>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+            {boardVisibility === "PUBLIC"
+              ? "Anyone on the internet with this link can view this board."
+              : "Only invited members can view or edit this board."}
+          </p>
+          <div className="flex gap-2">
+            <Input
+              readOnly
+              value={`${window.location.origin}/board/${boardId}`}
+              className="h-9 bg-background text-xs text-slate-600 dark:text-slate-400 select-all focus-visible:ring-violet-500"
+            />
+            <Button
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/board/${boardId}`)
+                toast.success("Copied board link to clipboard!")
+              }}
+              className="bg-violet-600 h-9 font-semibold text-white hover:bg-violet-500 shrink-0"
+            >
+              <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* ── Share Link Section ── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">

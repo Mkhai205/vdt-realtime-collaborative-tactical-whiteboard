@@ -15,7 +15,7 @@ export class CursorHandler {
    * Di chuyển cursor (realtime broadcast, không lưu DB)
    */
   async move(client: Socket, dto: CursorMoveRequest): Promise<void> {
-    const { boardId, x, y } = dto
+    const { boardId, x, y, viewportCenterX, viewportCenterY, viewportScale } = dto
     const roomName = toBoardSocketName(boardId)
 
     const currentUser = client.data.currentUser as JwtPayload | undefined
@@ -30,6 +30,9 @@ export class CursorHandler {
       },
       x,
       y,
+      viewportCenterX,
+      viewportCenterY,
+      viewportScale,
     }
 
     // Broadcast tới các client khác trong board (ngoại trừ người gửi)
