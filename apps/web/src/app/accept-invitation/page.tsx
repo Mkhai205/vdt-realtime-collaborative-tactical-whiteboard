@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useEffect, Suspense } from "react"
+import { useEffect, Suspense, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/auth.store"
 import { invitationApi } from "@/features/board/api/invitation.api"
@@ -15,6 +15,7 @@ function AcceptInvitationContent() {
   const token = searchParams.get("token")
 
   const { accessToken, isLoading: authLoading } = useAuthStore()
+  const acceptCalled = useRef(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -30,6 +31,9 @@ function AcceptInvitationContent() {
       router.replace(`/login?redirect=/accept-invitation?token=${token}`)
       return
     }
+
+    if (acceptCalled.current) return
+    acceptCalled.current = true
 
     const performAccept = async () => {
       try {
