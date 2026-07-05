@@ -313,15 +313,30 @@ export function StylePanel({ mutations }: StylePanelProps) {
         DEFAULT_STYLES[activeTool as ObjectType] ||
         DEFAULT_STYLES.RECTANGLE
 
-  const allLine =
+  const hasFill =
     selectedObjects.length > 0
-      ? selectedObjects.every((o) => o.type === "LINE")
-      : activeTool === "LINE"
+      ? selectedObjects.every((o) => o.type !== "LINE" && o.type !== "PATH")
+      : activeTool !== "LINE" && activeTool !== "PATH"
+
+  const hasStroke =
+    selectedObjects.length > 0
+      ? selectedObjects.every((o) => o.type !== "ICON" && o.type !== "TEXT")
+      : activeTool !== "ICON" && activeTool !== "TEXT"
 
   const hasIcon =
     selectedObjects.length > 0
       ? selectedObjects.some((o) => o.type === "ICON")
       : activeTool === "ICON"
+
+  const hasTextSettings =
+    selectedObjects.length > 0
+      ? selectedObjects.some((o) => o.type === "TEXT")
+      : activeTool === "TEXT"
+
+  const allLine =
+    selectedObjects.length > 0
+      ? selectedObjects.every((o) => o.type === "LINE")
+      : activeTool === "LINE"
 
   const handleSelectIcon = (iconName: string) => {
     applyStyle({ iconKey: iconName })
@@ -330,7 +345,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
   return (
     <div id="style-panel" className="style-panel" aria-label="Style options">
       {/* ── Fill ── */}
-      {!allLine && (
+      {hasFill && (
         <div className="style-row">
           <ColorPicker
             label="Fill"
@@ -341,24 +356,28 @@ export function StylePanel({ mutations }: StylePanelProps) {
       )}
 
       {/* ── Stroke ── */}
-      <div className="style-row">
-        <ColorPicker
-          label="Stroke"
-          value={firstStyle.stroke ?? "#6366f1"}
-          onChange={(c) => applyStyle({ stroke: c })}
-        />
-      </div>
+      {hasStroke && (
+        <>
+          <div className="style-row">
+            <ColorPicker
+              label="Stroke"
+              value={firstStyle.stroke ?? "#6366f1"}
+              onChange={(c) => applyStyle({ stroke: c })}
+            />
+          </div>
 
-      {/* ── Stroke width ── */}
-      <StyleSlider
-        id="stroke-width-slider"
-        label="Width"
-        min={0}
-        max={20}
-        step={0.5}
-        value={firstStyle.strokeWidth ?? 2}
-        onChange={(val) => applyStyle({ strokeWidth: val })}
-      />
+          {/* ── Stroke width ── */}
+          <StyleSlider
+            id="stroke-width-slider"
+            label="Width"
+            min={0}
+            max={20}
+            step={0.5}
+            value={firstStyle.strokeWidth ?? 2}
+            onChange={(val) => applyStyle({ strokeWidth: val })}
+          />
+        </>
+      )}
 
       {/* ── Opacity ── */}
       <StyleSlider
@@ -371,6 +390,65 @@ export function StylePanel({ mutations }: StylePanelProps) {
         onChange={(val) => applyStyle({ opacity: val })}
         formatValue={(val) => `${Math.round(val * 100)}%`}
       />
+
+      {/* ── Typography (TEXT only) ── */}
+      {hasTextSettings && (
+        <>
+          <div className="style-sep" aria-hidden />
+          <div className="style-row">
+            <ColorPicker
+              label="Text Color"
+              value={firstStyle.color ?? "#1f2937"}
+              onChange={(c) => applyStyle({ color: c })}
+            />
+          </div>
+          <StyleSlider
+            id="font-size-slider"
+            label="Font Size"
+            min={10}
+            max={72}
+            step={1}
+            value={firstStyle.fontSize ?? 16}
+            onChange={(val) => applyStyle({ fontSize: val })}
+          />
+          <div className="style-row">
+            <span className="style-label">Style</span>
+            <button
+              className={`style-toggle ${firstStyle.fontWeight === "bold" ? "style-toggle--active" : ""}`}
+              onClick={() =>
+                applyStyle({
+                  fontWeight: firstStyle.fontWeight === "bold" ? "normal" : "bold",
+                })
+              }
+              aria-pressed={firstStyle.fontWeight === "bold"}
+              style={{ fontWeight: "bold", width: "100%" }}
+            >
+              B
+            </button>
+          </div>
+          <div className="style-row style-row--col">
+            <span className="style-label">Font</span>
+            <select
+              className="style-select"
+              value={firstStyle.fontFamily ?? "Inter, sans-serif"}
+              onChange={(e) => applyStyle({ fontFamily: e.target.value })}
+              style={{
+                width: "100%",
+                padding: "6px",
+                borderRadius: "6px",
+                border: "1px solid rgba(0,0,0,0.1)",
+                background: "var(--background, #fff)",
+                fontSize: "12px",
+              }}
+            >
+              <option value="Inter, sans-serif">Inter</option>
+              <option value="system-ui, sans-serif">System</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="Courier New, monospace">Courier</option>
+            </select>
+          </div>
+        </>
+      )}
 
       {/* ── Icon Picker (ICON only) ── */}
       {hasIcon && (

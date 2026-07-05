@@ -74,6 +74,7 @@ const DRAW_TOOLS = new Set<string>([
   "LINE",
   "PATH",
   "ICON",
+  "TEXT",
 ])
 
 /**
@@ -88,7 +89,7 @@ const DRAW_TOOLS = new Set<string>([
  */
 export function useShapeCreation(
   stageRef: React.RefObject<Konva.Stage | null>,
-  createObject: (payload: ObjectCreatePayload) => void,
+  createObject: (payload: ObjectCreatePayload) => string | undefined,
 ): UseShapeCreationReturn {
   const { activeTool } = useUIStore()
 
@@ -124,18 +125,21 @@ export function useShapeCreation(
         width: width || undefined,
         height: height || undefined,
         points: points ?? undefined,
-        text: type === "TEXT" ? "" : undefined,
+        text: type === "TEXT" ? "Double click to edit" : undefined,
         rotation: 0,
         style,
         zIndex: useBoardStore.getState().objects.size,
       }
 
-      createObject(payload)
+      const tempId = createObject(payload)
 
       // After creating any shape (except PATH mid-stroke), switch back to SELECT
       if (type !== "PATH") {
         useUIStore.getState().setActiveTool("SELECT")
         useUIStore.getState().setJustCreatedShape(true)
+        if (type === "TEXT" && tempId) {
+          useUIStore.getState().setEditingTextId(tempId)
+        }
       }
     },
     [createObject],
@@ -160,6 +164,11 @@ export function useShapeCreation(
 
       if (tool === "ICON") {
         commitShape("ICON", wp.x, wp.y, DEFAULT_SIZE, DEFAULT_SIZE, undefined)
+        return
+      }
+
+      if (tool === "TEXT") {
+        commitShape("TEXT", wp.x, wp.y, 160, 40, undefined)
         return
       }
 

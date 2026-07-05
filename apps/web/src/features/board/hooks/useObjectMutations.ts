@@ -64,6 +64,8 @@ export function useObjectMutations(boardId: string) {
         boardId,
         object: payload,
       })
+
+      return tempId
     },
     [boardId, objects.size, upsertObject, addPendingOp],
   )

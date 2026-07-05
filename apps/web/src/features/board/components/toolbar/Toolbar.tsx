@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Pencil,
   Smile,
+  Type,
   type LucideIcon,
 } from "lucide-react"
 import { useBoardStore } from "@/stores/board.store"
@@ -37,6 +38,7 @@ const TOOL_GROUPS: Array<
   [
     { tool: "PATH", icon: Pencil, shortcut: "P", label: "Pen" },
     { tool: "ICON", icon: Smile, shortcut: "I", label: "Icon" },
+    { tool: "TEXT", icon: Type, shortcut: "T", label: "Text" },
   ],
 ]
 
