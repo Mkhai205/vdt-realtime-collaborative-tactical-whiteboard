@@ -70,7 +70,6 @@ const DRAW_TOOLS = new Set<string>([
   "RECTANGLE",
   "CIRCLE",
   "LINE",
-  "TEXT",
   "PATH",
   "ICON",
 ])
@@ -156,11 +155,6 @@ export function useShapeCreation(
       const wp = getWorldPos(stage)
       if (!wp) return
 
-      // Immediate-create tools (no drag needed)
-      if (tool === "TEXT") {
-        commitShape("TEXT", wp.x, wp.y, 240, 40, undefined)
-        return
-      }
       if (tool === "ICON") {
         commitShape("ICON", wp.x, wp.y, DEFAULT_SIZE, DEFAULT_SIZE, undefined)
         return

@@ -18,7 +18,6 @@ import type {
   ObjectEditingEvent,
   WsErrorPayload,
   ObjectMoveEphemeralEvent,
-  TextEditingEvent,
 } from "@rctw/shared-contracts"
 import { toast } from "sonner"
 import { discardedLocalOps } from "./useObjectMutations"
@@ -172,10 +171,6 @@ export function useBoardEvents(boardId: string) {
       updateObjectFields(objectId, coords)
     }
 
-    const handleTextEditing = (event: TextEditingEvent) => {
-      updateObjectFields(event.objectId, { text: event.text })
-    }
-
     socket.on(ServerEvents.BOARD_STATE, handleBoardState)
     socket.on(ServerEvents.OBJECT_CREATED, onObjectCreated)
     socket.on(ServerEvents.OBJECT_UPDATED, onObjectUpdated)
@@ -184,7 +179,6 @@ export function useBoardEvents(boardId: string) {
     socket.on(ServerEvents.PRESENCE_UPDATE, handlePresence)
     socket.on(ServerEvents.OBJECT_EDITING, handleObjectEditing)
     socket.on(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
-    socket.on(ServerEvents.TEXT_EDITING, handleTextEditing)
     socket.on(ServerEvents.ERROR, handleWsError)
 
     return () => {
@@ -196,7 +190,6 @@ export function useBoardEvents(boardId: string) {
       socket.off(ServerEvents.PRESENCE_UPDATE, handlePresence)
       socket.off(ServerEvents.OBJECT_EDITING, handleObjectEditing)
       socket.off(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
-      socket.off(ServerEvents.TEXT_EDITING, handleTextEditing)
       socket.off(ServerEvents.ERROR, handleWsError)
     }
   }, [

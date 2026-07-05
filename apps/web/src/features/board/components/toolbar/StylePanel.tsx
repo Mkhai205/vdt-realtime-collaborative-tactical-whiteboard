@@ -274,7 +274,6 @@ export function StylePanel({ mutations }: StylePanelProps) {
 
   // Derived values — safe here because they're not hooks
   const firstStyle = selectedObjects[0]!.style
-  const allText = selectedObjects.every((o) => o.type === "TEXT")
   const allLine = selectedObjects.every((o) => o.type === "LINE")
 
   return (
@@ -322,47 +321,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
         formatValue={(val) => `${Math.round(val * 100)}%`}
       />
 
-      {/* ── TEXT-only: font controls ── */}
-      {allText && (
-        <>
-          <div className="style-sep" aria-hidden />
 
-          <StyleSlider
-            id="font-size-slider"
-            label="Font size"
-            min={8}
-            max={96}
-            step={1}
-            value={firstStyle.fontSize ?? 16}
-            onChange={(val) => applyStyle({ fontSize: val })}
-            formatValue={(val) => `${val}px`}
-          />
-
-          <div className="style-row">
-            <span className="style-label">Weight</span>
-            <div className="style-toggle-group">
-              {(["normal", "bold"] as const).map((w) => (
-                <button
-                  key={w}
-                  className={`style-toggle${(firstStyle.fontWeight ?? "normal") === w ? " style-toggle--active" : ""}`}
-                  onClick={() => applyStyle({ fontWeight: w })}
-                  aria-pressed={(firstStyle.fontWeight ?? "normal") === w}
-                >
-                  {w === "bold" ? "B" : "N"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="style-row">
-            <ColorPicker
-              label="Color"
-              value={firstStyle.color ?? "#1f2937"}
-              onChange={(c) => applyStyle({ color: c })}
-            />
-          </div>
-        </>
-      )}
 
       {/* ── LINE-only: arrow type ── */}
       {allLine && (

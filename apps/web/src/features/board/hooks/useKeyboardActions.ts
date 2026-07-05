@@ -88,22 +88,6 @@ export function useKeyboardActions(mutations: {
         return
       }
 
-      // ── Enter — edit selected text object ───────────────────────────────────
-
-      if (e.key === "Enter") {
-        if (selectedIds.size === 1) {
-          const id = Array.from(selectedIds)[0]
-          if (id) {
-            const obj = objects.get(id)
-            if (obj?.type === "TEXT") {
-              e.preventDefault()
-              const customEvent = new CustomEvent(`trigger-text-edit-${id}`)
-              window.dispatchEvent(customEvent)
-              return
-            }
-          }
-        }
-      }
 
       // ── Arrow keys — nudge selected objects ───────────────────────────────
 

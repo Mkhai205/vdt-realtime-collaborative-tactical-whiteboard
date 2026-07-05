@@ -11,7 +11,6 @@ const KEY_TO_TOOL: Record<string, Tool> = {
   r: "RECTANGLE",
   c: "CIRCLE",
   l: "LINE",
-  t: "TEXT",
   p: "PATH",
   i: "ICON",
 }
@@ -25,7 +24,7 @@ const KEY_TO_TOOL: Record<string, Tool> = {
  * Keyboard bindings (fires when no input/textarea is focused):
  *   V → SELECT   H → HAND
  *   R → RECTANGLE  C → CIRCLE  L → LINE
- *   T → TEXT  P → PATH  I → ICON
+ *   P → PATH  I → ICON
  *   Escape → SELECT (cancel current tool / drawing)
  *   Delete / Backspace → delete all currently selected objects
  */

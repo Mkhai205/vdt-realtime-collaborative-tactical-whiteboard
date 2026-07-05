@@ -33,7 +33,6 @@ const DRAW_TOOLS = new Set([
   "RECTANGLE",
   "CIRCLE",
   "LINE",
-  "TEXT",
   "PATH",
   "ICON",
 ])

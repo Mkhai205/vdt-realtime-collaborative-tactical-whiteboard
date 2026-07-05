@@ -3,7 +3,7 @@ import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { RectangleObject } from "./RectangleObject"
 import { CircleObject } from "./CircleObject"
 import { LineObject } from "./LineObject"
-import { TextObject } from "./TextObject"
+
 import { PathObject } from "./PathObject"
 import { IconObject } from "./IconObject"
 
@@ -78,20 +78,7 @@ export const ObjectRenderer = memo(function ObjectRenderer({
         />
       )
 
-    case "TEXT":
-      return (
-        <TextObject
-          object={object}
-          isSelected={isSelected}
-          editingUser={editingUser}
-          onSelect={onSelect}
-          onDragStart={onDragStart}
-          onDragMove={onDragMove}
-          onDragEnd={onDragEnd}
-          onTextChange={onTextChange}
-          setObjectEditingState={setObjectEditingState}
-        />
-      )
+
 
     case "PATH":
       return (

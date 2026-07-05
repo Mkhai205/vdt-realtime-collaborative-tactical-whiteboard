@@ -6,7 +6,6 @@ import {
   Square,
   Circle,
   ArrowRight,
-  Type,
   Pencil,
   Smile,
   type LucideIcon,
@@ -36,7 +35,6 @@ const TOOL_GROUPS: Array<
     { tool: "LINE", icon: ArrowRight, shortcut: "L", label: "Line" },
   ],
   [
-    { tool: "TEXT", icon: Type, shortcut: "T", label: "Text" },
     { tool: "PATH", icon: Pencil, shortcut: "P", label: "Pen" },
     { tool: "ICON", icon: Smile, shortcut: "I", label: "Icon" },
   ],

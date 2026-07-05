@@ -19,6 +19,7 @@ import { useKeyboardActions } from "@/features/board/hooks/useKeyboardActions"
 import { type UseObjectMutationsReturn } from "@/features/board/hooks/useObjectMutations"
 import { useCursorEmit } from "@/features/board/hooks/useCursorEmit"
 
+
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface CanvasStageProps {
@@ -212,8 +213,7 @@ function getCursorStyle(tool: string): string {
     case "PATH":
     case "ICON":
       return "crosshair"
-    case "TEXT":
-      return "text"
+
     default:
       return "default"
   }
