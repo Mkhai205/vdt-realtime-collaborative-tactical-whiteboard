@@ -5,10 +5,11 @@ import { useShallow } from "zustand/react/shallow"
 import { ColorPicker } from "./ColorPicker"
 import { useUIStore } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
-import type { ShapeStyle, BoardObjectDto } from "@rctw/shared-contracts"
+import type { ShapeStyle, BoardObjectDto, ObjectType } from "@rctw/shared-contracts"
 import type { UseObjectMutationsReturn } from "../../hooks/useObjectMutations"
 import { Copy, Trash2, Link, ArrowDownToLine, ArrowDown, ArrowUp, ArrowUpToLine } from "lucide-react"
 import { toast } from "sonner"
+import { DEFAULT_STYLES } from "../canvas/objects/shapeDefaults"
 
 // ─── Sub-Component ─────────────────────────────────────────────────────────────
 
@@ -97,10 +98,15 @@ interface StylePanelProps {
   mutations: UseObjectMutationsReturn
 }
 
+const DRAWING_TOOLS = new Set(["RECTANGLE", "CIRCLE", "LINE", "PATH", "ICON", "TEXT"])
+
 export function StylePanel({ mutations }: StylePanelProps) {
   const { updateObject } = mutations
   const selectedIds = useUIStore((s) => s.selectedIds)
   const clearSelection = useUIStore((s) => s.clearSelection)
+  const activeTool = useUIStore((s) => s.activeTool)
+  const toolStyles = useUIStore((s) => s.toolStyles)
+  const setToolStyle = useUIStore((s) => s.setToolStyle)
 
   // Narrow selector: only triggers re-render when the selected objects themselves change.
   const selectedObjects = useBoardStore(
@@ -258,23 +264,35 @@ export function StylePanel({ mutations }: StylePanelProps) {
   // Must be declared before any early return to satisfy React's rules of hooks.
   const applyStyle = useCallback(
     (patch: Partial<ShapeStyle>) => {
-      const currentObjects = useBoardStore.getState().objects
-      for (const id of useUIStore.getState().selectedIds) {
-        const obj = currentObjects.get(id)
-        if (!obj) continue
-        updateObject(id, {
-          style: { ...obj.style, ...patch },
-        })
+      const selected = useUIStore.getState().selectedIds
+      if (selected.size > 0) {
+        const currentObjects = useBoardStore.getState().objects
+        for (const id of selected) {
+          const obj = currentObjects.get(id)
+          if (!obj) continue
+          updateObject(id, {
+            style: { ...obj.style, ...patch },
+          })
+        }
+      } else {
+        const active = useUIStore.getState().activeTool
+        setToolStyle(active, patch)
       }
     },
-    [updateObject],
+    [updateObject, setToolStyle],
   )
 
-  if (selectedObjects.length === 0) return null
+  const isDrawingToolActive = DRAWING_TOOLS.has(activeTool)
+  if (selectedObjects.length === 0 && !isDrawingToolActive) return null
 
   // Derived values — safe here because they're not hooks
-  const firstStyle = selectedObjects[0]!.style
-  const allLine = selectedObjects.every((o) => o.type === "LINE")
+  const firstStyle = selectedObjects.length > 0
+    ? selectedObjects[0]!.style
+    : (toolStyles[activeTool] || DEFAULT_STYLES[activeTool as ObjectType] || DEFAULT_STYLES.RECTANGLE)
+
+  const allLine = selectedObjects.length > 0
+    ? selectedObjects.every((o) => o.type === "LINE")
+    : activeTool === "LINE"
 
   return (
     <div id="style-panel" className="style-panel" aria-label="Style options">
@@ -356,91 +374,99 @@ export function StylePanel({ mutations }: StylePanelProps) {
       )}
 
       {/* ── Layers ── */}
-      <div className="style-sep" aria-hidden />
-      <div className="style-row style-row--col">
-        <span className="style-label" style={{ marginBottom: 4 }}>Layers</span>
-        <div className="style-toggle-group">
-          <button
-            className="style-toggle"
-            onClick={handleSendToBack}
-            title="Send to back"
-            aria-label="Send to back"
-          >
-            <ArrowDownToLine size={14} />
-          </button>
-          <button
-            className="style-toggle"
-            onClick={handleSendBackward}
-            title="Send backward"
-            aria-label="Send backward"
-          >
-            <ArrowDown size={14} />
-          </button>
-          <button
-            className="style-toggle"
-            onClick={handleBringForward}
-            title="Bring forward"
-            aria-label="Bring forward"
-          >
-            <ArrowUp size={14} />
-          </button>
-          <button
-            className="style-toggle"
-            onClick={handleBringToFront}
-            title="Bring to front"
-            aria-label="Bring to front"
-          >
-            <ArrowUpToLine size={14} />
-          </button>
-        </div>
-      </div>
+      {selectedObjects.length > 0 && (
+        <>
+          <div className="style-sep" aria-hidden />
+          <div className="style-row style-row--col">
+            <span className="style-label" style={{ marginBottom: 4 }}>Layers</span>
+            <div className="style-toggle-group">
+              <button
+                className="style-toggle"
+                onClick={handleSendToBack}
+                title="Send to back"
+                aria-label="Send to back"
+              >
+                <ArrowDownToLine size={14} />
+              </button>
+              <button
+                className="style-toggle"
+                onClick={handleSendBackward}
+                title="Send backward"
+                aria-label="Send backward"
+              >
+                <ArrowDown size={14} />
+              </button>
+              <button
+                className="style-toggle"
+                onClick={handleBringForward}
+                title="Bring forward"
+                aria-label="Bring forward"
+              >
+                <ArrowUp size={14} />
+              </button>
+              <button
+                className="style-toggle"
+                onClick={handleBringToFront}
+                title="Bring to front"
+                aria-label="Bring to front"
+              >
+                <ArrowUpToLine size={14} />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Actions ── */}
       <div className="style-sep" aria-hidden />
       <div className="style-row style-row--col">
         <span className="style-label" style={{ marginBottom: 4 }}>Actions</span>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          {/* Duplicate button */}
-          <button
-            onClick={handleDuplicate}
-            title="Duplicate (Ctrl+D)"
-            style={{
-              width: 32,
-              height: 32,
-              background: "rgba(99, 102, 241, 0.08)",
-              border: "1px solid rgba(99, 102, 241, 0.2)",
-              borderRadius: 6,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#6366f1",
-              transition: "background 0.15s, border-color 0.15s"
-            }}
-          >
-            <Copy size={16} />
-          </button>
+          {selectedObjects.length > 0 && (
+            <>
+              {/* Duplicate button */}
+              <button
+                onClick={handleDuplicate}
+                title="Duplicate (Ctrl+D)"
+                style={{
+                  width: 32,
+                  height: 32,
+                  background: "rgba(99, 102, 241, 0.08)",
+                  border: "1px solid rgba(99, 102, 241, 0.2)",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#6366f1",
+                  transition: "background 0.15s, border-color 0.15s"
+                }}
+              >
+                <Copy size={16} />
+              </button>
 
-          {/* Delete button */}
-          <button
-            onClick={handleDelete}
-            title="Delete (Delete)"
-            style={{
-              width: 32,
-              height: 32,
-              background: "rgba(239, 68, 68, 0.08)",
-              border: "1px solid rgba(239, 68, 68, 0.2)",
-              borderRadius: 6,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#ef4444",
-              transition: "background 0.15s, border-color 0.15s"
-            }}
-          >
-            <Trash2 size={16} />
-          </button>
+              {/* Delete button */}
+              <button
+                onClick={handleDelete}
+                title="Delete (Delete)"
+                style={{
+                  width: 32,
+                  height: 32,
+                  background: "rgba(239, 68, 68, 0.08)",
+                  border: "1px solid rgba(239, 68, 68, 0.2)",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ef4444",
+                  transition: "background 0.15s, border-color 0.15s"
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
 
           {/* Link button */}
           <button

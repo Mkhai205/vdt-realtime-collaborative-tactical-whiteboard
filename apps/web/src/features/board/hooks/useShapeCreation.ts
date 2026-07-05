@@ -5,6 +5,7 @@ import type {
   BoardObjectDto,
   ObjectType,
   ObjectCreatePayload,
+  ShapeStyle,
 } from "@rctw/shared-contracts"
 import { useUIStore, type PreviewShape } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
@@ -51,6 +52,7 @@ function buildPreview(
   width: number,
   height: number,
   points: number[] | undefined,
+  style: ShapeStyle,
 ): PreviewShape {
   const type = tool as ObjectType
   return {
@@ -60,7 +62,7 @@ function buildPreview(
     width,
     height,
     points,
-    style: { ...DEFAULT_STYLES[type], opacity: 0.6 },
+    style,
   }
 }
 
@@ -112,7 +114,8 @@ export function useShapeCreation(
       height: number,
       points: number[] | undefined,
     ) => {
-      const style = { ...DEFAULT_STYLES[type] }
+      const preferredStyle = useUIStore.getState().toolStyles[type] || DEFAULT_STYLES[type]
+      const style = { ...preferredStyle }
 
       const payload = {
         type,
@@ -168,12 +171,13 @@ export function useShapeCreation(
         pathPointsRef.current = [wp.x, wp.y]
       }
 
+      const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType]
       previewRef.current = buildPreview(tool, wp.x, wp.y, 0, 0, [
         wp.x,
         wp.y,
         wp.x,
         wp.y,
-      ])
+      ], preferredStyle)
       useUIStore.getState().setPreviewShape(previewRef.current)
     },
     [stageRef, commitShape],
@@ -194,6 +198,7 @@ export function useShapeCreation(
       const { x: sx, y: sy } = startPointRef.current
       const { x: ex, y: ey } = wp
 
+      const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType]
       if (tool === "PATH") {
         const pts = pathPointsRef.current
         const lastX = pts[pts.length - 2] ?? sx
@@ -208,16 +213,17 @@ export function useShapeCreation(
           0,
           0,
           pathPointsRef.current,
+          preferredStyle,
         )
       } else if (tool === "LINE") {
-        previewRef.current = buildPreview(tool, sx, sy, 0, 0, [sx, sy, ex, ey])
+        previewRef.current = buildPreview(tool, sx, sy, 0, 0, [sx, sy, ex, ey], preferredStyle)
       } else {
         // RECTANGLE, CIRCLE
         const x = Math.min(sx, ex)
         const y = Math.min(sy, ey)
         const w = Math.abs(ex - sx)
         const h = Math.abs(ey - sy)
-        previewRef.current = buildPreview(tool, x, y, w, h, undefined)
+        previewRef.current = buildPreview(tool, x, y, w, h, undefined, preferredStyle)
       }
 
       useUIStore.getState().setPreviewShape(previewRef.current)
@@ -252,13 +258,31 @@ export function useShapeCreation(
       if (tool === "PATH") {
         const pts = pathPointsRef.current
         if (pts.length >= 4) {
-          commitShape("PATH", start.x, start.y, 0, 0, pts)
+          const relativePts = pts.map((val, idx) => idx % 2 === 0 ? val - start.x : val - start.y)
+          const xCoords = relativePts.filter((_, idx) => idx % 2 === 0)
+          const yCoords = relativePts.filter((_, idx) => idx % 2 === 1)
+          const minX = Math.min(...xCoords)
+          const minY = Math.min(...yCoords)
+          const maxX = Math.max(...xCoords)
+          const maxY = Math.max(...yCoords)
+          const w = maxX - minX
+          const h = maxY - minY
+          commitShape("PATH", start.x, start.y, w, h, relativePts)
         }
         pathPointsRef.current = []
       } else if (tool === "LINE") {
         const ex = wp?.x ?? start.x + DEFAULT_SIZE
         const ey = wp?.y ?? start.y
-        commitShape(type, start.x, start.y, 0, 0, [start.x, start.y, ex, ey])
+        const relativePts = [0, 0, ex - start.x, ey - start.y]
+        const xCoords = [0, ex - start.x]
+        const yCoords = [0, ey - start.y]
+        const minX = Math.min(...xCoords)
+        const minY = Math.min(...yCoords)
+        const maxX = Math.max(...xCoords)
+        const maxY = Math.max(...yCoords)
+        const w = maxX - minX
+        const h = maxY - minY
+        commitShape(type, start.x, start.y, w, h, relativePts)
       } else {
         // RECTANGLE, CIRCLE
         const ex = wp?.x ?? start.x + DEFAULT_SIZE

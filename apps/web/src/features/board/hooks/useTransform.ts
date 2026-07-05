@@ -6,6 +6,7 @@ import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
 import { getSocket } from "@/lib/socket/socket"
 import { ClientEvents } from "@rctw/shared-contracts"
+import { safePoints } from "../components/canvas/objects/shapeDefaults"
 
 // ─── Throttle Helper ────────────────────────────────────────────────────────────
 
@@ -119,8 +120,20 @@ export function useTransform(
         newX = nodeX - rx
         newY = nodeY - ry
       } else if (obj.type === "LINE" || obj.type === "PATH") {
-        newWidth = obj.width ?? undefined
-        newHeight = obj.height ?? undefined
+        const pts = safePoints(obj.points)
+        if (pts.length >= 4) {
+          const xCoords = pts.filter((_, idx) => idx % 2 === 0)
+          const yCoords = pts.filter((_, idx) => idx % 2 === 1)
+          const minX = Math.min(...xCoords)
+          const minY = Math.min(...yCoords)
+          const originalW = Math.max(...xCoords) - minX
+          const originalH = Math.max(...yCoords) - minY
+          newWidth = originalW * scaleX
+          newHeight = originalH * scaleY
+        } else {
+          newWidth = obj.width ?? undefined
+          newHeight = obj.height ?? undefined
+        }
       } else {
         newWidth = (obj.width ?? 100) * scaleX
         newHeight = (obj.height ?? 80) * scaleY
@@ -169,8 +182,20 @@ export function useTransform(
         newX = nodeX - rx
         newY = nodeY - ry
       } else if (obj.type === "LINE" || obj.type === "PATH") {
-        newWidth = obj.width ?? undefined
-        newHeight = obj.height ?? undefined
+        const pts = safePoints(obj.points)
+        if (pts.length >= 4) {
+          const xCoords = pts.filter((_, idx) => idx % 2 === 0)
+          const yCoords = pts.filter((_, idx) => idx % 2 === 1)
+          const minX = Math.min(...xCoords)
+          const minY = Math.min(...yCoords)
+          const originalW = Math.max(...xCoords) - minX
+          const originalH = Math.max(...yCoords) - minY
+          newWidth = originalW * scaleX
+          newHeight = originalH * scaleY
+        } else {
+          newWidth = obj.width ?? undefined
+          newHeight = obj.height ?? undefined
+        }
       } else {
         newWidth = (obj.width ?? 100) * scaleX
         newHeight = (obj.height ?? 80) * scaleY

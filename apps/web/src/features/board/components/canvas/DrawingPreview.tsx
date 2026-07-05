@@ -21,10 +21,9 @@ export const DrawingPreview = memo(function DrawingPreview() {
 
   const { type, x, y, width = 0, height = 0, points, style } = preview
   const stroke = style.stroke ?? "#6366f1"
-  const fill = style.fill && style.fill !== "transparent" ? style.fill : "rgba(99,102,241,0.08)"
+  const fill = style.fill ?? "transparent"
   const strokeWidth = style.strokeWidth ?? 2
-  const opacity = style.opacity ?? 0.7
-  const dash = [6, 4]
+  const opacity = style.opacity ?? 1
 
   return (
     <Layer id="ui-layer" listening={false}>
@@ -38,7 +37,6 @@ export const DrawingPreview = memo(function DrawingPreview() {
           stroke={stroke}
           strokeWidth={strokeWidth}
           opacity={opacity}
-          dash={dash}
           cornerRadius={4}
           perfectDrawEnabled={false}
           shadowEnabled={false}
@@ -55,7 +53,6 @@ export const DrawingPreview = memo(function DrawingPreview() {
           stroke={stroke}
           strokeWidth={strokeWidth}
           opacity={opacity}
-          dash={dash}
           perfectDrawEnabled={false}
           shadowEnabled={false}
         />
@@ -68,7 +65,6 @@ export const DrawingPreview = memo(function DrawingPreview() {
           strokeWidth={strokeWidth}
           fill={stroke}
           opacity={opacity}
-          dash={dash}
           pointerAtEnding
           pointerLength={10}
           pointerWidth={7}

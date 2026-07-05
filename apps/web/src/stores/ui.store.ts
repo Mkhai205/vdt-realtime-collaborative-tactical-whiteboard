@@ -1,5 +1,6 @@
 import { create } from "zustand"
-import type { BoardObjectDto, Tool, ObjectType } from "@rctw/shared-contracts"
+import type { BoardObjectDto, Tool, ObjectType, ShapeStyle } from "@rctw/shared-contracts"
+import { DEFAULT_STYLES } from "../features/board/components/canvas/objects/shapeDefaults"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,9 @@ interface UIState {
 
   /** Transient flag to prevent immediately clearing selection on shape creation click */
   justCreatedShape: boolean
+
+  /** Preferred default styles for each drawing tool */
+  toolStyles: Record<string, ShapeStyle>
 }
 
 interface UIActions {
@@ -91,6 +95,8 @@ interface UIActions {
   setEditingTextId: (id: string | null) => void
 
   setJustCreatedShape: (val: boolean) => void
+
+  setToolStyle: (tool: Tool, patch: Partial<ShapeStyle>) => void
 }
 
 type UIStore = UIState & UIActions
@@ -116,6 +122,14 @@ export const useUIStore = create<UIStore>()((set) => ({
   previewShape: null,
   editingTextId: null,
   justCreatedShape: false,
+  toolStyles: {
+    RECTANGLE: { ...DEFAULT_STYLES.RECTANGLE },
+    CIRCLE: { ...DEFAULT_STYLES.CIRCLE },
+    LINE: { ...DEFAULT_STYLES.LINE },
+    PATH: { ...DEFAULT_STYLES.PATH },
+    ICON: { ...DEFAULT_STYLES.ICON },
+    TEXT: { ...DEFAULT_STYLES.TEXT },
+  },
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -188,4 +202,15 @@ export const useUIStore = create<UIStore>()((set) => ({
   setEditingTextId: (editingTextId) => set({ editingTextId }),
 
   setJustCreatedShape: (justCreatedShape) => set({ justCreatedShape }),
+
+  setToolStyle: (tool, patch) =>
+    set((state) => ({
+      toolStyles: {
+        ...state.toolStyles,
+        [tool]: {
+          ...state.toolStyles[tool],
+          ...patch,
+        },
+      },
+    })),
 }))

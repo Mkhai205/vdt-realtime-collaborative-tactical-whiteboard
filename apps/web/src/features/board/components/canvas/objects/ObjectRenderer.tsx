@@ -75,10 +75,11 @@ export const ObjectRenderer = memo(function ObjectRenderer({
           isSelected={isSelected}
           editingUser={editingUser}
           onSelect={onSelect}
+          onDragStart={onDragStart}
+          onDragMove={onDragMove}
+          onDragEnd={onDragEnd}
         />
       )
-
-
 
     case "PATH":
       return (
@@ -87,6 +88,9 @@ export const ObjectRenderer = memo(function ObjectRenderer({
           isSelected={isSelected}
           editingUser={editingUser}
           onSelect={onSelect}
+          onDragStart={onDragStart}
+          onDragMove={onDragMove}
+          onDragEnd={onDragEnd}
         />
       )
 

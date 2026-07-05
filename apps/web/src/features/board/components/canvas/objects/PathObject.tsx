@@ -3,6 +3,8 @@ import { Line, Group } from "react-konva"
 import type { BoardObjectDto, UserSummary } from "@rctw/shared-contracts"
 import { resolveStyle, safePoints } from "./shapeDefaults"
 import { EditingBadge } from "./EditingBadge"
+import { useBoardStore } from "@/stores/board.store"
+import { useUIStore } from "@/stores/ui.store"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -11,6 +13,9 @@ interface PathObjectProps {
   isSelected: boolean
   editingUser?: UserSummary
   onSelect: (id: string, multi: boolean) => void
+  onDragStart: (id: string) => void
+  onDragMove: (id: string, newX: number, newY: number, e: unknown) => void
+  onDragEnd: (id: string, x: number, y: number) => void
 }
 
 const SELECTION_STROKE = "#6366f1"
@@ -21,7 +26,7 @@ const EDIT_LOCK_STROKE = "#3b82f6"
 /**
  * Renders a PATH board object as a smooth Konva Line.
  *
- * points — flat [x1,y1,x2,y2,...] array stored in object.points (world space).
+ * points — flat [x1,y1,x2,y2,...] array stored in object.points (world space or relative space).
  * tension=0.3 gives a natural freehand feel; set to 0 for sharp polylines.
  */
 export const PathObject = memo(function PathObject({
@@ -29,9 +34,19 @@ export const PathObject = memo(function PathObject({
   isSelected,
   editingUser,
   onSelect,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
 }: PathObjectProps) {
   const s = resolveStyle("PATH", object.style)
   const pts = safePoints(object.points)
+
+  const effectiveRole = useBoardStore((s) => s.effectiveRole)
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+
+  const activeTool = useUIStore((s) => s.activeTool)
+  const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+  const isSelectTool = activeTool === "SELECT" && !isSpacePressed
 
   if (pts.length < 4) return null
 
@@ -50,14 +65,48 @@ export const PathObject = memo(function PathObject({
   // Find bounds of the freehand path
   const xCoords = pts.filter((_, idx) => idx % 2 === 0)
   const yCoords = pts.filter((_, idx) => idx % 2 === 1)
-  const maxX = Math.max(...xCoords)
+  const minX = Math.min(...xCoords)
   const minY = Math.min(...yCoords)
+  const maxX = Math.max(...xCoords)
+  const maxY = Math.max(...yCoords)
+  const originalWidth = maxX - minX
+  const originalHeight = maxY - minY
+
+  // Relativize points for drawing and scaling: shift them to be relative to minX, minY
+  const relativePts = pts.map((val, idx) => {
+    if (idx % 2 === 0) return val - minX
+    return val - minY
+  })
+
+  // If width/height exist, the object has been relativized and we use object.x/y as the origin.
+  // Otherwise, it is an old absolute object and we use minX/minY as the temporary origin.
+  const groupX = object.width ? object.x : minX
+  const groupY = object.height ? object.y : minY
+
+  // Determine scaling factors relative to original bounding box
+  const scaleX = object.width && originalWidth > 0 ? (object.width / originalWidth) : 1
+  const scaleY = object.height && originalHeight > 0 ? (object.height / originalHeight) : 1
 
   return (
-    <Group id={object.id}>
+    <Group
+      id={object.id}
+      x={groupX}
+      y={groupY}
+      rotation={object.rotation}
+      scaleX={scaleX}
+      scaleY={scaleY}
+      draggable={!isEditedByOther && !isViewer && isSelectTool}
+      onDragStart={() => onDragStart(object.id)}
+      onDragMove={(e) =>
+        onDragMove(object.id, e.target.x(), e.target.y(), e)
+      }
+      onDragEnd={(e) =>
+        onDragEnd(object.id, e.target.x(), e.target.y())
+      }
+    >
       {/* Wide transparent hit area for easier clicking */}
       <Line
-        points={pts}
+        points={relativePts}
         stroke="transparent"
         strokeWidth={Math.max(strokeWidth + 10, 14)}
         tension={0.3}
@@ -71,7 +120,7 @@ export const PathObject = memo(function PathObject({
 
       {/* Visible path */}
       <Line
-        points={pts}
+        points={relativePts}
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         opacity={s.opacity}
@@ -88,8 +137,8 @@ export const PathObject = memo(function PathObject({
       {/* Editing-by-other badge */}
       {isEditedByOther && (
         <EditingBadge
-          x={maxX - badgeWidth}
-          y={minY - 20}
+          x={originalWidth - badgeWidth}
+          y={-20}
           name={editingUser.name}
           color={borderStroke}
         />
