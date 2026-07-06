@@ -1,1 +1,0 @@
-Tham khảo [https://github.com/excalidraw/excalidraw](https://github.com/excalidraw/excalidraw) để có thêm cảm hứng về tính năng, UI/UX, và cách tổ chức code cho dự án bảng trắng hợp tác thời gian thực này. Excalidraw là một ứng dụng vẽ kỹ thuật số mã nguồn mở nổi tiếng với giao diện đơn giản, hiệu suất mượt mà, và khả năng đồng bộ hóa qua WebSocket.
