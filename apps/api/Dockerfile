@@ -45,8 +45,20 @@ COPY --from=builder /app/packages/database/package.json ./packages/database/pack
 # Install prisma CLI globally for migration deployment
 RUN npm install -g prisma@7.1.0
 
+# Write a plain JS prisma config for runtime migration execution
+RUN echo 'module.exports = { \
+  schema: "packages/database/prisma/schema.prisma", \
+  migrations: { \
+    path: "packages/database/prisma/migrations" \
+  }, \
+  datasource: { \
+    url: process.env.DATABASE_URL \
+  } \
+};' > prisma.config.js
+
 EXPOSE 3001
 ENV NODE_ENV=production
 
 # Run database migrations and start the NestJS server
-CMD npx prisma migrate deploy --schema=./packages/database/prisma/schema.prisma && node dist/main.js
+CMD npx prisma migrate deploy && node dist/main.js
+
