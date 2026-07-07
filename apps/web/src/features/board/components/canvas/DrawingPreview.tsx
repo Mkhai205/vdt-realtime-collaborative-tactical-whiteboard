@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { memo } from "react"
-import { Layer, Rect, Ellipse, Arrow, Line } from "react-konva"
+import { Layer, Rect, Ellipse, Arrow, Line, Circle } from "react-konva"
 import { useUIStore } from "@/stores/ui.store"
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -24,6 +25,9 @@ export const DrawingPreview = memo(function DrawingPreview() {
   const fill = style.fill ?? "transparent"
   const strokeWidth = style.strokeWidth ?? 2
   const opacity = style.opacity ?? 1
+  const activeSnapPoint = (style as any).activeSnapPoint as
+    | { x: number; y: number }
+    | undefined
 
   return (
     <Layer id="ui-layer" listening={false}>
@@ -65,7 +69,8 @@ export const DrawingPreview = memo(function DrawingPreview() {
           strokeWidth={strokeWidth}
           fill={stroke}
           opacity={opacity}
-          pointerAtEnding
+          pointerAtBeginning={style.arrowStart}
+          pointerAtEnding={style.arrowEnd}
           pointerLength={10}
           pointerWidth={7}
           lineCap="round"
@@ -85,6 +90,20 @@ export const DrawingPreview = memo(function DrawingPreview() {
           lineJoin="round"
           perfectDrawEnabled={false}
           shadowEnabled={false}
+        />
+      )}
+
+      {activeSnapPoint && (
+        <Circle
+          x={activeSnapPoint.x}
+          y={activeSnapPoint.y}
+          radius={6}
+          fill="#6366f1"
+          stroke="#ffffff"
+          strokeWidth={1.5}
+          shadowColor="#6366f1"
+          shadowBlur={6}
+          shadowOpacity={0.6}
         />
       )}
     </Layer>

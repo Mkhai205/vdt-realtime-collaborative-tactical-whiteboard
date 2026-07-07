@@ -6,6 +6,7 @@ import {
   Square,
   Circle,
   ArrowRight,
+  Slash,
   Pencil,
   Highlighter,
   Smile,
@@ -28,7 +29,7 @@ import { DEFAULT_STYLES } from "../canvas/objects/shapeDefaults"
 
 const TOOL_GROUPS: Array<
   Array<{
-    tool: Tool | "HIGHLIGHTER"
+    tool: Tool | "HIGHLIGHTER" | "ARROW"
     icon: LucideIcon
     shortcut: string
     label: string
@@ -41,7 +42,8 @@ const TOOL_GROUPS: Array<
   [
     { tool: "RECTANGLE", icon: Square, shortcut: "R", label: "Rectangle" },
     { tool: "CIRCLE", icon: Circle, shortcut: "C", label: "Circle" },
-    { tool: "LINE", icon: ArrowRight, shortcut: "L", label: "Line" },
+    { tool: "LINE", icon: Slash, shortcut: "L", label: "Line" },
+    { tool: "ARROW", icon: ArrowRight, shortcut: "A", label: "Arrow" },
   ],
   [
     { tool: "PATH", icon: Pencil, shortcut: "P", label: "Pen" },

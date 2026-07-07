@@ -11,6 +11,7 @@ import { useUIStore, type PreviewShape } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
 import { DEFAULT_STYLES } from "../components/canvas/objects/shapeDefaults"
 import { simplifyFlatPoints } from "../utils/pathUtils"
+import { findNearestSnap } from "../utils/arrowBindingUtils"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ function buildPreview(
   points: number[] | undefined,
   style: ShapeStyle,
 ): PreviewShape {
-  const type = (tool === "HIGHLIGHTER" ? "PATH" : tool) as ObjectType
+  const type = (tool === "HIGHLIGHTER" ? "PATH" : tool === "ARROW" ? "LINE" : tool) as ObjectType
   return {
     type,
     x,
@@ -73,6 +74,7 @@ const DRAW_TOOLS = new Set<string>([
   "RECTANGLE",
   "CIRCLE",
   "LINE",
+  "ARROW",
   "PATH",
   "HIGHLIGHTER",
   "ICON",
@@ -107,6 +109,10 @@ export function useShapeCreation(
   const startPointRef = useRef<{ x: number; y: number } | null>(null)
   const pathPointsRef = useRef<number[]>([])
   const previewRef = useRef<PreviewShape | null>(null)
+
+  // Snap references
+  const startSnapRef = useRef<any>(null)
+  const endSnapRef = useRef<any>(null)
 
   const commitShape = useCallback(
     (
@@ -181,19 +187,38 @@ export function useShapeCreation(
 
       // Drag-to-create tools
       isCreatingRef.current = true
-      startPointRef.current = wp
+      
+      let snappedStart = wp
+      let startSnapInfo: any = null
+      if (tool === "LINE" || tool === "ARROW") {
+        const objects = [...useBoardStore.getState().objects.values()]
+        const snap = findNearestSnap(wp, objects)
+        if (snap) {
+          snappedStart = { x: snap.x, y: snap.y }
+          startSnapInfo = snap
+        }
+      }
+      
+      startPointRef.current = snappedStart
+      startSnapRef.current = startSnapInfo
+      endSnapRef.current = null
 
       if (tool === "PATH" || tool === "HIGHLIGHTER") {
         pathPointsRef.current = [wp.x, wp.y]
       }
 
       const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType] || DEFAULT_STYLES["PATH"]
-      previewRef.current = buildPreview(tool, wp.x, wp.y, 0, 0, [
-        wp.x,
-        wp.y,
-        wp.x,
-        wp.y,
-      ], preferredStyle)
+      const styleCopy = { ...preferredStyle }
+      if (startSnapInfo) {
+        styleCopy.activeSnapPoint = { x: startSnapInfo.x, y: startSnapInfo.y }
+      }
+
+      previewRef.current = buildPreview(tool, snappedStart.x, snappedStart.y, 0, 0, [
+        snappedStart.x,
+        snappedStart.y,
+        snappedStart.x,
+        snappedStart.y,
+      ], styleCopy)
       useUIStore.getState().setPreviewShape(previewRef.current)
     },
     [stageRef, commitShape],
@@ -215,6 +240,8 @@ export function useShapeCreation(
       const { x: ex, y: ey } = wp
 
       const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType] || DEFAULT_STYLES["PATH"]
+      const styleCopy = { ...preferredStyle }
+
       if (tool === "PATH" || tool === "HIGHLIGHTER") {
         const pts = pathPointsRef.current
         const lastX = pts[pts.length - 2] ?? sx
@@ -263,8 +290,27 @@ export function useShapeCreation(
           pathPointsRef.current,
           preferredStyle,
         )
-      } else if (tool === "LINE") {
-        previewRef.current = buildPreview(tool, sx, sy, 0, 0, [sx, sy, ex, ey], preferredStyle)
+      } else if (tool === "LINE" || tool === "ARROW") {
+        const objects = [...useBoardStore.getState().objects.values()]
+        const snap = findNearestSnap(wp, objects)
+        let endX = ex
+        let endY = ey
+
+        if (snap) {
+          endX = snap.x
+          endY = snap.y
+          endSnapRef.current = snap
+          styleCopy.activeSnapPoint = { x: snap.x, y: snap.y }
+        } else {
+          endSnapRef.current = null
+          if (startSnapRef.current) {
+            styleCopy.activeSnapPoint = { x: startSnapRef.current.x, y: startSnapRef.current.y }
+          } else {
+            delete styleCopy.activeSnapPoint
+          }
+        }
+
+        previewRef.current = buildPreview(tool, sx, sy, 0, 0, [sx, sy, endX, endY], styleCopy)
       } else {
         // RECTANGLE, CIRCLE
         const x = Math.min(sx, ex)
@@ -329,19 +375,57 @@ export function useShapeCreation(
           }
         }
         pathPointsRef.current = []
-      } else if (tool === "LINE") {
+      } else if (tool === "LINE" || tool === "ARROW") {
         const ex = wp?.x ?? start.x + DEFAULT_SIZE
         const ey = wp?.y ?? start.y
-        const relativePts = [0, 0, ex - start.x, ey - start.y]
-        const xCoords = [0, ex - start.x]
-        const yCoords = [0, ey - start.y]
+
+        const objects = [...useBoardStore.getState().objects.values()]
+        const snap = findNearestSnap({ x: ex, y: ey }, objects)
+        let finalEndX = ex
+        let finalEndY = ey
+        if (snap) {
+          finalEndX = snap.x
+          finalEndY = snap.y
+          endSnapRef.current = snap
+        }
+
+        const relativePts = [0, 0, finalEndX - start.x, finalEndY - start.y]
+        const xCoords = [0, finalEndX - start.x]
+        const yCoords = [0, finalEndY - start.y]
         const minX = Math.min(...xCoords)
         const minY = Math.min(...yCoords)
         const maxX = Math.max(...xCoords)
         const maxY = Math.max(...yCoords)
         const w = maxX - minX
         const h = maxY - minY
-        commitShape(type, start.x, start.y, w, h, relativePts)
+
+        const finalStyle = {
+          ...useUIStore.getState().toolStyles[tool],
+        }
+        delete finalStyle.activeSnapPoint
+
+        if (startSnapRef.current) {
+          finalStyle.startBinding = {
+            elementId: startSnapRef.current.elementId,
+            anchorRatio: startSnapRef.current.anchorRatio,
+          }
+        }
+        if (endSnapRef.current) {
+          finalStyle.endBinding = {
+            elementId: endSnapRef.current.elementId,
+            anchorRatio: endSnapRef.current.anchorRatio,
+          }
+        }
+
+        // Relativize points to minX and minY to align with Konva rendering logic!
+        const finalPts = [
+          0 - minX,
+          0 - minY,
+          (finalEndX - start.x) - minX,
+          (finalEndY - start.y) - minY,
+        ]
+
+        commitShape("LINE", start.x + minX, start.y + minY, w, h, finalPts, finalStyle)
       } else {
         // RECTANGLE, CIRCLE
         const ex = wp?.x ?? start.x + DEFAULT_SIZE

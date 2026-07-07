@@ -47,7 +47,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     fontWeight: "normal",
     color: "#374151",
     arrowStart: false,
-    arrowEnd: true,
+    arrowEnd: false,
     iconKey: "",
     assetUrl: "",
     scale: 1,

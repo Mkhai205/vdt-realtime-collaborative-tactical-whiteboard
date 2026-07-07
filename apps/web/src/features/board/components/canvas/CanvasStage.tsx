@@ -392,6 +392,7 @@ function getCursorStyle(tool: string): string {
     case "RECTANGLE":
     case "CIRCLE":
     case "LINE":
+    case "ARROW":
     case "PATH":
     case "HIGHLIGHTER":
     case "ICON":

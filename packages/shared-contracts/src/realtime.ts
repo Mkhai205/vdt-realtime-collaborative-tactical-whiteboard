@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from "zod"
 import { objectTypeSchema } from "./board"
 import type {
@@ -121,8 +122,6 @@ export const objectEditingRequestSchema = z.object({
 })
 export type ObjectEditingRequest = z.infer<typeof objectEditingRequestSchema>
 
-
-
 // --- Ephemeral object move schema ---
 
 export const objectMoveEphemeralRequestSchema = z.object({
@@ -134,7 +133,9 @@ export const objectMoveEphemeralRequestSchema = z.object({
   height: z.number().optional(),
   rotation: z.number().optional(),
 })
-export type ObjectMoveEphemeralRequest = z.infer<typeof objectMoveEphemeralRequestSchema>
+export type ObjectMoveEphemeralRequest = z.infer<
+  typeof objectMoveEphemeralRequestSchema
+>
 
 export type ObjectMoveEphemeralEvent = {
   boardId: string

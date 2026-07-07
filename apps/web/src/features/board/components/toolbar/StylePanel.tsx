@@ -118,6 +118,7 @@ const DRAWING_TOOLS = new Set([
   "RECTANGLE",
   "CIRCLE",
   "LINE",
+  "ARROW",
   "PATH",
   "HIGHLIGHTER",
   "ICON",
@@ -324,7 +325,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
   const hasFill =
     selectedObjects.length > 0
       ? selectedObjects.every((o) => o.type !== "LINE" && o.type !== "PATH" && o.type !== "IMAGE")
-      : activeTool !== "LINE" && activeTool !== "PATH" && activeTool !== "HIGHLIGHTER" && activeTool !== "IMAGE"
+      : activeTool !== "LINE" && activeTool !== "ARROW" && activeTool !== "PATH" && activeTool !== "HIGHLIGHTER" && activeTool !== "IMAGE"
 
   const hasStroke =
     selectedObjects.length > 0
@@ -341,10 +342,14 @@ export function StylePanel({ mutations }: StylePanelProps) {
       ? selectedObjects.some((o) => o.type === "TEXT")
       : activeTool === "TEXT"
 
-  const allLine =
+  const allArrow =
     selectedObjects.length > 0
-      ? selectedObjects.every((o) => o.type === "LINE")
-      : activeTool === "LINE"
+      ? selectedObjects.every(
+          (o) =>
+            o.type === "LINE" &&
+            (!!(o.style as any)?.arrowStart || !!(o.style as any)?.arrowEnd),
+        )
+      : activeTool === "ARROW"
 
   const handleSelectIcon = (iconName: string) => {
     applyStyle({ iconKey: iconName })
@@ -518,7 +523,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
       )}
 
       {/* ── LINE-only: arrow type ── */}
-      {allLine && (
+      {allArrow && (
         <>
           <div className="style-sep" aria-hidden />
           <div className="style-row">

@@ -29,7 +29,7 @@ export type DrawingStartPoint = { x: number; y: number }
 
 interface UIState {
   /** Currently active drawing/interaction tool */
-  activeTool: Tool | "HIGHLIGHTER"
+  activeTool: Tool | "HIGHLIGHTER" | "ARROW"
 
   /** IDs of currently selected canvas objects */
   selectedIds: Set<string>
@@ -69,7 +69,7 @@ interface UIState {
 }
 
 interface UIActions {
-  setActiveTool: (tool: Tool | "HIGHLIGHTER") => void
+  setActiveTool: (tool: Tool | "HIGHLIGHTER" | "ARROW") => void
 
   /** Replace selection with exactly this set of IDs */
   setSelectedIds: (ids: Set<string>) => void
@@ -99,7 +99,7 @@ interface UIActions {
 
   setJustCreatedShape: (val: boolean) => void
 
-  setToolStyle: (tool: Tool | "HIGHLIGHTER", patch: Partial<ShapeStyle>) => void
+  setToolStyle: (tool: Tool | "HIGHLIGHTER" | "ARROW", patch: Partial<ShapeStyle>) => void
 
   setKeepToolActive: (val: boolean) => void
 }
@@ -131,6 +131,14 @@ export const useUIStore = create<UIStore>()((set) => ({
     RECTANGLE: { ...DEFAULT_STYLES.RECTANGLE },
     CIRCLE: { ...DEFAULT_STYLES.CIRCLE },
     LINE: { ...DEFAULT_STYLES.LINE },
+    ARROW: {
+      stroke: "#374151",
+      fill: "transparent",
+      strokeWidth: 3,
+      opacity: 1,
+      arrowStart: false,
+      arrowEnd: true,
+    },
     PATH: { ...DEFAULT_STYLES.PATH },
     HIGHLIGHTER: {
       stroke: "#facc15",
