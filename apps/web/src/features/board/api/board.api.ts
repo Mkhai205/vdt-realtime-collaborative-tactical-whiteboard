@@ -13,6 +13,9 @@ import type {
   JoinBoardByLinkResponse,
   BoardSnapshotSummaryResponse,
   BoardSnapshotDetailResponse,
+  ImportBoardRequest,
+  ImportBoardObjectsRequest,
+  BoardObjectsResponse,
 } from "@rctw/shared-contracts"
 
 export const boardApi = {
@@ -152,5 +155,24 @@ export const boardApi = {
       `/boards/${boardId}/snapshots/${snapshotId}/restore`,
     )
     return data
+  },
+
+  importBoard: async (data: ImportBoardRequest): Promise<BoardResponse> => {
+    const { data: responseData } = await apiClient.post<BoardResponse>(
+      "/boards/import",
+      data,
+    )
+    return responseData
+  },
+
+  importBoardObjects: async (
+    boardId: string,
+    data: ImportBoardObjectsRequest,
+  ): Promise<BoardObjectsResponse> => {
+    const { data: responseData } = await apiClient.post<BoardObjectsResponse>(
+      `/boards/${boardId}/import`,
+      data,
+    )
+    return responseData
   },
 }

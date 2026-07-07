@@ -5,11 +5,13 @@ import { DashboardHeader } from "@/features/dashboard/components/DashboardHeader
 import { BoardGrid } from "@/features/dashboard/components/BoardGrid"
 import { useState } from "react"
 import { CreateBoardDialog } from "@/features/dashboard/components/CreateBoardDialog"
+import { ImportBoardDialog } from "@/features/dashboard/components/ImportBoardDialog"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Upload } from "lucide-react"
 
 export default function DashboardPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   return (
     <AuthGuard>
@@ -28,13 +30,23 @@ export default function DashboardPage() {
                   Manage and access all your active planning sessions.
                 </p>
               </div>
-              <Button
-                type="button"
-                onClick={() => setCreateDialogOpen(true)}
-                className="flex cursor-pointer items-center gap-1.5 bg-violet-600 font-semibold text-white shadow-md shadow-violet-500/10 hover:bg-violet-500"
-              >
-                <Plus className="h-4.5 w-4.5" /> New Board
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setImportDialogOpen(true)}
+                  className="flex cursor-pointer items-center gap-1.5 border-slate-200 dark:border-slate-800 font-semibold text-slate-700 dark:text-slate-200"
+                >
+                  <Upload className="h-4 w-4" /> Import Board
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setCreateDialogOpen(true)}
+                  className="flex cursor-pointer items-center gap-1.5 bg-violet-600 font-semibold text-white shadow-md shadow-violet-500/10 hover:bg-violet-500"
+                >
+                  <Plus className="h-4.5 w-4.5" /> New Board
+                </Button>
+              </div>
             </div>
 
             {/* Board List / Grid */}
@@ -45,6 +57,11 @@ export default function DashboardPage() {
         <CreateBoardDialog
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
+        />
+
+        <ImportBoardDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
         />
       </div>
     </AuthGuard>

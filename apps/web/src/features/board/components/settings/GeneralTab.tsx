@@ -17,6 +17,8 @@ import {
   Lock,
   Globe,
   AlertTriangle,
+  Upload,
+  Download,
 } from "lucide-react"
 import {
   Dialog,
@@ -26,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ImportLayoutDialog } from "./ImportLayoutDialog"
 
 interface GeneralTabProps {
   boardId: string
@@ -58,6 +61,71 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
   // Saved success indicators
   const [savedName, setSavedName] = useState(false)
   const [savedDesc, setSavedDesc] = useState(false)
+
+  // Import/Export states
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importLayoutData, setImportLayoutData] = useState<any[] | null>(null)
+  const [importLayoutDialogOpen, setImportLayoutDialogOpen] = useState(false)
+
+  const handleExport = () => {
+    const state = useBoardStore.getState()
+    const exportData = {
+      version: 1,
+      board: {
+        name: state.boardName,
+        description: state.boardDescription,
+      },
+      objects: Array.from(state.objects.values()).map((obj) => ({
+        type: obj.type,
+        x: obj.x,
+        y: obj.y,
+        width: obj.width,
+        height: obj.height,
+        points: obj.points,
+        text: obj.text,
+        rotation: obj.rotation,
+        style: obj.style,
+        zIndex: obj.zIndex,
+      })),
+    }
+
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(exportData, null, 2))
+    const downloadAnchor = document.createElement("a")
+    downloadAnchor.setAttribute("href", dataStr)
+    const sanitizedName = state.boardName
+      .replace(/[^a-z0-9]/gi, "_")
+      .toLowerCase()
+    downloadAnchor.setAttribute("download", `${sanitizedName}_export.rctw`)
+    document.body.appendChild(downloadAnchor)
+    downloadAnchor.click()
+    downloadAnchor.remove()
+    toast.success("Board layout exported successfully")
+  }
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string
+        const parsed = JSON.parse(text)
+        if (!Array.isArray(parsed.objects)) {
+          toast.error("Invalid file format. Objects array is missing.")
+          return
+        }
+        setImportLayoutData(parsed.objects)
+        setImportLayoutDialogOpen(true)
+      } catch (err) {
+        toast.error("Failed to parse JSON file.")
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = "" // Reset
+  }
 
   // Adjust local states during rendering
   if (boardName !== prevBoardName) {
@@ -329,6 +397,45 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
         </div>
       </div>
 
+      {/* Import & Export */}
+      <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-900/30">
+        <Label className="block text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+          Import & Export
+        </Label>
+        <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+          Export this board's tactical drawings, or import shapes from a `.rctw` or `.json` file.
+        </p>
+        <div className="mt-2.5 flex items-center gap-2">
+          {canEdit && (
+            <>
+              <input
+                type="file"
+                ref={importInputRef}
+                onChange={handleImportFileChange}
+                accept=".rctw,.json"
+                className="hidden"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => importInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold"
+              >
+                <Upload className="h-3.5 w-3.5" /> Import Layout
+              </Button>
+            </>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExport}
+            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold"
+          >
+            <Download className="h-3.5 w-3.5" /> Export Layout
+          </Button>
+        </div>
+      </div>
+
       {/* Danger Zone (Owner Only) */}
       {isOwner && (
         <div className="rounded-xl border border-red-200/50 bg-red-50/20 p-4 dark:border-red-950/20 dark:bg-red-950/5">
@@ -389,6 +496,15 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {importLayoutData && (
+        <ImportLayoutDialog
+          boardId={boardId}
+          open={importLayoutDialogOpen}
+          onOpenChange={setImportLayoutDialogOpen}
+          objects={importLayoutData}
+        />
+      )}
     </div>
   )
 }

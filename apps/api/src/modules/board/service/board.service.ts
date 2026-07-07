@@ -4,17 +4,22 @@ import {
   BoardResponse,
   boardRoles,
   ListBoardsResponse,
+  operationTypes,
   type CreateBoardRequest,
   type JwtPayload,
   type ListBoardsQuery,
   type UpdateBoardInfoRequest,
   type UpdateBoardSettingsRequest,
+  type ImportBoardRequest,
+  type ImportBoardObjectsRequest,
+  type BoardObjectsResponse,
 } from "@rctw/shared-contracts"
 import { Prisma } from "@rctw/database"
 import { userSummarySelect } from "../../user/user.service"
 import { PrismaService } from "../../../infrastructure/database"
 import { BoardPermissionService } from "./board-permission.service"
 import { BoardEventsService } from "./board-events.service"
+import { toBoardObjectDto } from "./mappers/board-object-response.mapper"
 
 export const boardSelect = {
   id: true,
@@ -163,6 +168,141 @@ export class BoardService {
       boardId,
     )
     await this.prisma.board.delete({ where: { id: boardId } })
+  }
+
+  async importBoard(
+    currentUser: JwtPayload,
+    request: ImportBoardRequest,
+  ): Promise<BoardResponse> {
+    const board = await this.prisma.$transaction(async (tx) => {
+      const createdBoard = await tx.board.create({
+        data: {
+          name: request.name,
+          description: request.description ?? null,
+          visibility: request.visibility,
+          createdById: currentUser.sub,
+          currentRevision: 1,
+          members: {
+            create: {
+              userId: currentUser.sub,
+              role: boardRoles.OWNER,
+            },
+          },
+        },
+        select: boardSelect,
+      })
+
+      for (const obj of request.objects) {
+        await tx.boardObject.create({
+          data: {
+            boardId: createdBoard.id,
+            type: obj.type,
+            x: obj.x,
+            y: obj.y,
+            width: obj.width ?? null,
+            height: obj.height ?? null,
+            points:
+              obj.points != null
+                ? (obj.points as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
+            text: obj.text ?? null,
+            rotation: obj.rotation,
+            style: obj.style as Prisma.InputJsonValue,
+            zIndex: obj.zIndex,
+            createdById: currentUser.sub,
+          },
+        })
+      }
+
+      return createdBoard
+    })
+
+    return toBoardResponse(board)
+  }
+
+  async importBoardObjects(
+    currentUser: JwtPayload,
+    boardId: string,
+    request: ImportBoardObjectsRequest,
+  ): Promise<BoardObjectsResponse> {
+    await this.boardPermissionService.assertFormalEditor(
+      currentUser.sub,
+      boardId,
+    )
+
+    const updatedObjects = await this.prisma.$transaction(async (tx) => {
+      await tx.boardOperation.deleteMany({
+        where: {
+          boardId,
+          actorId: currentUser.sub,
+          type: operationTypes.OBJECT_RESTORE,
+        },
+      })
+
+      const board = await tx.board.update({
+        where: { id: boardId },
+        data: { currentRevision: { increment: 1 } },
+        select: { currentRevision: true },
+      })
+      const revision = board.currentRevision
+
+      let zIndexOffset = 0
+      if (request.mode === "OVERWRITE") {
+        await tx.boardObject.updateMany({
+          where: { boardId, deletedAt: null },
+          data: {
+            deletedAt: new Date(),
+            updatedById: currentUser.sub,
+          },
+        })
+      } else if (request.mode === "APPEND") {
+        const agg = await tx.boardObject.aggregate({
+          where: { boardId, deletedAt: null },
+          _max: { zIndex: true },
+        })
+        zIndexOffset = (agg._max.zIndex ?? -1) + 1
+      }
+
+      for (const obj of request.objects) {
+        await tx.boardObject.create({
+          data: {
+            boardId,
+            type: obj.type,
+            x: obj.x,
+            y: obj.y,
+            width: obj.width ?? null,
+            height: obj.height ?? null,
+            points:
+              obj.points != null
+                ? (obj.points as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
+            text: obj.text ?? null,
+            rotation: obj.rotation,
+            style: obj.style as Prisma.InputJsonValue,
+            zIndex: obj.zIndex + zIndexOffset,
+            createdById: currentUser.sub,
+          },
+        })
+      }
+
+      const allActiveObjects = await tx.boardObject.findMany({
+        where: { boardId, deletedAt: null },
+        orderBy: { zIndex: "asc" },
+      })
+
+      return {
+        revision,
+        objects: allActiveObjects.map((row) => toBoardObjectDto(row)),
+      }
+    })
+
+    this.boardEventsService.emitBoardRestored({
+      boardId,
+      revision: updatedObjects.revision,
+      objects: updatedObjects.objects,
+    })
+
+    return updatedObjects
   }
 }
 

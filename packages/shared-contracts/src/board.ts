@@ -296,3 +296,35 @@ export type BoardSnapshotDetailResponse = {
   createdAt: string
 }
 
+// --- Import schemas ---
+
+export const importObjectSchema = z.object({
+  type: objectTypeSchema,
+  x: z.number(),
+  y: z.number(),
+  width: z.number().nullable().optional(),
+  height: z.number().nullable().optional(),
+  points: z.unknown().nullable().optional(),
+  text: z.string().nullable().optional(),
+  rotation: z.number().default(0),
+  style: shapeStyleSchema,
+  zIndex: z.number(),
+})
+
+export const importBoardRequestSchema = z.object({
+  name: nameSchema,
+  description: z.string().trim().max(500).nullable().optional(),
+  visibility: boardVisibilitySchema.default("PRIVATE"),
+  objects: z.array(importObjectSchema),
+})
+export type ImportBoardRequest = z.infer<typeof importBoardRequestSchema>
+
+export const importBoardObjectsRequestSchema = z.object({
+  mode: z.enum(["APPEND", "OVERWRITE"]),
+  objects: z.array(importObjectSchema),
+})
+export type ImportBoardObjectsRequest = z.infer<
+  typeof importBoardObjectsRequestSchema
+>
+
+
