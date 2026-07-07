@@ -45,7 +45,7 @@ export function DashboardHeader() {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-50">
-              Tactical Canvas
+              Whiteboard
             </span>
             <span className="text-[9px] font-medium tracking-widest text-slate-400 uppercase">
               Workspace

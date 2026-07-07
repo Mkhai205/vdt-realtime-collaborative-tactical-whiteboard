@@ -7,7 +7,7 @@ import { BoardCard } from "./BoardCard"
 import { CreateBoardCard } from "./CreateBoardCard"
 import { CreateBoardDialog } from "./CreateBoardDialog"
 import { Button } from "@/components/ui/button"
-import { Paintbrush, Loader2, RefreshCw } from "lucide-react"
+import { Paintbrush, RefreshCw } from "lucide-react"
 
 export function BoardGrid() {
   const searchParams = useSearchParams()
@@ -19,11 +19,25 @@ export function BoardGrid() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-75 w-full flex-col items-center justify-center">
-        <Loader2 className="mb-2 h-8 w-8 animate-spin text-violet-600" />
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-          Loading your workspaces...
-        </p>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-800/40 dark:bg-slate-900/50"
+          >
+            {/* Thumbnail skeleton */}
+            <div className="aspect-video w-full animate-pulse bg-slate-200 dark:bg-slate-800/80" />
+            {/* Info skeleton */}
+            <div className="flex flex-col gap-3 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="h-5 w-1/2 animate-pulse rounded bg-slate-200 dark:bg-slate-800/80" />
+                <div className="h-5.5 w-16 animate-pulse rounded bg-slate-200 dark:bg-slate-800/80" />
+              </div>
+              <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200 dark:bg-slate-800/80" />
+              <div className="h-3.5 w-1/2 animate-pulse rounded bg-slate-200 dark:bg-slate-800/80" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }

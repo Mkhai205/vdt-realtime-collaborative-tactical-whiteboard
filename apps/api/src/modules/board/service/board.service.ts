@@ -27,6 +27,7 @@ export const boardSelect = {
   description: true,
   visibility: true,
   currentRevision: true,
+  thumbnailUrl: true,
   createdBy: { select: userSummarySelect },
   createdAt: true,
   updatedAt: true,
@@ -124,6 +125,9 @@ export class BoardService {
         ...(request.name !== undefined && { name: request.name }),
         ...(request.description !== undefined && {
           description: request.description,
+        }),
+        ...(request.thumbnailUrl !== undefined && {
+          thumbnailUrl: request.thumbnailUrl,
         }),
       },
       select: boardSelect,
@@ -313,6 +317,7 @@ function toBoardResponse(board: BoardRecord): BoardResponse {
     description: board.description,
     visibility: board.visibility,
     currentRevision: board.currentRevision,
+    thumbnailUrl: board.thumbnailUrl,
     createdBy: board.createdBy,
     createdAt: board.createdAt.toISOString(),
     updatedAt: board.updatedAt.toISOString(),

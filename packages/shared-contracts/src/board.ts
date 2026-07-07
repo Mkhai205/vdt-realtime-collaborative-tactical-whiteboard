@@ -92,9 +92,10 @@ export const updateBoardInfoRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(160).optional(),
     description: z.string().trim().max(2000).nullable().optional(),
+    thumbnailUrl: z.string().trim().url().max(2048).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
-    message: "At least one field (name or description) is required.",
+    message: "At least one field (name, description or thumbnailUrl) is required.",
   })
 export type UpdateBoardInfoRequest = z.infer<
   typeof updateBoardInfoRequestSchema
@@ -113,6 +114,7 @@ export type BoardSummary = {
   description: string | null
   visibility: BoardVisibility
   currentRevision: number
+  thumbnailUrl: string | null
   createdBy: UserSummary
   createdAt: string
   updatedAt: string

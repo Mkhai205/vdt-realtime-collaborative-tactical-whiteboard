@@ -77,6 +77,7 @@ model Board {
   createdById     String          @db.Uuid
   currentRevision Int             @default(0)
   visibility      BoardVisibility @default(PRIVATE)
+  thumbnailUrl    String?         @db.Text
   createdAt       DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
 

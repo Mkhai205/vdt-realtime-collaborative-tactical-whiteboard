@@ -16,6 +16,7 @@ import { BackToContent } from "./canvas/BackToContent"
 
 import { useBoardSocket } from "../hooks/useBoardSocket"
 import { useObjectMutations } from "../hooks/useObjectMutations"
+import { useBoardThumbnail } from "../hooks/useBoardThumbnail"
 import { ConnectionStatus } from "./canvas/ConnectionStatus"
 import { CursorOverlay } from "@/features/cursor/components/CursorOverlay"
 import { BoardHeader } from "./BoardHeader"
@@ -50,6 +51,9 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
   // Realtime Sync & mutations hooks
   const { connectionStatus } = useBoardSocket(boardId)
   const mutations = useObjectMutations(boardId)
+
+  // Auto-thumbnail capture hook
+  useBoardThumbnail(boardId, viewport.stageRef)
 
   return (
     <div
