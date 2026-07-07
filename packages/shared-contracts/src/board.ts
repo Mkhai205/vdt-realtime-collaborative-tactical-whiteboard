@@ -276,3 +276,23 @@ export type BoardInvitationResponse = {
   createdAt: string
   invitedBy: UserSummary
 }
+
+// --- Board Snapshot schemas ---
+
+export type BoardSnapshotSummaryResponse = {
+  id: string
+  boardId: string
+  revision: number
+  createdAt: string
+}
+
+export type BoardSnapshotDetailResponse = {
+  id: string
+  boardId: string
+  revision: number
+  data: {
+    objects: BoardObjectDto[]
+  }
+  createdAt: string
+}
+

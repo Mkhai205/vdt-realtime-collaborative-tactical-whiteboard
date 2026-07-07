@@ -83,6 +83,7 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
   const viewport = useUIStore((s) => s.viewport)
   const activeTool = useUIStore((s) => s.activeTool)
   const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+  const previewSnapshot = useUIStore((s) => s.previewSnapshot)
 
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
@@ -385,11 +386,13 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
         <ObjectsLayer mutations={mutations} />
 
         {/* Layer 2 — Selection handles (Transformer + lasso) */}
-        <SelectionLayer
-          stageRef={stageRef}
-          lassoSelect={lassoSelect}
-          transform={transform}
-        />
+        {!previewSnapshot && (
+          <SelectionLayer
+            stageRef={stageRef}
+            lassoSelect={lassoSelect}
+            transform={transform}
+          />
+        )}
 
         {/* Layer 3 — Drawing preview */}
         <DrawingPreview />

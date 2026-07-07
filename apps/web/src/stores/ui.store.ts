@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { BoardObjectDto, Tool, ObjectType, ShapeStyle } from "@rctw/shared-contracts"
+import type { BoardObjectDto, Tool, ObjectType, ShapeStyle, BoardSnapshotDetailResponse } from "@rctw/shared-contracts"
 import { DEFAULT_STYLES } from "../features/board/components/canvas/objects/shapeDefaults"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -66,6 +66,9 @@ interface UIState {
 
   /** If true, keep the currently active tool selected after drawing instead of switching to SELECT */
   keepToolActive: boolean
+
+  /** Previewing a history snapshot (null = not in history preview mode) */
+  previewSnapshot: BoardSnapshotDetailResponse | null
 }
 
 interface UIActions {
@@ -102,6 +105,8 @@ interface UIActions {
   setToolStyle: (tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER", patch: Partial<ShapeStyle>) => void
 
   setKeepToolActive: (val: boolean) => void
+
+  setPreviewSnapshot: (snapshot: BoardSnapshotDetailResponse | null) => void
 }
 
 type UIStore = UIState & UIActions
@@ -153,6 +158,7 @@ export const useUIStore = create<UIStore>()((set) => ({
     TEXT: { ...DEFAULT_STYLES.TEXT },
   },
   keepToolActive: false,
+  previewSnapshot: null,
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -241,4 +247,6 @@ export const useUIStore = create<UIStore>()((set) => ({
     }),
 
   setKeepToolActive: (keepToolActive) => set({ keepToolActive }),
+
+  setPreviewSnapshot: (previewSnapshot) => set({ previewSnapshot }),
 }))

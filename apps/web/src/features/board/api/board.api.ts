@@ -11,6 +11,8 @@ import type {
   CreateBoardShareLinkRequest,
   JoinBoardByLinkRequest,
   JoinBoardByLinkResponse,
+  BoardSnapshotSummaryResponse,
+  BoardSnapshotDetailResponse,
 } from "@rctw/shared-contracts"
 
 export const boardApi = {
@@ -112,5 +114,43 @@ export const boardApi = {
       },
     })
     return responseData
+  },
+
+  listSnapshots: async (
+    boardId: string,
+  ): Promise<BoardSnapshotSummaryResponse[]> => {
+    const { data } = await apiClient.get<BoardSnapshotSummaryResponse[]>(
+      `/boards/${boardId}/snapshots`,
+    )
+    return data
+  },
+
+  getSnapshot: async (
+    boardId: string,
+    snapshotId: string,
+  ): Promise<BoardSnapshotDetailResponse> => {
+    const { data } = await apiClient.get<BoardSnapshotDetailResponse>(
+      `/boards/${boardId}/snapshots/${snapshotId}`,
+    )
+    return data
+  },
+
+  createSnapshot: async (
+    boardId: string,
+  ): Promise<BoardSnapshotDetailResponse> => {
+    const { data } = await apiClient.post<BoardSnapshotDetailResponse>(
+      `/boards/${boardId}/snapshots`,
+    )
+    return data
+  },
+
+  restoreSnapshot: async (
+    boardId: string,
+    snapshotId: string,
+  ): Promise<BoardSnapshotDetailResponse> => {
+    const { data } = await apiClient.post<BoardSnapshotDetailResponse>(
+      `/boards/${boardId}/snapshots/${snapshotId}/restore`,
+    )
+    return data
   },
 }

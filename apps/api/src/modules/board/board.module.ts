@@ -4,6 +4,7 @@ import { BoardMemberController } from "./controllers/board-member.controller"
 import { BoardShareLinkController } from "./controllers/board-share-link.controller"
 import { BoardInvitationController } from "./controllers/board-invitation.controller"
 import { UploadController } from "./controllers/upload.controller"
+import { BoardSnapshotController } from "./controllers/board-snapshot.controller"
 import { BoardService } from "./service/board.service"
 import { BoardMemberService } from "./service/board-member.service"
 import { BoardPermissionService } from "./service/board-permission.service"
@@ -21,6 +22,7 @@ import { BoardEventsService } from "./service/board-events.service"
     BoardShareLinkController,
     BoardInvitationController,
     UploadController,
+    BoardSnapshotController,
   ],
   providers: [
     BoardService,

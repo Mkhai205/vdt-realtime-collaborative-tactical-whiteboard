@@ -58,10 +58,11 @@ export function useKeyboardActions(mutations: {
         setActiveTool,
         clipboard,
         setClipboard,
+        previewSnapshot,
       } = useUIStore.getState()
       const { objects, effectiveRole } = useBoardStore.getState()
       const isViewer =
-        effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+        effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER" || !!previewSnapshot
 
       // ── Delete / Backspace — remove selected objects ────────────────────────
 

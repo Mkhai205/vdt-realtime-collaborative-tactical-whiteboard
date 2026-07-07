@@ -18,6 +18,7 @@ import type {
   ObjectEditingEvent,
   WsErrorPayload,
   ObjectMoveEphemeralEvent,
+  BoardObjectDto,
 } from "@rctw/shared-contracts"
 import { toast } from "sonner"
 import { discardedLocalOps, pendingLocalUpdates, useObjectMutations } from "./useObjectMutations"
@@ -197,6 +198,30 @@ export function useBoardEvents(boardId: string) {
       updateObjectFields(objectId, coords)
     }
 
+    const handleSnapshotRestored = (event: { boardId: string; revision: number; objects: BoardObjectDto[] }) => {
+      const state = useBoardStore.getState()
+      
+      initBoard({
+        board: {
+          id: event.boardId,
+          name: state.boardName,
+          description: state.boardDescription,
+          currentRevision: event.revision,
+          visibility: state.boardVisibility,
+        },
+        currentUser: state.currentUser!,
+        objects: event.objects,
+        onlineUsers: state.onlineUsers,
+        editingStates: [],
+      })
+
+      // Clear local client selections & exit preview mode
+      useUIStore.getState().clearSelection()
+      useUIStore.getState().setPreviewSnapshot(null)
+
+      toast.info("The whiteboard has been restored to a previous version.")
+    }
+
     socket.on(ServerEvents.BOARD_STATE, handleBoardState)
     socket.on(ServerEvents.OBJECT_CREATED, onObjectCreated)
     socket.on(ServerEvents.OBJECT_UPDATED, onObjectUpdated)
@@ -205,6 +230,7 @@ export function useBoardEvents(boardId: string) {
     socket.on(ServerEvents.PRESENCE_UPDATE, handlePresence)
     socket.on(ServerEvents.OBJECT_EDITING, handleObjectEditing)
     socket.on(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
+    socket.on("snapshot:restored", handleSnapshotRestored)
     socket.on(ServerEvents.ERROR, handleWsError)
 
     return () => {
@@ -216,6 +242,7 @@ export function useBoardEvents(boardId: string) {
       socket.off(ServerEvents.PRESENCE_UPDATE, handlePresence)
       socket.off(ServerEvents.OBJECT_EDITING, handleObjectEditing)
       socket.off(ServerEvents.OBJECT_MOVE_EPHEMERAL, handleObjectMoveEphemeral)
+      socket.off("snapshot:restored", handleSnapshotRestored)
       socket.off(ServerEvents.ERROR, handleWsError)
     }
   }, [

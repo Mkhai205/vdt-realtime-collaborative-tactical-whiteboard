@@ -9,6 +9,8 @@ import { useIsAuthenticated } from "@/stores/auth.store"
 import { boardApi } from "@/features/board/api/board.api"
 import { ShareLinkDialog } from "@/features/dashboard/components/ShareLinkDialog"
 import { BoardSettingsPanel } from "./BoardSettingsPanel"
+import { BoardHistoryPanel } from "./BoardHistoryPanel"
+import { useUIStore } from "@/stores/ui.store"
 import { PresenceBar } from "@/features/presence/components/PresenceBar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -22,6 +24,8 @@ import {
   Check,
   Loader2,
   Edit2,
+  History,
+  RotateCcw,
 } from "lucide-react"
 import { Toolbar } from "./toolbar/Toolbar"
 import { Button } from "@/components/ui/button"
@@ -64,8 +68,42 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
   // Dialogs and Drawer
   const [shareOpen, setShareOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const userDropdownRef = useRef<HTMLDivElement>(null)
+
+  const previewSnapshot = useUIStore((s) => s.previewSnapshot)
+  const setPreviewSnapshot = useUIStore((s) => s.setPreviewSnapshot)
+  const [isRestoring, setIsRestoring] = useState(false)
+
+  const handleRestore = async () => {
+    if (!previewSnapshot) return
+    if (
+      !window.confirm(
+        `Are you sure you want to restore the board to Revision #${previewSnapshot.revision}? Current operations will be overwritten.`
+      )
+    ) {
+      return
+    }
+
+    setIsRestoring(true)
+    try {
+      toast.loading("Restoring board to previous version...", {
+        id: "restore-header-loading",
+      })
+      await boardApi.restoreSnapshot(boardId, previewSnapshot.id)
+      toast.dismiss("restore-header-loading")
+      toast.success(`Board restored to Revision #${previewSnapshot.revision}`)
+      setPreviewSnapshot(null)
+    } catch (err: any) {
+      toast.dismiss("restore-header-loading")
+      toast.error(
+        err?.response?.data?.message || "Failed to restore board snapshot"
+      )
+    } finally {
+      setIsRestoring(false)
+    }
+  }
 
   // Focus input when editing starts
   useEffect(() => {
@@ -207,10 +245,48 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
           </div>
         </div>
 
-        {/* Middle Section: Toolbar */}
-        <div className="pointer-events-auto transition-all duration-200 hover:scale-[1.02]">
-          <Toolbar />
-        </div>
+        {/* Middle Section: Toolbar or Preview banner */}
+        {previewSnapshot ? (
+          <div className="pointer-events-auto flex items-center gap-3 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/40 rounded-xl px-4 py-1.5 shadow-md backdrop-blur-md">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">
+                Previewing History (Revision #{previewSnapshot.revision})
+              </span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400">
+                {new Date(previewSnapshot.createdAt).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex gap-1.5 ml-2">
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => setPreviewSnapshot(null)}
+                className="h-7 text-[10px] font-semibold text-slate-600 hover:bg-violet-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Exit
+              </Button>
+              {canEdit && (
+                <Button
+                  size="xs"
+                  onClick={handleRestore}
+                  disabled={isRestoring}
+                  className="h-7 bg-violet-600 text-[10px] font-semibold text-white hover:bg-violet-500 rounded-lg flex items-center gap-1"
+                >
+                  {isRestoring ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3 w-3" />
+                  )}
+                  Restore
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="pointer-events-auto transition-all duration-200 hover:scale-[1.02]">
+            <Toolbar />
+          </div>
+        )}
 
         {/* Right Section: Presence, Share, Settings, User */}
         <div className="flex items-center gap-3 bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800/80 rounded-xl px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md pointer-events-auto transition-all duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]">
@@ -227,6 +303,18 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
               <Share2 className="h-3.5 w-3.5" /> Share
             </Button>
           )}
+
+          {/* History Panel Trigger */}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setHistoryOpen(true)}
+            className={`h-8.5 w-8.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+              previewSnapshot ? "bg-violet-100 text-violet-600 hover:bg-violet-200 dark:bg-violet-950/40 dark:text-violet-400" : ""
+            }`}
+          >
+            <History className="h-4.5 w-4.5" />
+          </Button>
 
           {/* Settings Panel Trigger */}
           <Button
@@ -340,6 +428,13 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
           boardId={boardId}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
+        />
+
+        {/* Sliding History Panel */}
+        <BoardHistoryPanel
+          boardId={boardId}
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
         />
       </header>
     </TooltipProvider>

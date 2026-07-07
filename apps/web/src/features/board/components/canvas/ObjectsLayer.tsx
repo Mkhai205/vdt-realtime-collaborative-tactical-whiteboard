@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/ui.store"
 import { useDragMove } from "@/features/board/hooks/useDragMove"
 import type { UseObjectMutationsReturn } from "@/features/board/hooks/useObjectMutations"
 import { ObjectRenderer } from "./objects/ObjectRenderer"
+import { type BoardObjectDto } from "@rctw/shared-contracts"
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,19 @@ interface ObjectsLayerProps {
  * The `isSelected` prop is still forwarded for text object focus border.
  */
 export const ObjectsLayer = memo(function ObjectsLayer({ mutations }: ObjectsLayerProps) {
-  const objects = useBoardStore((s) => s.objects)
+  const previewSnapshot = useUIStore((s) => s.previewSnapshot)
+  const boardObjects = useBoardStore((s) => s.objects)
+  const objects = useMemo(() => {
+    if (previewSnapshot) {
+      const map = new Map<string, BoardObjectDto>()
+      for (const obj of previewSnapshot.data.objects) {
+        map.set(obj.id, obj)
+      }
+      return map
+    }
+    return boardObjects
+  }, [previewSnapshot, boardObjects])
+
   const editingStates = useBoardStore((s) => s.editingStates)
   
   const selectedIds = useUIStore((s) => s.selectedIds)
@@ -40,7 +53,7 @@ export const ObjectsLayer = memo(function ObjectsLayer({ mutations }: ObjectsLay
   )
 
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
-  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER" || !!previewSnapshot
 
   // ── Sort objects by zIndex once per render ────────────────────────────────
 

@@ -83,6 +83,12 @@ export class BoardGateway
         await this.kickUnauthorizedUsers(boardId)
       }
     })
+
+    // Lắng nghe sự kiện khôi phục board để phát realtime tới các client
+    this.boardEventsService.boardRestored.subscribe((event) => {
+      const roomName = toBoardSocketName(event.boardId)
+      this.server.in(roomName).emit("snapshot:restored", event)
+    })
   }
 
   private async kickUnauthorizedUsers(boardId: string): Promise<void> {
