@@ -17,13 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Crown,
-  Trash2,
-  Plus,
-  Loader2,
-  AlertCircle,
-} from "lucide-react"
+import { Crown, Trash2, Plus, Loader2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import axios from "axios"
 
@@ -37,7 +31,8 @@ export function MembersTab({ boardId }: MembersTabProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
 
   const isOwner = effectiveRole === "OWNER"
-  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+  const isViewer =
+    effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
   const canAddMember = !isViewer
 
   // Form states for adding member
@@ -45,10 +40,7 @@ export function MembersTab({ boardId }: MembersTabProps) {
   const [newRole, setNewRole] = useState<"EDITOR" | "VIEWER">("VIEWER")
 
   // Use Query to fetch board members list
-  const {
-    data: members = [],
-    isLoading,
-  } = useQuery({
+  const { data: members = [], isLoading } = useQuery({
     queryKey: ["board-members", boardId],
     queryFn: () => memberApi.listMembers(boardId),
   })
@@ -73,8 +65,13 @@ export function MembersTab({ boardId }: MembersTabProps) {
 
   // Mutation to update member role
   const { mutate: updateRole } = useMutation({
-    mutationFn: (payload: { memberId: string; role: "OWNER" | "EDITOR" | "VIEWER" }) =>
-      memberApi.updateMemberRole(boardId, payload.memberId, { role: payload.role }),
+    mutationFn: (payload: {
+      memberId: string
+      role: "OWNER" | "EDITOR" | "VIEWER"
+    }) =>
+      memberApi.updateMemberRole(boardId, payload.memberId, {
+        role: payload.role,
+      }),
     onSuccess: (updatedMember) => {
       queryClient.invalidateQueries({ queryKey: ["board-members", boardId] })
       // If owner transferred ownership, refresh page to recalculate roles or notify
@@ -124,8 +121,11 @@ export function MembersTab({ boardId }: MembersTabProps) {
     <div className="space-y-5">
       {/* Add Member Section (EDITOR+) */}
       {canAddMember && (
-        <form onSubmit={handleAddMember} className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-900/30">
-          <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+        <form
+          onSubmit={handleAddMember}
+          className="space-y-3 rounded-xl border bg-muted/20 p-4"
+        >
+          <Label className="block font-bold tracking-wider uppercase text-muted-foreground">
             Add Board Member
           </Label>
 
@@ -137,7 +137,7 @@ export function MembersTab({ boardId }: MembersTabProps) {
               onChange={(e) => setNewEmail(e.target.value)}
               disabled={isAdding}
               required
-              className="bg-background text-xs focus-visible:ring-violet-500"
+              className="bg-background focus-visible:ring-violet-500"
             />
 
             <div className="flex gap-2">
@@ -146,14 +146,14 @@ export function MembersTab({ boardId }: MembersTabProps) {
                 onValueChange={(val: "EDITOR" | "VIEWER") => setNewRole(val)}
                 disabled={isAdding}
               >
-                <SelectTrigger className="w-full bg-background text-xs h-9">
+                <SelectTrigger className="h-9 w-full bg-background">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EDITOR" className="text-xs">
+                  <SelectItem value="EDITOR" className="">
                     Editor (Can draw & edit)
                   </SelectItem>
-                  <SelectItem value="VIEWER" className="text-xs">
+                  <SelectItem value="VIEWER" className="">
                     Viewer (Read-only)
                   </SelectItem>
                 </SelectContent>
@@ -162,7 +162,7 @@ export function MembersTab({ boardId }: MembersTabProps) {
               <Button
                 type="submit"
                 disabled={isAdding}
-                className="bg-violet-600 hover:bg-violet-500 font-semibold text-white text-xs h-9 px-4 flex items-center gap-1.5"
+                className="flex h-9 items-center gap-1.5 bg-violet-600 px-4 font-semibold hover:bg-violet-500"
               >
                 {isAdding ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -178,20 +178,20 @@ export function MembersTab({ boardId }: MembersTabProps) {
 
       {/* Member List */}
       <div className="space-y-2.5">
-        <Label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-          Active Members ({members.length})
+        <Label className="block font-bold tracking-wider uppercase text-muted-foreground">
+          Whiteboard Members
         </Label>
 
         {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : members.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-6 text-xs text-slate-400 dark:border-slate-800">
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed py-6 text-muted-foreground">
             <AlertCircle className="h-4 w-4" /> No active members.
           </div>
         ) : (
-          <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
             {members.map((member) => {
               const isSelf = member.user.id === currentUserId
               const isMemberOwner = member.role === "OWNER"
@@ -208,28 +208,33 @@ export function MembersTab({ boardId }: MembersTabProps) {
               return (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-card p-2.5 dark:border-slate-800"
+                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5"
                 >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Avatar className="h-8 w-8 border border-slate-200 shadow-xs dark:border-slate-800">
-                      <AvatarImage src={member.user.avatarUrl || undefined} alt={member.user.name} />
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <Avatar className="h-8 w-8 border shadow-xs">
+                      <AvatarImage
+                        src={member.user.avatarUrl || undefined}
+                        alt={member.user.name}
+                      />
                       <AvatarFallback
-                        style={{ backgroundColor: getAvatarColor(member.user.id) }}
-                        className="text-[10px] font-bold text-white"
+                        style={{
+                          backgroundColor: getAvatarColor(member.user.id),
+                        }}
+                        className="text-sm font-bold"
                       >
                         {userInitials}
                       </AvatarFallback>
                     </Avatar>
 
-                    <div className="flex flex-col min-w-0 leading-tight">
-                      <span className="truncate text-xs font-bold text-slate-800 dark:text-slate-100">
+                    <div className="flex min-w-0 flex-col leading-tight">
+                      <span className="truncate font-bold text-foreground">
                         {member.user.name} {isSelf && " (You)"}
                       </span>
                     </div>
                   </div>
 
                   {/* Actions Section */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     {/* Role Display / Dropdown */}
                     {isOwner && !isSelf && !isMemberOwner ? (
                       <select
@@ -240,34 +245,43 @@ export function MembersTab({ boardId }: MembersTabProps) {
                             role: e.target.value as "EDITOR" | "VIEWER",
                           })
                         }
-                        className="rounded border border-slate-200 bg-background px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 focus:outline-none dark:border-slate-800 dark:text-slate-300"
+                        className="rounded border bg-background px-1.5 py-0.5 text-sm font-semibold text-muted-foreground focus:outline-none"
                       >
                         <option value="EDITOR">Editor</option>
                         <option value="VIEWER">Viewer</option>
                       </select>
                     ) : (
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                        isMemberOwner
-                          ? "bg-amber-50 text-amber-600 border border-amber-200/50 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30"
-                          : member.role === "EDITOR"
-                            ? "bg-violet-50 text-violet-600 border border-violet-200/50 dark:bg-violet-950/20 dark:text-violet-400 dark:border-violet-900/30"
-                            : "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
-                      }`}>
+                      <div
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${
+                          isMemberOwner
+                            ? "border border-amber-200/50 bg-amber-50 text-amber-600 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400"
+                            : member.role === "EDITOR"
+                              ? "border border-violet-200/50 bg-violet-50 text-violet-600 dark:border-violet-900/30 dark:bg-violet-950/20 dark:text-violet-400"
+                              : "border bg-muted text-muted-foreground"
+                        }`}
+                      >
                         {member.role.toLowerCase()}
-                      </span>
+                      </div>
                     )}
 
                     {/* Owner-only Actions (Transfer & Remove) */}
                     {isOwner && !isSelf && (
-                      <div className="flex items-center gap-0.5 ml-1 border-l border-slate-100 pl-1.5 dark:border-slate-800">
+                      <div className="ml-1 flex items-center gap-0.5 border-l pl-1.5">
                         {/* Transfer Ownership */}
                         <Button
                           size="icon"
                           variant="ghost"
                           title="Transfer Ownership"
                           onClick={() => {
-                            if (confirm(`Transfer board ownership to ${member.user.name}? You will become an Editor.`)) {
-                              updateRole({ memberId: member.user.id, role: "OWNER" })
+                            if (
+                              confirm(
+                                `Transfer board ownership to ${member.user.name}? You will become an Editor.`,
+                              )
+                            ) {
+                              updateRole({
+                                memberId: member.user.id,
+                                role: "OWNER",
+                              })
                             }
                           }}
                           className="h-7 w-7 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20"
@@ -281,7 +295,11 @@ export function MembersTab({ boardId }: MembersTabProps) {
                           variant="ghost"
                           title="Remove Member"
                           onClick={() => {
-                            if (confirm(`Remove ${member.user.name} from this board?`)) {
+                            if (
+                              confirm(
+                                `Remove ${member.user.name} from this board?`,
+                              )
+                            ) {
                               removeMember(member.user.id)
                             }
                           }}

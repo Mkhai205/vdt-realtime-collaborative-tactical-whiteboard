@@ -242,7 +242,7 @@ export function Glitchy404({
           viewBox="0 0 100 29"
           fill="white"
           xmlns="http://www.w3.org/2000/svg"
-          className="cursor-pointer fill-current text-white"
+          className="cursor-pointer fill-current"
         >
           {/* First "4" - Multiple chunks for variety */}
           <motion.g

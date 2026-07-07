@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState } from "react"
@@ -44,7 +45,7 @@ export function ImportLayoutDialog({
       toast.success(
         mode === "OVERWRITE"
           ? "Whiteboard layout overwritten successfully!"
-          : "Shapes appended successfully!"
+          : "Shapes appended successfully!",
       )
       onOpenChange(false)
     } catch (err: any) {
@@ -56,22 +57,25 @@ export function ImportLayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="select-none p-6 sm:max-w-105">
+      <DialogContent className="p-6 select-none sm:max-w-105">
         <DialogHeader>
-          <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-50">
+          <DialogTitle className="text-base font-bold text-foreground">
             Import Layout Options
           </DialogTitle>
-          <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
-            Choose how you want to apply the {objects.length} tactical shapes onto the current board.
+          <DialogDescription className="">
+            Choose how you want to apply the {objects.length} tactical shapes
+            onto the current board.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-3">
           {/* File Info Alert */}
-          <div className="flex gap-2.5 rounded-xl bg-violet-50/50 p-3 dark:bg-violet-950/10 border border-violet-100/50 dark:border-violet-900/30">
-            <Info className="h-4.5 w-4.5 text-violet-500 shrink-0 mt-0.5" />
-            <div className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
-              <span className="font-semibold text-slate-800 dark:text-slate-200">Current Board state:</span>{" "}
+          <div className="flex gap-2.5 rounded-xl border border-violet-100/50 bg-violet-50/50 p-3 dark:border-violet-900/30 dark:bg-violet-950/10">
+            <Info className="mt-0.5 h-4.5 w-4.5 shrink-0 text-violet-500" />
+            <div className="text-sm leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                Current Board state:
+              </span>{" "}
               Contains {currentObjectsCount} existing active shapes.
             </div>
           </div>
@@ -81,19 +85,21 @@ export function ImportLayoutDialog({
             {/* Append Mode */}
             <div
               onClick={() => setMode("APPEND")}
-              className={`flex flex-col items-center justify-center p-4 rounded-xl border text-center cursor-pointer transition-all duration-200 ${
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border p-4 text-center transition-all duration-200 ${
                 mode === "APPEND"
                   ? "border-violet-500 bg-violet-50/10 dark:bg-violet-950/5"
-                  : "border-slate-200 hover:border-slate-300 dark:border-slate-800"
+                  : "border hover:border-border"
               }`}
             >
-              <div className={`p-2 rounded-lg mb-2.5 ${mode === "APPEND" ? "bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400" : "bg-slate-100 text-slate-500 dark:bg-slate-800"}`}>
+              <div
+                className={`mb-2.5 rounded-lg p-2 ${mode === "APPEND" ? "bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400" : "bg-muted"}`}
+              >
                 <CopyPlus className="h-5 w-5" />
               </div>
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              <span className="font-bold text-foreground">
                 Append Shapes
               </span>
-              <span className="mt-1 text-[9px] text-slate-400 leading-tight">
+              <span className="mt-1 text-[9px] leading-tight text-muted-foreground">
                 Add new shapes on top of the existing ones.
               </span>
             </div>
@@ -101,19 +107,21 @@ export function ImportLayoutDialog({
             {/* Overwrite Mode */}
             <div
               onClick={() => setMode("OVERWRITE")}
-              className={`flex flex-col items-center justify-center p-4 rounded-xl border text-center cursor-pointer transition-all duration-200 ${
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border p-4 text-center transition-all duration-200 ${
                 mode === "OVERWRITE"
                   ? "border-violet-500 bg-violet-50/10 dark:bg-violet-950/5"
-                  : "border-slate-200 hover:border-slate-300 dark:border-slate-800"
+                  : "border hover:border-border"
               }`}
             >
-              <div className={`p-2 rounded-lg mb-2.5 ${mode === "OVERWRITE" ? "bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400" : "bg-slate-100 text-slate-500 dark:bg-slate-800"}`}>
+              <div
+                className={`mb-2.5 rounded-lg p-2 ${mode === "OVERWRITE" ? "bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400" : "bg-muted"}`}
+              >
                 <RefreshCcw className="h-5 w-5" />
               </div>
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              <span className="font-bold text-foreground">
                 Overwrite Board
               </span>
-              <span className="mt-1 text-[9px] text-slate-400 leading-tight">
+              <span className="mt-1 text-[9px] leading-tight text-muted-foreground">
                 Delete all current drawings and start fresh.
               </span>
             </div>
@@ -124,14 +132,14 @@ export function ImportLayoutDialog({
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="text-xs font-medium"
+              className="font-medium"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isPending}
-              className="bg-violet-600 text-xs font-semibold text-white hover:bg-violet-500"
+              className="bg-violet-600 font-semibold hover:bg-violet-500"
             >
               {isPending ? (
                 <>

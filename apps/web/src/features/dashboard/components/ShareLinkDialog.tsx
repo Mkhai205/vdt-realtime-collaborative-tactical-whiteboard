@@ -112,10 +112,8 @@ export function ShareLinkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-6 select-none sm:max-w-120">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-50">
-            Share Links
-          </DialogTitle>
-          <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+          <DialogTitle className="text-xl font-bold">Share Links</DialogTitle>
+          <DialogDescription className="text-sm">
             Create invitation links that allow others to join this workspace.
           </DialogDescription>
         </DialogHeader>
@@ -123,30 +121,26 @@ export function ShareLinkDialog({
         <div className="space-y-6 py-4">
           {/* Direct Board Link Section */}
           <div className="space-y-2.5">
-            <Label className="block text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+            <Label className="block font-bold tracking-wider uppercase">
               {boardVisibility === "PUBLIC"
                 ? "Public Board Link"
                 : "Direct Board Link"}
             </Label>
-            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+            <div className="rounded-xl border p-4">
               <div className="mb-2 flex items-center gap-2">
                 {boardVisibility === "PUBLIC" ? (
                   <>
                     <Globe className="h-4 w-4 text-emerald-500" />
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Public Access
-                    </span>
+                    <span className="font-semibold">Public Access</span>
                   </>
                 ) : (
                   <>
                     <Lock className="h-4 w-4 text-amber-500" />
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Private Access
-                    </span>
+                    <span className="font-semibold">Private Access</span>
                   </>
                 )}
               </div>
-              <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="mb-3 text-sm">
                 {boardVisibility === "PUBLIC"
                   ? "Anyone on the internet with this link can view this board."
                   : "Only invited members can view or edit this board."}
@@ -155,14 +149,13 @@ export function ShareLinkDialog({
                 <Input
                   readOnly
                   value={`${window.location.origin}/board/${boardId}`}
-                  className="h-9 bg-background text-xs text-slate-600 select-all focus-visible:ring-violet-500 dark:text-slate-400"
                 />
                 <Button
                   size="sm"
                   onClick={() =>
                     handleCopy(`${window.location.origin}/board/${boardId}`)
                   }
-                  className="h-9 shrink-0 bg-violet-600 font-semibold text-white hover:bg-violet-500"
+                  className="h-9 shrink-0 bg-violet-600 font-semibold hover:bg-violet-500"
                 >
                   <Copy className="mr-1 h-3.5 w-3.5" /> Copy
                 </Button>
@@ -171,9 +164,9 @@ export function ShareLinkDialog({
           </div>
 
           {/* Create New Link Section */}
-          <div className="flex items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+          <div className="flex items-end gap-3 rounded-xl border bg-muted/20 p-4">
             <div className="flex flex-1 flex-col gap-1.5">
-              <Label className="text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+              <Label className="font-bold tracking-wider uppercase text-muted-foreground">
                 Select Invite Role
               </Label>
               <Select
@@ -196,7 +189,7 @@ export function ShareLinkDialog({
             <Button
               onClick={handleCreateLink}
               disabled={isGenerating}
-              className="bg-violet-600 font-semibold text-white hover:bg-violet-500"
+              className="bg-violet-600 font-semibold hover:bg-violet-500"
             >
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -208,17 +201,17 @@ export function ShareLinkDialog({
 
           {/* Existing Links List */}
           <div className="space-y-3">
-            <Label className="block text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+            <Label className="block font-bold tracking-wider uppercase">
               Active Share Links
             </Label>
 
             {isLoading ? (
               <div className="flex justify-center py-6">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : links.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-4 text-xs text-slate-400 dark:border-slate-800">
-                <AlertCircle className="h-4 w-4 text-slate-400" /> No active
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed py-4">
+                <AlertCircle className="h-4 w-4 text-muted-foreground" /> No active
                 share links found.
               </div>
             ) : (
@@ -229,16 +222,14 @@ export function ShareLinkDialog({
                   return (
                     <div
                       key={link.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-card p-3 transition-colors hover:bg-slate-50/30 dark:border-slate-800 dark:hover:bg-slate-900/10"
+                      className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 transition-colors"
                     >
                       <div className="flex min-w-0 flex-1 flex-col">
                         <div className="flex items-center gap-1.5">
                           <Link2 className="h-3.5 w-3.5 text-violet-500" />
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                            {link.role}
-                          </span>
+                          <span className="font-bold">{link.role}</span>
                         </div>
-                        <span className="mt-0.5 truncate text-[10px] text-slate-400 dark:text-slate-500">
+                        <span className="mt-0.5 truncate text-sm">
                           {frontendUrl}
                         </span>
                       </div>
@@ -248,15 +239,14 @@ export function ShareLinkDialog({
                           size="icon"
                           variant="ghost"
                           onClick={() => handleCopy(frontendUrl)}
-                          className="h-8 w-8 text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                          className="h-8 w-8 hover:text-foreground"
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           size="icon"
-                          variant="ghost"
+                          variant="destructive"
                           onClick={() => handleRevokeLink(link.id)}
-                          className="h-8 w-8 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

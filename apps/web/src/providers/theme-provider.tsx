@@ -22,7 +22,6 @@ function ThemeProvider({
   )
 }
 
-
 function ThemeHotkey() {
   const { resolvedTheme, setTheme } = useTheme()
 
@@ -36,7 +35,7 @@ function ThemeHotkey() {
         return
       }
 
-      if (!event.shiftKey || event.key.toLowerCase() !== "d") {
+      if (!event.shiftKey || event.key.toLowerCase() !== "q") {
         return
       }
 

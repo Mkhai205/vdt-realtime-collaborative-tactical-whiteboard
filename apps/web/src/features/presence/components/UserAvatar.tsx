@@ -14,7 +14,7 @@ function getInitials(name: string): string {
 
   const first = firstPart[0] || ""
   const lastPart = parts[parts.length - 1]
-  const last = lastPart ? (lastPart[0] || "") : ""
+  const last = lastPart ? lastPart[0] || "" : ""
   return (first + last).toUpperCase()
 }
 
@@ -35,8 +35,8 @@ export function UserAvatar({
 }: UserAvatarProps) {
   const initials = getInitials(user.name)
   const sizeClasses = {
-    sm: "h-6 w-6 text-[10px]",
-    md: "h-8 w-8 text-xs",
+    sm: "h-6 w-6 text-sm",
+    md: "h-8 w-8 ",
     lg: "h-10 w-10 text-sm",
   }
 
@@ -44,7 +44,12 @@ export function UserAvatar({
 
   return (
     <div className={cn("flex items-center gap-2", className)} style={style}>
-      <Avatar className={cn(sizeClasses[size], "border border-border shadow-xs shrink-0")}>
+      <Avatar
+        className={cn(
+          sizeClasses[size],
+          "shrink-0 border border-border shadow-xs",
+        )}
+      >
         {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
         <AvatarFallback
           style={{ backgroundColor: avatarColor, color: "#ffffff" }}
@@ -53,7 +58,9 @@ export function UserAvatar({
           {initials || <User className="h-3.5 w-3.5" />}
         </AvatarFallback>
       </Avatar>
-      {showName && <span className="font-medium text-sm text-foreground">{user.name}</span>}
+      {showName && (
+        <span className="text-sm font-medium text-foreground">{user.name}</span>
+      )}
     </div>
   )
 }

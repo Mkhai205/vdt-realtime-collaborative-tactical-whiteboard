@@ -22,7 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Loader2, FileJson, UploadCloud, AlertCircle, CheckCircle2 } from "lucide-react"
+import {
+  Loader2,
+  FileJson,
+  UploadCloud,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react"
 import { toast } from "sonner"
 
 interface ImportBoardDialogProps {
@@ -73,8 +79,14 @@ export function ImportBoardDialog({
         const text = event.target?.result as string
         const parsed = JSON.parse(text)
 
-        if (!parsed.board || typeof parsed.board.name !== "string" || !Array.isArray(parsed.objects)) {
-          setFileError("Invalid file format. The file must contain board metadata and an objects array.")
+        if (
+          !parsed.board ||
+          typeof parsed.board.name !== "string" ||
+          !Array.isArray(parsed.objects)
+        ) {
+          setFileError(
+            "Invalid file format. The file must contain board metadata and an objects array.",
+          )
           setImportData(null)
           return
         }
@@ -146,17 +158,21 @@ export function ImportBoardDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(val) => {
-      onOpenChange(val)
-      if (!val) resetForm()
-    }}>
-      <DialogContent className="p-6 sm:max-w-115 select-none">
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        onOpenChange(val)
+        if (!val) resetForm()
+      }}
+    >
+      <DialogContent className="p-6 select-none sm:max-w-115">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-50">
+          <DialogTitle className="text-xl font-bold text-foreground">
             Import Board
           </DialogTitle>
-          <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
-            Create a new whiteboard by importing a previously exported `.rctw` or `.json` file.
+          <DialogDescription className="text-sm">
+            Create a new whiteboard by importing a previously exported `.rctw`
+            or `.json` file.
           </DialogDescription>
         </DialogHeader>
 
@@ -166,12 +182,12 @@ export function ImportBoardDialog({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`mt-4 flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-200 ${
+            className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-all duration-200 ${
               isDragOver
                 ? "border-violet-500 bg-violet-50/50 dark:bg-violet-950/10"
                 : fileError
-                ? "border-red-300 bg-red-50/10 hover:border-red-400"
-                : "border-slate-200 hover:border-violet-400 hover:bg-slate-50/50 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-900/30"
+                  ? "border-red-300 bg-red-50/10 hover:border-red-400"
+                  : "border hover:border-violet-400 hover:bg-muted/30"
             }`}
           >
             <input
@@ -181,16 +197,21 @@ export function ImportBoardDialog({
               accept=".rctw,.json"
               className="hidden"
             />
-            <UploadCloud className={`h-10 w-10 mb-3 ${isDragOver ? "text-violet-500" : "text-slate-400"}`} />
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Drag and drop your file here, or <span className="text-violet-600 dark:text-violet-400">browse</span>
+            <UploadCloud
+              className={`mb-3 h-10 w-10 ${isDragOver ? "text-violet-500" : "text-muted-foreground"}`}
+            />
+            <p className="text-sm font-semibold text-foreground">
+              Drag and drop your file here, or{" "}
+              <span className="text-violet-600 dark:text-violet-400">
+                browse
+              </span>
             </p>
-            <p className="mt-1 text-[11px] text-slate-400">
+            <p className="mt-1 text-sm text-muted-foreground">
               Supports `.rctw` or `.json` whiteboard exports
             </p>
 
             {fileError && (
-              <div className="mt-4 flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-950/20 px-3 py-2 text-left text-xs text-red-600 dark:text-red-400">
+              <div className="mt-4 flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-left text-red-600 dark:bg-red-950/20 dark:text-red-400">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{fileError}</span>
               </div>
@@ -199,16 +220,16 @@ export function ImportBoardDialog({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-3">
             {/* File Info Card */}
-            <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800/80 dark:bg-slate-900/30">
-              <div className="rounded-lg bg-violet-100 dark:bg-violet-950/30 p-2 text-violet-600 dark:text-violet-400">
+            <div className="flex items-center gap-3 rounded-xl border bg-muted/20 p-3">
+              <div className="rounded-lg bg-violet-100 p-2 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400">
                 <FileJson className="h-5 w-5" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-bold text-foreground">
                   {fileName}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
-                  <span className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-0.5 font-medium text-emerald-600 dark:text-emerald-400">
                     <CheckCircle2 className="h-3 w-3" /> Valid File
                   </span>
                   <span>•</span>
@@ -220,7 +241,7 @@ export function ImportBoardDialog({
                 variant="ghost"
                 size="xs"
                 onClick={resetForm}
-                className="text-xs text-slate-500 hover:text-slate-800"
+                className="hover:text-foreground"
               >
                 Change
               </Button>
@@ -228,7 +249,10 @@ export function ImportBoardDialog({
 
             {/* Custom Board Name */}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="import-board-name" className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              <Label
+                htmlFor="import-board-name"
+                className="text-sm font-semibold text-foreground"
+              >
                 Board Name <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -242,7 +266,10 @@ export function ImportBoardDialog({
 
             {/* Custom Description */}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="import-board-desc" className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              <Label
+                htmlFor="import-board-desc"
+                className="text-sm font-semibold text-foreground"
+              >
                 Description
               </Label>
               <Textarea
@@ -256,12 +283,17 @@ export function ImportBoardDialog({
 
             {/* Visibility */}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="import-board-visibility" className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              <Label
+                htmlFor="import-board-visibility"
+                className="text-sm font-semibold text-foreground"
+              >
                 Visibility
               </Label>
               <Select
                 value={visibility}
-                onValueChange={(val: "PRIVATE" | "PUBLIC") => setVisibility(val)}
+                onValueChange={(val: "PRIVATE" | "PUBLIC") =>
+                  setVisibility(val)
+                }
               >
                 <SelectTrigger id="import-board-visibility" className="w-full">
                   <SelectValue placeholder="Select visibility" />
@@ -269,16 +301,16 @@ export function ImportBoardDialog({
                 <SelectContent>
                   <SelectItem value="PRIVATE">
                     <div className="flex flex-col text-left">
-                      <span className="text-xs font-semibold">Private 🔒</span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="font-semibold">Private 🔒</span>
+                      <span className="text-sm text-muted-foreground">
                         Only invited users can view and edit
                       </span>
                     </div>
                   </SelectItem>
                   <SelectItem value="PUBLIC">
                     <div className="flex flex-col text-left">
-                      <span className="text-xs font-semibold">Public 🌐</span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="font-semibold">Public 🌐</span>
+                      <span className="text-sm text-muted-foreground">
                         Anyone with the link can view
                       </span>
                     </div>
@@ -302,11 +334,12 @@ export function ImportBoardDialog({
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-violet-600 px-5 font-semibold text-white hover:bg-violet-500"
+                className="bg-violet-600 px-5 font-semibold hover:bg-violet-500"
               >
                 {isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importing...
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                    Importing...
                   </>
                 ) : (
                   "Import Board"
