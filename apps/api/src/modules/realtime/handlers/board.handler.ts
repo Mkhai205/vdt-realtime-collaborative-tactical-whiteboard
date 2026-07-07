@@ -14,7 +14,6 @@ import {
 import { BoardService } from "../../board/service/board.service"
 import { WhiteboardQueryService } from "../../board/service/board-operation.service"
 import { PresenceService } from "../services/presence.service"
-import { AppException } from "../../../common/exceptions"
 
 @Injectable()
 export class BoardHandler {

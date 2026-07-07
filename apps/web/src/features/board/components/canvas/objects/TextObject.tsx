@@ -97,7 +97,7 @@ export const TextObject = memo(function TextObject({
           fontFamily={s.fontFamily ?? "Inter, sans-serif"}
           fontStyle={s.fontWeight === "bold" ? "bold" : "normal"}
           fill={s.color ?? "#1f2937"}
-          align="left"
+          align={s.textAlign ?? "left"}
           verticalAlign="top"
           perfectDrawEnabled={false}
           shadowEnabled={false}

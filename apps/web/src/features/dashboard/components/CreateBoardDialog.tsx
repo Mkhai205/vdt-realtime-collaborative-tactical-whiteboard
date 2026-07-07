@@ -77,10 +77,10 @@ export function CreateBoardDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-6 sm:max-w-115">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-50">
+          <DialogTitle className="text-xl font-bold text-foreground">
             Create New Board
           </DialogTitle>
-          <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+          <DialogDescription className="text-sm">
             Design a new whiteboard and invite your team members to collaborate.
           </DialogDescription>
         </DialogHeader>
@@ -90,7 +90,7 @@ export function CreateBoardDialog({
           <div className="flex flex-col gap-1.5">
             <Label
               htmlFor="board-name"
-              className="text-sm font-semibold text-slate-800 dark:text-slate-200"
+              className="text-sm font-semibold text-foreground"
             >
               Board Name <span className="text-red-500">*</span>
             </Label>
@@ -107,9 +107,7 @@ export function CreateBoardDialog({
               }
             />
             {errors.name && (
-              <span className="text-xs font-medium text-red-500">
-                {errors.name}
-              </span>
+              <span className="font-medium text-red-500">{errors.name}</span>
             )}
           </div>
 
@@ -117,7 +115,7 @@ export function CreateBoardDialog({
           <div className="flex flex-col gap-1.5">
             <Label
               htmlFor="board-desc"
-              className="text-sm font-semibold text-slate-800 dark:text-slate-200"
+              className="text-sm font-semibold text-foreground"
             >
               Description
             </Label>
@@ -134,7 +132,7 @@ export function CreateBoardDialog({
           <div className="flex flex-col gap-1.5">
             <Label
               htmlFor="board-visibility"
-              className="text-sm font-semibold text-slate-800 dark:text-slate-200"
+              className="text-sm font-semibold text-foreground"
             >
               Visibility
             </Label>
@@ -148,16 +146,16 @@ export function CreateBoardDialog({
               <SelectContent>
                 <SelectItem value="PRIVATE">
                   <div className="flex flex-col text-left">
-                    <span className="text-xs font-semibold">Private 🔒</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="font-semibold">Private 🔒</span>
+                    <span className="text-sm text-muted-foreground">
                       Only invited users can view and edit
                     </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="PUBLIC">
                   <div className="flex flex-col text-left">
-                    <span className="text-xs font-semibold">Public 🌐</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="font-semibold">Public 🌐</span>
+                    <span className="text-sm text-muted-foreground">
                       Anyone with the link can view (Editor access requires
                       invitation)
                     </span>
@@ -179,7 +177,7 @@ export function CreateBoardDialog({
             <Button
               type="submit"
               disabled={isPending}
-              className="bg-violet-600 px-5 font-semibold text-white hover:bg-violet-500"
+              className="bg-violet-600 px-5 font-semibold hover:bg-violet-500"
             >
               {isPending ? (
                 <>

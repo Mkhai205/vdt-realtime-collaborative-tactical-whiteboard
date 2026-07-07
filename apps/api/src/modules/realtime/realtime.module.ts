@@ -12,6 +12,7 @@ import {
   CursorHandler,
   PresenceHandler,
   SelectionHandler,
+  LaserHandler,
 } from "./handlers"
 
 @Module({
@@ -27,6 +28,7 @@ import {
     CursorHandler,
     PresenceHandler,
     SelectionHandler,
+    LaserHandler,
   ],
   exports: [PresenceService],
 })

@@ -110,12 +110,12 @@ export function PresenceBar() {
                         {user.name} {isSelf && " (You)"}
                       </span>
                       {isEditing && (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                           ✏️ Currently editing shapes
                         </span>
                       )}
                       {!isSelf && (
-                        <span className="text-[10px] text-emerald-400">
+                        <span className="text-sm text-emerald-400">
                           {isFollowing
                             ? "Following — click to unfollow"
                             : "Click to follow cursor"}
@@ -133,7 +133,7 @@ export function PresenceBar() {
         {extraCount > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="ml-1 flex h-7 w-7 cursor-default items-center justify-center rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground hover:bg-muted/80">
+              <div className="ml-1 flex h-7 w-7 cursor-default items-center justify-center rounded-full border border-border bg-muted font-bold text-muted-foreground hover:bg-muted/80">
                 +{extraCount}
               </div>
             </TooltipTrigger>
@@ -145,11 +145,11 @@ export function PresenceBar() {
 
         {/* Active following banner inside header if any user is followed */}
         {followingUserId && (
-          <div className="ml-2 flex animate-pulse items-center gap-1.5 border-l border-border pl-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <div className="ml-2 flex animate-pulse items-center gap-1.5 border-l border-border pl-2 font-medium text-emerald-600 dark:text-emerald-400">
             <span>Following</span>
             <button
               onClick={() => setFollowingUserId(null)}
-              className="ml-0.5 cursor-pointer rounded-sm bg-emerald-500/10 px-1.5 py-0.5 text-[10px] hover:bg-emerald-500/20"
+              className="ml-0.5 cursor-pointer rounded-sm bg-emerald-500/10 px-1.5 py-0.5 text-sm hover:bg-emerald-500/20"
             >
               Stop
             </button>

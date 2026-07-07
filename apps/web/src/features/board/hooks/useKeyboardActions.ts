@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useBoardStore } from "@/stores/board.store"
 import { useUIStore } from "@/stores/ui.store"
+import { type UseViewportReturn } from "@/features/board/components/canvas/useViewport"
 import type {
   BoardObjectDto,
   ObjectCreatePayload,
@@ -31,16 +32,19 @@ function isInputFocused(): boolean {
  *
  * Mutations are optimistic (board store only); socket events wired in Plan 08.
  */
-export function useKeyboardActions(mutations: {
-  createObject: (
-    payload: ObjectCreatePayload,
-    selectMode?: "replace" | "add" | "none",
-  ) => void
-  updateObject: (id: string, patch: ObjectUpdatePatch) => void
-  deleteObject: (id: string) => void
-  undo: () => void
-  redo: () => void
-}) {
+export function useKeyboardActions(
+  mutations: {
+    createObject: (
+      payload: ObjectCreatePayload,
+      selectMode?: "replace" | "add" | "none",
+    ) => void
+    updateObject: (id: string, patch: ObjectUpdatePatch) => void
+    deleteObject: (id: string) => void
+    undo: () => void
+    redo: () => void
+  },
+  viewport: UseViewportReturn,
+) {
   const mutationsRef = useRef(mutations)
 
   useEffect(() => {
@@ -58,10 +62,20 @@ export function useKeyboardActions(mutations: {
         setActiveTool,
         clipboard,
         setClipboard,
+        previewSnapshot,
       } = useUIStore.getState()
       const { objects, effectiveRole } = useBoardStore.getState()
       const isViewer =
-        effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+        effectiveRole === "VIEWER" ||
+        effectiveRole === "PUBLIC_VIEWER" ||
+        !!previewSnapshot
+
+      // ── Shift + 1 — zoom to fit all content ────────────────────────────────
+      if (e.shiftKey && e.key === "1") {
+        e.preventDefault()
+        viewport.fitToObjects()
+        return
+      }
 
       // ── Delete / Backspace — remove selected objects ────────────────────────
 
@@ -87,7 +101,6 @@ export function useKeyboardActions(mutations: {
         }
         return
       }
-
 
       // ── Arrow keys — nudge selected objects ───────────────────────────────
 
@@ -128,6 +141,13 @@ export function useKeyboardActions(mutations: {
       if (!e.ctrlKey && !e.metaKey) return
 
       switch (e.key.toLowerCase()) {
+        // Ctrl+0 — reset zoom to 100%
+        case "0": {
+          e.preventDefault()
+          viewport.resetZoom()
+          break
+        }
+
         // Ctrl+A — select all
         case "a": {
           if (isViewer) break
@@ -203,5 +223,5 @@ export function useKeyboardActions(mutations: {
 
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [])
+  }, [viewport])
 }

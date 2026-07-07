@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { BoardObjectDto, Tool, ObjectType, ShapeStyle } from "@rctw/shared-contracts"
+import type { BoardObjectDto, Tool, ObjectType, ShapeStyle, BoardSnapshotDetailResponse } from "@rctw/shared-contracts"
 import { DEFAULT_STYLES } from "../features/board/components/canvas/objects/shapeDefaults"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ export type DrawingStartPoint = { x: number; y: number }
 
 interface UIState {
   /** Currently active drawing/interaction tool */
-  activeTool: Tool
+  activeTool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER"
 
   /** IDs of currently selected canvas objects */
   selectedIds: Set<string>
@@ -63,10 +63,16 @@ interface UIState {
 
   /** Preferred default styles for each drawing tool */
   toolStyles: Record<string, ShapeStyle>
+
+  /** If true, keep the currently active tool selected after drawing instead of switching to SELECT */
+  keepToolActive: boolean
+
+  /** Previewing a history snapshot (null = not in history preview mode) */
+  previewSnapshot: BoardSnapshotDetailResponse | null
 }
 
 interface UIActions {
-  setActiveTool: (tool: Tool) => void
+  setActiveTool: (tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER") => void
 
   /** Replace selection with exactly this set of IDs */
   setSelectedIds: (ids: Set<string>) => void
@@ -96,7 +102,11 @@ interface UIActions {
 
   setJustCreatedShape: (val: boolean) => void
 
-  setToolStyle: (tool: Tool, patch: Partial<ShapeStyle>) => void
+  setToolStyle: (tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER", patch: Partial<ShapeStyle>) => void
+
+  setKeepToolActive: (val: boolean) => void
+
+  setPreviewSnapshot: (snapshot: BoardSnapshotDetailResponse | null) => void
 }
 
 type UIStore = UIState & UIActions
@@ -125,11 +135,30 @@ export const useUIStore = create<UIStore>()((set) => ({
   toolStyles: {
     RECTANGLE: { ...DEFAULT_STYLES.RECTANGLE },
     CIRCLE: { ...DEFAULT_STYLES.CIRCLE },
+    DIAMOND: { ...DEFAULT_STYLES.DIAMOND },
+    TRIANGLE: { ...DEFAULT_STYLES.TRIANGLE },
+    POLYGON: { ...DEFAULT_STYLES.POLYGON },
     LINE: { ...DEFAULT_STYLES.LINE },
+    ARROW: {
+      stroke: "#374151",
+      fill: "transparent",
+      strokeWidth: 3,
+      opacity: 1,
+      arrowStart: false,
+      arrowEnd: true,
+    },
     PATH: { ...DEFAULT_STYLES.PATH },
+    HIGHLIGHTER: {
+      stroke: "#facc15",
+      fill: "transparent",
+      strokeWidth: 14,
+      opacity: 0.35,
+    },
     ICON: { ...DEFAULT_STYLES.ICON },
     TEXT: { ...DEFAULT_STYLES.TEXT },
   },
+  keepToolActive: false,
+  previewSnapshot: null,
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -204,13 +233,20 @@ export const useUIStore = create<UIStore>()((set) => ({
   setJustCreatedShape: (justCreatedShape) => set({ justCreatedShape }),
 
   setToolStyle: (tool, patch) =>
-    set((state) => ({
-      toolStyles: {
-        ...state.toolStyles,
-        [tool]: {
-          ...state.toolStyles[tool],
-          ...patch,
+    set((state) => {
+      const currentToolStyle = state.toolStyles[tool] || {}
+      return {
+        toolStyles: {
+          ...state.toolStyles,
+          [tool]: {
+            ...currentToolStyle,
+            ...patch,
+          },
         },
-      },
-    })),
+      }
+    }),
+
+  setKeepToolActive: (keepToolActive) => set({ keepToolActive }),
+
+  setPreviewSnapshot: (previewSnapshot) => set({ previewSnapshot }),
 }))

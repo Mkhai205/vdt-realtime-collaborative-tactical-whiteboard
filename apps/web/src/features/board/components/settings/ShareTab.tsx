@@ -30,7 +30,6 @@ import {
 import { toast } from "sonner"
 import axios from "axios"
 
-
 interface ShareTabProps {
   boardId: string
 }
@@ -149,10 +148,10 @@ export function ShareTab({ boardId }: ShareTabProps) {
 
   if (isViewer) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-slate-400 select-none dark:text-slate-500">
-        <AlertCircle className="h-8 w-8 text-slate-400" />
+      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground select-none">
+        <AlertCircle className="h-8 w-8 text-muted-foreground" />
         <h3 className="text-sm font-bold">Permissions Required</h3>
-        <p className="max-w-70 text-[11px] leading-relaxed">
+        <p className="max-w-70 text-sm leading-relaxed">
           Only board Owners and Editors can generate share links or send email
           invitations.
         </p>
@@ -164,28 +163,30 @@ export function ShareTab({ boardId }: ShareTabProps) {
     <div className="space-y-6">
       {/* ── Direct Board Link Section ── */}
       <div className="space-y-2.5">
-        <Label className="text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
-          {boardVisibility === "PUBLIC" ? "Public Board Link" : "Direct Board Link"}
+        <Label className="font-bold tracking-wider uppercase text-muted-foreground">
+          {boardVisibility === "PUBLIC"
+            ? "Public Board Link"
+            : "Direct Board Link"}
         </Label>
-        <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-900/30">
-          <div className="flex items-center gap-1.5 mb-2">
+        <div className="rounded-xl border bg-muted/20 p-4">
+          <div className="mb-2 flex items-center gap-1.5">
             {boardVisibility === "PUBLIC" ? (
               <>
                 <Globe className="h-4 w-4 text-emerald-500" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <span className="font-semibold text-foreground">
                   Public Access
                 </span>
               </>
             ) : (
               <>
                 <Lock className="h-4 w-4 text-amber-500" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <span className="font-semibold text-foreground">
                   Private Access
                 </span>
               </>
             )}
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+          <p className="mb-3 text-sm">
             {boardVisibility === "PUBLIC"
               ? "Anyone on the internet with this link can view this board."
               : "Only invited members can view or edit this board."}
@@ -194,17 +195,19 @@ export function ShareTab({ boardId }: ShareTabProps) {
             <Input
               readOnly
               value={`${window.location.origin}/board/${boardId}`}
-              className="h-9 bg-background text-xs text-slate-600 dark:text-slate-400 select-all focus-visible:ring-violet-500"
+              className="h-9 bg-background text-muted-foreground select-all focus-visible:ring-violet-500"
             />
             <Button
               size="sm"
               onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/board/${boardId}`)
+                navigator.clipboard.writeText(
+                  `${window.location.origin}/board/${boardId}`,
+                )
                 toast.success("Copied board link to clipboard!")
               }}
-              className="bg-violet-600 h-9 font-semibold text-white hover:bg-violet-500 shrink-0"
+              className="h-9 shrink-0 bg-violet-600 font-semibold hover:bg-violet-500"
             >
-              <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+              <Copy className="mr-1 h-3.5 w-3.5" /> Copy
             </Button>
           </div>
         </div>
@@ -213,15 +216,15 @@ export function ShareTab({ boardId }: ShareTabProps) {
       {/* ── Share Link Section ── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+          <Label className="font-bold tracking-wider uppercase text-muted-foreground">
             Workspace Share Links
           </Label>
         </div>
 
         {/* Generate Link controls */}
-        <div className="flex items-end gap-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-900/30">
+        <div className="flex items-end gap-2 rounded-xl border p-4">
           <div className="flex flex-1 flex-col gap-1">
-            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            <span className="text-sm font-bold tracking-wider uppercase">
               Role
             </span>
             <Select
@@ -229,14 +232,14 @@ export function ShareTab({ boardId }: ShareTabProps) {
               onValueChange={(val: "EDITOR" | "VIEWER") => setNewLinkRole(val)}
               disabled={isGeneratingLink}
             >
-              <SelectTrigger className="h-9 w-full bg-background text-xs">
+              <SelectTrigger className="h-9 w-full bg-background">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="EDITOR" className="text-xs">
+                <SelectItem value="EDITOR" className="">
                   Editor
                 </SelectItem>
-                <SelectItem value="VIEWER" className="text-xs">
+                <SelectItem value="VIEWER" className="">
                   Viewer
                 </SelectItem>
               </SelectContent>
@@ -246,7 +249,7 @@ export function ShareTab({ boardId }: ShareTabProps) {
           <Button
             onClick={() => createLink(newLinkRole)}
             disabled={isGeneratingLink}
-            className="flex h-9 items-center gap-1 bg-violet-600 px-4 text-xs font-semibold text-white hover:bg-violet-500"
+            className="flex h-9 items-center gap-1 bg-violet-600 px-4 font-semibold hover:bg-violet-500"
           >
             {isGeneratingLink ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -260,10 +263,10 @@ export function ShareTab({ boardId }: ShareTabProps) {
         {/* Active links list */}
         {loadingLinks ? (
           <div className="flex justify-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : shareLinks.length === 0 ? (
-          <div className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 py-3.5 text-[11px] text-slate-400 dark:border-slate-800">
+          <div className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-3.5 text-sm">
             <AlertCircle className="h-3.5 w-3.5" /> No active share links
             generated.
           </div>
@@ -274,16 +277,16 @@ export function ShareTab({ boardId }: ShareTabProps) {
               return (
                 <div
                   key={link.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-card p-2.5 dark:border-slate-800"
+                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5"
                 >
                   <div className="flex min-w-0 flex-1 flex-col leading-tight">
                     <div className="flex items-center gap-1.5">
                       <Link2 className="h-3.5 w-3.5 text-violet-500" />
-                      <span className="text-[10px] font-bold tracking-wider text-slate-700 uppercase dark:text-slate-300">
+                      <span className="text-sm font-bold tracking-wider uppercase">
                         {link.role} Link
                       </span>
                     </div>
-                    <span className="mt-0.5 truncate text-[9px] text-slate-400 dark:text-slate-500">
+                    <span className="mt-0.5 truncate text-sm">
                       {fullUrl}
                     </span>
                   </div>
@@ -293,15 +296,15 @@ export function ShareTab({ boardId }: ShareTabProps) {
                       size="icon"
                       variant="ghost"
                       onClick={() => handleCopyLink(link.token)}
-                      className="h-7.5 w-7.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                      className="h-7.5 w-7.5"
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       size="icon"
-                      variant="ghost"
+                      variant="destructive"
                       onClick={() => revokeLink(link.id)}
-                      className="h-7.5 w-7.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                      className="h-7.5 w-7.5"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -314,15 +317,15 @@ export function ShareTab({ boardId }: ShareTabProps) {
       </div>
 
       {/* ── Email Invitation Section ── */}
-      <div className="space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800/80">
-        <Label className="text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+      <div className="space-y-3 border-t pt-3">
+        <Label className="font-bold tracking-wider uppercase">
           Email Invitations
         </Label>
 
         {/* Send Email invite controls */}
         <form
           onSubmit={handleSendInvite}
-          className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-900/30"
+          className="flex flex-col gap-2 rounded-xl border p-4"
         >
           <Input
             type="email"
@@ -331,7 +334,7 @@ export function ShareTab({ boardId }: ShareTabProps) {
             onChange={(e) => setInviteEmail(e.target.value)}
             disabled={isSendingInvite}
             required
-            className="bg-background text-xs focus-visible:ring-violet-500"
+            className="bg-background focus-visible:ring-violet-500"
           />
 
           <div className="flex gap-2">
@@ -340,14 +343,14 @@ export function ShareTab({ boardId }: ShareTabProps) {
               onValueChange={(val: "EDITOR" | "VIEWER") => setInviteRole(val)}
               disabled={isSendingInvite}
             >
-              <SelectTrigger className="h-9 w-full bg-background text-xs">
+              <SelectTrigger className="h-9 w-full bg-background">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="EDITOR" className="text-xs">
+                <SelectItem value="EDITOR" className="">
                   Editor
                 </SelectItem>
-                <SelectItem value="VIEWER" className="text-xs">
+                <SelectItem value="VIEWER" className="">
                   Viewer
                 </SelectItem>
               </SelectContent>
@@ -356,7 +359,7 @@ export function ShareTab({ boardId }: ShareTabProps) {
             <Button
               type="submit"
               disabled={isSendingInvite}
-              className="flex h-9 items-center gap-1.5 bg-violet-600 px-4 text-xs font-semibold text-white hover:bg-violet-500"
+              className="flex h-9 items-center gap-1.5 bg-violet-600 px-4 font-semibold hover:bg-violet-500"
             >
               {isSendingInvite ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -371,10 +374,10 @@ export function ShareTab({ boardId }: ShareTabProps) {
         {/* Pending email invites list */}
         {loadingInvites ? (
           <div className="flex justify-center py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : invitations.length === 0 ? (
-          <div className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 py-3.5 text-[11px] text-slate-400 dark:border-slate-800">
+          <div className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed py-3.5 text-sm">
             <AlertCircle className="h-3.5 w-3.5" /> No pending email
             invitations.
           </div>
@@ -392,14 +395,14 @@ export function ShareTab({ boardId }: ShareTabProps) {
               return (
                 <div
                   key={invite.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-card p-2.5 dark:border-slate-800"
+                  className="flex items-center justify-between gap-3 rounded-lg border bg-card p-2.5"
                 >
                   <div className="flex min-w-0 flex-1 flex-col leading-tight">
-                    <span className="truncate text-xs font-bold text-slate-800 dark:text-slate-100">
+                    <span className="truncate font-bold text-foreground">
                       {invite.email}
                     </span>
-                    <div className="mt-1 flex items-center gap-1.5 text-[9px] text-slate-400">
-                      <span className="rounded bg-slate-100 px-1 font-semibold tracking-wider text-slate-600 uppercase dark:bg-slate-800 dark:text-slate-400">
+                    <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <span className="rounded px-1 font-semibold tracking-wider uppercase">
                         {invite.role}
                       </span>
                       <span className="flex items-center gap-0.5">
@@ -410,9 +413,8 @@ export function ShareTab({ boardId }: ShareTabProps) {
 
                   <Button
                     size="icon"
-                    variant="ghost"
+                    variant="destructive"
                     onClick={() => revokeInvite(invite.id)}
-                    className="h-7.5 w-7.5 shrink-0 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>

@@ -14,6 +14,8 @@ import {
   listBoardsQuerySchema,
   updateBoardInfoRequestSchema,
   updateBoardSettingsRequestSchema,
+  importBoardRequestSchema,
+  importBoardObjectsRequestSchema,
   type BoardDetailResponse,
   type BoardResponse,
   type CreateBoardRequest,
@@ -22,6 +24,9 @@ import {
   type ListBoardsResponse,
   type UpdateBoardInfoRequest,
   type UpdateBoardSettingsRequest,
+  type ImportBoardRequest,
+  type ImportBoardObjectsRequest,
+  type BoardObjectsResponse,
 } from "@rctw/shared-contracts"
 import { CurrentUser } from "../../../common/decorators/current-user.decorator"
 import { Public } from "../../../common/decorators/public.decorator"
@@ -82,5 +87,22 @@ export class BoardController {
     @Param("boardId", ParseUUIDPipe) boardId: string,
   ): Promise<void> {
     await this.boardService.deleteBoard(currentUser, boardId)
+  }
+
+  @Post("import")
+  async importBoard(
+    @CurrentUser() currentUser: JwtPayload,
+    @ZodBody(importBoardRequestSchema) body: ImportBoardRequest,
+  ): Promise<BoardResponse> {
+    return this.boardService.importBoard(currentUser, body)
+  }
+
+  @Post(":boardId/import")
+  async importBoardObjects(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param("boardId", ParseUUIDPipe) boardId: string,
+    @ZodBody(importBoardObjectsRequestSchema) body: ImportBoardObjectsRequest,
+  ): Promise<BoardObjectsResponse> {
+    return this.boardService.importBoardObjects(currentUser, boardId, body)
   }
 }

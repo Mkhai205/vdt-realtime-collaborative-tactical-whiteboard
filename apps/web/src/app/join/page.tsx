@@ -53,31 +53,25 @@ function JoinContent() {
 
   if (authLoading || joining) {
     return (
-      <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50 select-none dark:bg-slate-950">
+      <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-          Joining board workspace...
-        </p>
+        <p className="text-sm font-medium">Joining board workspace...</p>
       </div>
     )
   }
 
   if (errorMsg) {
     return (
-      <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-4 bg-slate-50 p-4 select-none dark:bg-slate-950">
+      <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-4 p-4">
         <div className="flex max-w-md flex-col items-center gap-3 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/30">
             <AlertCircle className="h-6 w-6" />
           </div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-            Unable to Join Workspace
-          </h2>
-          <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            {errorMsg}
-          </p>
+          <h2 className="text-lg font-bold">Unable to Join Workspace</h2>
+          <p className="text-sm leading-relaxed">{errorMsg}</p>
           <Button
             onClick={() => router.push("/dashboard")}
-            className="mt-2 bg-violet-600 font-semibold text-white hover:bg-violet-500"
+            className="mt-2 bg-violet-600 font-semibold hover:bg-violet-500"
           >
             Go to Dashboard
           </Button>
@@ -93,7 +87,7 @@ export default function JoinPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-slate-950">
+        <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
         </div>
       }

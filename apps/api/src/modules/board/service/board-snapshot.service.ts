@@ -6,9 +6,12 @@ import {
 } from "@nestjs/common"
 import { Cron, CronExpression } from "@nestjs/schedule"
 import { Prisma, type PrismaClient } from "@rctw/database"
-import { type BoardObjectDto } from "@rctw/shared-contracts"
+import { type BoardObjectDto, type JwtPayload, operationTypes } from "@rctw/shared-contracts"
 import { PrismaService } from "../../../infrastructure/database"
 import { toBoardObjectDto } from "./mappers/board-object-response.mapper"
+import { BoardPermissionService } from "./board-permission.service"
+import { BoardEventsService } from "./board-events.service"
+
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,9 +47,27 @@ type TxClient = Pick<PrismaClient, "board" | "boardSnapshot" | "boardObject">
 export class BoardSnapshotService {
   private readonly logger = new Logger(BoardSnapshotService.name)
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly boardPermissionService: BoardPermissionService,
+    private readonly boardEventsService: BoardEventsService,
+  ) {}
 
   // ── Write ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Tạo snapshot thủ công bởi user. Yêu cầu quyền EDITOR/OWNER.
+   */
+  async createManualSnapshot(
+    currentUser: JwtPayload,
+    boardId: string,
+  ): Promise<BoardSnapshotResult> {
+    await this.boardPermissionService.assertFormalEditor(
+      currentUser.sub,
+      boardId,
+    )
+    return this.createSnapshot(boardId)
+  }
 
   /**
    * Tạo snapshot tại revision hiện tại của board.
@@ -108,7 +129,12 @@ export class BoardSnapshotService {
 
   // ── Read ────────────────────────────────────────────────────────────────────
 
-  async listSnapshots(boardId: string): Promise<BoardSnapshotSummary[]> {
+  async listSnapshots(
+    currentUser: JwtPayload,
+    boardId: string,
+  ): Promise<BoardSnapshotSummary[]> {
+    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
+
     const snapshots = await this.prisma.boardSnapshot.findMany({
       where: { boardId },
       orderBy: { revision: "desc" },
@@ -124,9 +150,12 @@ export class BoardSnapshotService {
   }
 
   async getSnapshot(
+    currentUser: JwtPayload,
     boardId: string,
     snapshotId: string,
   ): Promise<BoardSnapshotResult> {
+    await this.boardPermissionService.resolveAccess(currentUser.sub, boardId)
+
     const snapshot = await this.prisma.boardSnapshot.findFirst({
       where: { id: snapshotId, boardId },
     })
@@ -139,6 +168,106 @@ export class BoardSnapshotService {
     }
 
     return toSnapshotResult(snapshot)
+  }
+
+  async restoreSnapshot(
+    currentUser: JwtPayload,
+    boardId: string,
+    snapshotId: string,
+  ): Promise<BoardSnapshotResult> {
+    await this.boardPermissionService.assertFormalEditor(
+      currentUser.sub,
+      boardId,
+    )
+
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        const snapshot = await tx.boardSnapshot.findFirst({
+          where: { id: snapshotId, boardId },
+        })
+
+        if (!snapshot) {
+          throw new NotFoundException({
+            code: "NOT_FOUND",
+            message: "Snapshot not found.",
+          })
+        }
+
+        const snapshotData = parseSnapshotData(snapshot.data)
+
+        // 1. Delete all current operations for this board
+        await tx.boardOperation.deleteMany({
+          where: { boardId },
+        })
+
+        // 2. Delete all current objects for this board
+        await tx.boardObject.deleteMany({
+          where: { boardId },
+        })
+
+        // 3. Create all objects from the snapshot
+        if (snapshotData.objects && snapshotData.objects.length > 0) {
+          await tx.boardObject.createMany({
+            data: snapshotData.objects.map((obj) => ({
+              id: obj.id,
+              boardId: boardId,
+              type: obj.type,
+              x: obj.x,
+              y: obj.y,
+              width: obj.width ?? null,
+              height: obj.height ?? null,
+              points: obj.points != null ? (obj.points as Prisma.InputJsonValue) : Prisma.JsonNull,
+              text: obj.text ?? null,
+              rotation: obj.rotation,
+              style: obj.style as Prisma.InputJsonValue,
+              zIndex: obj.zIndex,
+              version: obj.version,
+              createdById: obj.createdById,
+              updatedById: obj.updatedById,
+              createdAt: new Date(obj.createdAt),
+              updatedAt: new Date(obj.updatedAt),
+            })),
+          })
+        }
+
+        // 4. Update board revision to snapshot.revision + 1
+        const newRevision = snapshot.revision + 1
+        await tx.board.update({
+          where: { id: boardId },
+          data: { currentRevision: newRevision },
+        })
+
+        // 5. Create restore operation
+        await tx.boardOperation.create({
+          data: {
+            clientOpId: `restore-${Date.now()}`,
+            boardId,
+            actorId: currentUser.sub,
+            revision: newRevision,
+            type: operationTypes.OBJECT_RESTORE,
+            payload: snapshotData as unknown as Prisma.InputJsonValue,
+            inversePayload: Prisma.DbNull,
+          },
+        })
+
+        return toSnapshotResult(snapshot)
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    )
+
+    // Emit event via BoardEventsService
+    const restoredObjects = await this.prisma.boardObject.findMany({
+      where: { boardId, deletedAt: null },
+      orderBy: [{ zIndex: "asc" }, { createdAt: "asc" }],
+    })
+
+    this.boardEventsService.emitBoardRestored({
+      boardId,
+      revision: result.revision + 1, // matches newRevision
+      objects: restoredObjects.map(toBoardObjectDto),
+    })
+
+    return result
   }
 
   async getLatestSnapshot(boardId: string): Promise<BoardSnapshotResult> {

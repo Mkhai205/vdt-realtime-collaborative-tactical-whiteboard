@@ -6,10 +6,17 @@ import {
   Square,
   Circle,
   ArrowRight,
+  Slash,
   Pencil,
+  Highlighter,
   Smile,
   Type,
   Image as ImageIcon,
+  Pin,
+  Diamond,
+  Triangle,
+  Hexagon,
+  Zap,
   type LucideIcon,
 } from "lucide-react"
 import { useBoardStore } from "@/stores/board.store"
@@ -26,7 +33,7 @@ import { DEFAULT_STYLES } from "../canvas/objects/shapeDefaults"
 
 const TOOL_GROUPS: Array<
   Array<{
-    tool: Tool
+    tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER"
     icon: LucideIcon
     shortcut: string
     label: string
@@ -39,13 +46,21 @@ const TOOL_GROUPS: Array<
   [
     { tool: "RECTANGLE", icon: Square, shortcut: "R", label: "Rectangle" },
     { tool: "CIRCLE", icon: Circle, shortcut: "C", label: "Circle" },
-    { tool: "LINE", icon: ArrowRight, shortcut: "L", label: "Line" },
+    { tool: "DIAMOND", icon: Diamond, shortcut: "O", label: "Diamond" },
+    { tool: "TRIANGLE", icon: Triangle, shortcut: "Y", label: "Triangle" },
+    { tool: "POLYGON", icon: Hexagon, shortcut: "G", label: "Polygon" },
+    { tool: "LINE", icon: Slash, shortcut: "L", label: "Line" },
+    { tool: "ARROW", icon: ArrowRight, shortcut: "A", label: "Arrow" },
   ],
   [
     { tool: "PATH", icon: Pencil, shortcut: "P", label: "Pen" },
+    { tool: "HIGHLIGHTER", icon: Highlighter, shortcut: "D", label: "Highlighter" },
     { tool: "ICON", icon: Smile, shortcut: "I", label: "Icon" },
     { tool: "TEXT", icon: Type, shortcut: "T", label: "Text" },
     { tool: "IMAGE", icon: ImageIcon, shortcut: "U", label: "Image" },
+  ],
+  [
+    { tool: "LASER", icon: Zap, shortcut: "K", label: "Laser Pointer" },
   ],
 ]
 
@@ -164,7 +179,39 @@ export function Toolbar() {
           )}
         </div>
       ))}
+      {!isViewer && (
+        <>
+          <div className="toolbar-sep" aria-hidden />
+          <div className="toolbar-group">
+            <KeepActiveToggle />
+          </div>
+        </>
+      )}
     </nav>
+  )
+}
+
+function KeepActiveToggle() {
+  const keepToolActive = useUIStore((s) => s.keepToolActive)
+  const setKeepToolActive = useUIStore((s) => s.setKeepToolActive)
+
+  return (
+    <div className="tool-btn-wrapper" role="none">
+      <button
+        id="tool-btn-keep-active"
+        className={`tool-btn${keepToolActive ? " tool-btn--active" : ""}`}
+        onClick={() => setKeepToolActive(!keepToolActive)}
+        aria-label="Keep selected tool active"
+        aria-pressed={keepToolActive}
+      >
+        <Pin size={18} strokeWidth={keepToolActive ? 2.2 : 1.8} />
+      </button>
+      <div className="tool-tooltip" role="tooltip">
+        <span className="tool-tooltip-label">
+          {keepToolActive ? "Lock Tool: Active" : "Lock Tool: Inactive"}
+        </span>
+      </div>
+    </div>
   )
 }
 

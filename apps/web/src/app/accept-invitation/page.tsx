@@ -55,11 +55,9 @@ function AcceptInvitationContent() {
   }, [token, accessToken, authLoading, router])
 
   return (
-    <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50 select-none dark:bg-slate-950">
+    <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3 select-none">
       <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-        Accepting email invitation...
-      </p>
+      <p className="text-sm font-medium">Accepting email invitation...</p>
     </div>
   )
 }
@@ -68,7 +66,7 @@ export default function AcceptInvitationPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-slate-950">
+        <div className="flex min-h-screen w-screen flex-col items-center justify-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
         </div>
       }

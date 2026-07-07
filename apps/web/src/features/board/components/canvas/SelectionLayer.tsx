@@ -93,10 +93,13 @@ export const SelectionLayer = memo(function SelectionLayer({ stageRef, lassoSele
       return
     }
 
-    // Find Konva nodes by ID from the objects layer, skipping the one currently being edited
+    // Find Konva nodes by ID, skipping text editing and LINE objects
     const nodes: Konva.Node[] = []
+    const { objects } = useBoardStore.getState()
     for (const id of selectedIds) {
       if (id === editingTextId) continue
+      const obj = objects.get(id)
+      if (obj && obj.type === "LINE") continue
       const node = stage.findOne(`#${id}`)
       if (node) nodes.push(node)
     }

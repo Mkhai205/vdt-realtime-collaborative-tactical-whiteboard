@@ -17,6 +17,8 @@ import {
   Lock,
   Globe,
   AlertTriangle,
+  Upload,
+  Download,
 } from "lucide-react"
 import {
   Dialog,
@@ -26,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ImportLayoutDialog } from "./ImportLayoutDialog"
 
 interface GeneralTabProps {
   boardId: string
@@ -58,6 +61,71 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
   // Saved success indicators
   const [savedName, setSavedName] = useState(false)
   const [savedDesc, setSavedDesc] = useState(false)
+
+  // Import/Export states
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importLayoutData, setImportLayoutData] = useState<any[] | null>(null)
+  const [importLayoutDialogOpen, setImportLayoutDialogOpen] = useState(false)
+
+  const handleExport = () => {
+    const state = useBoardStore.getState()
+    const exportData = {
+      version: 1,
+      board: {
+        name: state.boardName,
+        description: state.boardDescription,
+      },
+      objects: Array.from(state.objects.values()).map((obj) => ({
+        type: obj.type,
+        x: obj.x,
+        y: obj.y,
+        width: obj.width,
+        height: obj.height,
+        points: obj.points,
+        text: obj.text,
+        rotation: obj.rotation,
+        style: obj.style,
+        zIndex: obj.zIndex,
+      })),
+    }
+
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(exportData, null, 2))
+    const downloadAnchor = document.createElement("a")
+    downloadAnchor.setAttribute("href", dataStr)
+    const sanitizedName = state.boardName
+      .replace(/[^a-z0-9]/gi, "_")
+      .toLowerCase()
+    downloadAnchor.setAttribute("download", `${sanitizedName}_export.rctw`)
+    document.body.appendChild(downloadAnchor)
+    downloadAnchor.click()
+    downloadAnchor.remove()
+    toast.success("Board layout exported successfully")
+  }
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string
+        const parsed = JSON.parse(text)
+        if (!Array.isArray(parsed.objects)) {
+          toast.error("Invalid file format. Objects array is missing.")
+          return
+        }
+        setImportLayoutData(parsed.objects)
+        setImportLayoutDialogOpen(true)
+      } catch (err) {
+        toast.error("Failed to parse JSON file.")
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = "" // Reset
+  }
 
   // Adjust local states during rendering
   if (boardName !== prevBoardName) {
@@ -215,13 +283,13 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
         <div className="flex items-center justify-between">
           <Label
             htmlFor="general-board-name"
-            className="text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400"
+            className="font-bold tracking-wider uppercase text-muted-foreground"
           >
             Board Name
           </Label>
-          <div className="flex h-4 items-center gap-1.5 text-[10px]">
+          <div className="flex h-4 items-center gap-1.5 text-sm">
             {isSavingName && (
-              <span className="flex animate-pulse items-center gap-1 font-medium text-slate-400">
+              <span className="flex animate-pulse items-center gap-1 font-medium text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Saving...
               </span>
             )}
@@ -248,13 +316,13 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
         <div className="flex items-center justify-between">
           <Label
             htmlFor="general-board-desc"
-            className="text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400"
+            className="font-bold tracking-wider uppercase text-muted-foreground"
           >
             Description
           </Label>
-          <div className="flex h-4 items-center gap-1.5 text-[10px]">
+          <div className="flex h-4 items-center gap-1.5 text-sm">
             {isSavingDesc && (
-              <span className="flex animate-pulse items-center gap-1 font-medium text-slate-400">
+              <span className="flex animate-pulse items-center gap-1 font-medium text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Saving...
               </span>
             )}
@@ -278,11 +346,11 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
       </div>
 
       {/* Visibility Settings */}
-      <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-900/30">
-        <Label className="block text-xs font-bold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+      <div className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4">
+        <Label className="block font-bold tracking-wider uppercase text-muted-foreground">
           Board Visibility
         </Label>
-        <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+        <p className="text-sm text-muted-foreground">
           {isOwner
             ? "Configure who can view this board. Private boards require direct invites."
             : "Only the board Owner can modify visibility settings."}
@@ -294,9 +362,9 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
             variant={boardVisibility === "PRIVATE" ? "default" : "outline"}
             disabled={!isOwner || isSavingVisibility}
             onClick={() => handleToggleVisibility("PRIVATE")}
-            className={`flex flex-1 items-center justify-center gap-1.5 text-xs font-semibold ${
+            className={`flex flex-1 items-center justify-center gap-1.5 font-semibold ${
               boardVisibility === "PRIVATE"
-                ? "bg-violet-600 text-white hover:bg-violet-500"
+                ? "bg-violet-600 hover:bg-violet-500"
                 : ""
             }`}
           >
@@ -313,9 +381,9 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
             variant={boardVisibility === "PUBLIC" ? "default" : "outline"}
             disabled={!isOwner || isSavingVisibility}
             onClick={() => handleToggleVisibility("PUBLIC")}
-            className={`flex flex-1 items-center justify-center gap-1.5 text-xs font-semibold ${
+            className={`flex flex-1 items-center justify-center gap-1.5 font-semibold ${
               boardVisibility === "PUBLIC"
-                ? "bg-violet-600 text-white hover:bg-violet-500"
+                ? "bg-violet-600 hover:bg-violet-500"
                 : ""
             }`}
           >
@@ -329,20 +397,60 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
         </div>
       </div>
 
+      {/* Import & Export */}
+      <div className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4">
+        <Label className="block font-bold tracking-wider uppercase text-muted-foreground">
+          Import & Export
+        </Label>
+        <p className="text-sm text-muted-foreground">
+          Export this board&aposs tactical drawings, or import shapes from a
+          `.rctw` or `.json` file.
+        </p>
+        <div className="mt-2.5 flex items-center gap-2">
+          {canEdit && (
+            <>
+              <input
+                type="file"
+                ref={importInputRef}
+                onChange={handleImportFileChange}
+                accept=".rctw,.json"
+                className="hidden"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => importInputRef.current?.click()}
+                className="flex flex-1 items-center justify-center gap-1.5 font-semibold"
+              >
+                <Upload className="h-3.5 w-3.5" /> Import Layout
+              </Button>
+            </>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExport}
+            className="flex flex-1 items-center justify-center gap-1.5 font-semibold"
+          >
+            <Download className="h-3.5 w-3.5" /> Export Layout
+          </Button>
+        </div>
+      </div>
+
       {/* Danger Zone (Owner Only) */}
       {isOwner && (
         <div className="rounded-xl border border-red-200/50 bg-red-50/20 p-4 dark:border-red-950/20 dark:bg-red-950/5">
-          <h3 className="flex items-center gap-1 text-xs font-bold tracking-wider text-red-500 uppercase dark:text-red-400">
+          <h3 className="flex items-center gap-1 font-bold tracking-wider text-red-500 uppercase dark:text-red-400">
             <AlertTriangle className="h-3.5 w-3.5" /> Danger Zone
           </h3>
-          <p className="mt-1 text-[11px] leading-relaxed text-red-400">
+          <p className="mt-1 text-sm leading-relaxed text-red-400">
             Deleting this board will permanently delete all objects, revisions,
             and member associations. This action is irreversible.
           </p>
           <Button
             size="sm"
             onClick={() => setDeleteOpen(true)}
-            className="mt-3 flex w-full items-center justify-center gap-1.5 bg-red-600 text-xs font-semibold shadow-sm hover:bg-red-500"
+            className="mt-3 flex w-full items-center justify-center gap-1.5 bg-red-600 font-semibold shadow-sm hover:bg-red-500"
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete Whiteboard
           </Button>
@@ -353,12 +461,12 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="select-none sm:max-w-100">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <DialogTitle className="text-base font-bold text-foreground">
               Confirm Delete Whiteboard
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+            <DialogDescription className="">
               Are you sure you want to delete{" "}
-              <span className="font-bold text-slate-800 dark:text-slate-100">
+              <span className="font-bold text-foreground">
                 {boardName}
               </span>
               ? All tactical objects and drawings will be deleted permanently.
@@ -369,7 +477,7 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
               variant="ghost"
               disabled={isDeleting}
               onClick={() => setDeleteOpen(false)}
-              className="text-xs font-medium"
+              className="font-medium"
             >
               Cancel
             </Button>
@@ -377,7 +485,7 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
               variant="destructive"
               disabled={isDeleting}
               onClick={handleDeleteBoard}
-              className="flex items-center gap-1.5 bg-red-600 text-xs font-semibold hover:bg-red-500"
+              className="flex items-center gap-1.5 bg-red-600 font-semibold hover:bg-red-500"
             >
               {isDeleting ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -389,6 +497,15 @@ export function GeneralTab({ boardId }: GeneralTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {importLayoutData && (
+        <ImportLayoutDialog
+          boardId={boardId}
+          open={importLayoutDialogOpen}
+          onOpenChange={setImportLayoutDialogOpen}
+          objects={importLayoutData}
+        />
+      )}
     </div>
   )
 }

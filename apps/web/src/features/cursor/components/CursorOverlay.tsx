@@ -5,9 +5,11 @@ import { useUIStore } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
 import { RemoteCursor } from "./RemoteCursor"
 import { useCursorSync } from "../hooks/useCursorSync"
+import { useLaserSync } from "../hooks/useLaserSync"
 
 export function CursorOverlay({ boardId }: { boardId: string }) {
   useCursorSync(boardId)
+  useLaserSync(boardId)
   const cursors = useCursorStore((s) => s.cursors)
   const onlineUsers = useBoardStore((s) => s.onlineUsers)
   const { viewport } = useUIStore()

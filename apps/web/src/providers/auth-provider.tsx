@@ -12,10 +12,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 select-none dark:bg-slate-950">
+      <div className="flex h-screen w-screen items-center justify-center bg-background select-none">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-          <p className="animate-pulse text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="animate-pulse text-sm font-medium">
             Connecting to secure gateway...
           </p>
         </div>

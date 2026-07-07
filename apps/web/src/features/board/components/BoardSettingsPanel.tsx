@@ -23,7 +23,8 @@ export function BoardSettingsPanel({
 }: BoardSettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("general")
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
-  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+  const isViewer =
+    effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
   return (
     <AnimatePresence>
@@ -35,7 +36,7 @@ export function BoardSettingsPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => onOpenChange(false)}
-            className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-xs select-none pointer-events-auto"
+            className="pointer-events-auto fixed inset-0 z-40 bg-background/20 backdrop-blur-xs select-none"
           />
 
           {/* Slide-over Panel */}
@@ -44,59 +45,59 @@ export function BoardSettingsPanel({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 220 }}
-            className="fixed top-0 right-0 bottom-0 z-50 flex h-full w-full flex-col border-l border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md sm:max-w-105 dark:border-slate-800 dark:bg-slate-900/95 pointer-events-auto"
+            className="pointer-events-auto fixed top-0 right-0 bottom-0 z-50 flex h-full w-full flex-col border-l bg-background/95 shadow-2xl backdrop-blur-md sm:max-w-105"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800/80">
+            <div className="flex items-center justify-between border-b px-5 py-4">
               <div>
-                <h2 className="flex items-center gap-1.5 text-base font-bold text-slate-900 dark:text-slate-50">
+                <h2 className="flex items-center gap-1.5 text-base font-bold text-foreground">
                   <Settings className="h-4.5 w-4.5 text-violet-500" /> Board
                   Settings
                 </h2>
-                <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-sm">
                   Manage this whiteboard and member permissions.
                 </p>
               </div>
               <button
                 onClick={() => onOpenChange(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <X className="h-4.5 w-4.5" />
               </button>
             </div>
 
             {/* Tab Selectors */}
-            <div className="flex border-b border-slate-100 bg-slate-50/50 px-3 py-2 select-none dark:border-slate-800/80 dark:bg-slate-900/30">
+            <div className="flex gap-1 border-b px-3 py-2 select-none">
               <button
                 onClick={() => setActiveTab("general")}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 font-semibold transition-all ${
                   activeTab === "general"
-                    ? "bg-white text-violet-600 shadow-xs dark:bg-slate-800 dark:text-violet-400"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800/50 dark:hover:text-slate-300"
+                    ? "border bg-background text-violet-600 shadow-xs dark:bg-muted dark:text-violet-400"
+                    : "hover:bg-accent hover:text-foreground"
                 }`}
               >
-                <Settings className="h-3.5 w-3.5" /> General
+                <Settings className="h-3.5 w-3.5 text-sm" /> General
               </button>
               <button
                 onClick={() => setActiveTab("members")}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 font-semibold transition-all ${
                   activeTab === "members"
-                    ? "bg-white text-violet-600 shadow-xs dark:bg-slate-800 dark:text-violet-400"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800/50 dark:hover:text-slate-300"
+                    ? "border bg-background text-violet-600 shadow-xs dark:bg-muted dark:text-violet-400"
+                    : "hover:bg-accent hover:text-foreground"
                 }`}
               >
-                <Users className="h-3.5 w-3.5" /> Members
+                <Users className="h-3.5 w-3.5 text-sm" /> Members
               </button>
               {!isViewer && (
                 <button
                   onClick={() => setActiveTab("share")}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 font-semibold transition-all ${
                     activeTab === "share"
-                      ? "bg-white text-violet-600 shadow-xs dark:bg-slate-800 dark:text-violet-400"
-                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800/50 dark:hover:text-slate-300"
+                      ? "border bg-background text-violet-600 shadow-xs dark:bg-muted dark:text-violet-400"
+                      : "hover:bg-accent hover:text-foreground"
                   }`}
                 >
-                  <Link2 className="h-3.5 w-3.5" /> Share & Invite
+                  <Link2 className="h-3.5 w-3.5 text-sm" /> Share & Invite
                 </button>
               )}
             </div>
@@ -114,7 +115,9 @@ export function BoardSettingsPanel({
                 >
                   {activeTab === "general" && <GeneralTab boardId={boardId} />}
                   {activeTab === "members" && <MembersTab boardId={boardId} />}
-                  {activeTab === "share" && !isViewer && <ShareTab boardId={boardId} />}
+                  {activeTab === "share" && !isViewer && (
+                    <ShareTab boardId={boardId} />
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>

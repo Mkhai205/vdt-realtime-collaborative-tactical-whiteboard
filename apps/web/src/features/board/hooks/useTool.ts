@@ -5,16 +5,22 @@ import { useBoardStore } from "@/stores/board.store"
 
 // ─── Shortcut map ───────────────────────────────────────────────────────────────
 
-const KEY_TO_TOOL: Record<string, Tool> = {
+const KEY_TO_TOOL: Record<string, Tool | "HIGHLIGHTER" | "ARROW" | "LASER"> = {
   v: "SELECT",
   h: "HAND",
   r: "RECTANGLE",
   c: "CIRCLE",
   l: "LINE",
   p: "PATH",
+  d: "HIGHLIGHTER",
+  a: "ARROW",
   i: "ICON",
   t: "TEXT",
   u: "IMAGE",
+  o: "DIAMOND",
+  y: "TRIANGLE",
+  g: "POLYGON",
+  k: "LASER",
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────────
@@ -36,7 +42,7 @@ export function useTool() {
   const clearSelection = useUIStore((s) => s.clearSelection)
 
   const selectTool = useCallback(
-    (tool: Tool) => {
+    (tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER") => {
       setActiveTool(tool)
     },
     [setActiveTool],

@@ -15,3 +15,5 @@ export type { UseCanvasEventsReturn } from "./useCanvasEvents"
 export { SelectionLayer } from "./SelectionLayer"
 export { SelectionBadge } from "./SelectionBadge"
 export { UndoRedoControls } from "./UndoRedoControls"
+export { BackToContent } from "./BackToContent"
+

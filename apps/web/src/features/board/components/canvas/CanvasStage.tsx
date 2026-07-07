@@ -9,7 +9,7 @@ import { ObjectsLayer } from "./ObjectsLayer"
 import { DrawingPreview } from "./DrawingPreview"
 import { SelectionLayer } from "./SelectionLayer"
 import { TextEditorOverlay } from "./TextEditorOverlay"
-import { useViewport } from "./useViewport"
+import { type UseViewportReturn } from "./useViewport"
 import { useZoom } from "./useZoom"
 import { usePan } from "./usePan"
 import { useCanvasEvents } from "./useCanvasEvents"
@@ -17,18 +17,22 @@ import { useShapeCreation } from "@/features/board/hooks/useShapeCreation"
 import { useLassoSelect } from "@/features/board/hooks/useLassoSelect"
 import { useTransform } from "@/features/board/hooks/useTransform"
 import { useKeyboardActions } from "@/features/board/hooks/useKeyboardActions"
+import { useLaserPointer } from "@/features/board/hooks/useLaserPointer"
+import { useLaserEmit } from "@/features/board/hooks/useLaserEmit"
+import { LaserLayer } from "./LaserLayer"
+import { RemoteLaserLayer } from "@/features/cursor/components/RemoteLaserLayer"
 
 import { type UseObjectMutationsReturn } from "@/features/board/hooks/useObjectMutations"
 import { useCursorEmit } from "@/features/board/hooks/useCursorEmit"
 import { boardApi } from "@/features/board/api/board.api"
 import { DEFAULT_STYLES } from "./objects/shapeDefaults"
 
-
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface CanvasStageProps {
   boardId: string
   mutations: UseObjectMutationsReturn
+  viewportHook: UseViewportReturn
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -47,7 +51,11 @@ interface CanvasStageProps {
  *      [2] Selection         (Transformer + lasso rect)
  *      [3] UI                (drawing preview)
  */
-export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
+export function CanvasStage({
+  boardId,
+  mutations,
+  viewportHook,
+}: CanvasStageProps) {
   // ── Stage dimensions ──────────────────────────────────────────────────────
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -73,12 +81,12 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
   // ── Viewport / hooks ──────────────────────────────────────────────────────
 
-  const viewportHook = useViewport()
   const { stageRef } = viewportHook
 
   const viewport = useUIStore((s) => s.viewport)
   const activeTool = useUIStore((s) => s.activeTool)
   const isSpacePressed = useUIStore((s) => s.isSpacePressed)
+  const previewSnapshot = useUIStore((s) => s.previewSnapshot)
 
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
@@ -86,6 +94,10 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
   // Realtime Sync & mutations hooks
   const cursorEmit = useCursorEmit(boardId)
+
+  // Laser pointer hooks
+  const laser = useLaserPointer()
+  const laserEmit = useLaserEmit(boardId)
 
   const zoom = useZoom({ stageRef })
   const pan = usePan({ stageRef })
@@ -101,11 +113,13 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
     shapeCreation,
     lassoSelect,
     cursorEmit,
+    laser,
+    laserEmit,
   })
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
 
-  useKeyboardActions(mutations)
+  useKeyboardActions(mutations, viewportHook)
 
   // ── Spacebar → pan override ───────────────────────────────────────────────
 
@@ -153,6 +167,16 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
         ? "grabbing"
         : "grab"
       : getCursorStyle(activeTool)
+
+  // ── Clear laser trail when switching away from LASER tool ─────────────────
+
+  useEffect(() => {
+    if (activeTool !== "LASER") {
+      laser.clearPoints()
+      laserEmit.emitStop()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTool])
 
   // ── Prevent native scroll/zoom while canvas is active ─────────────────────
 
@@ -222,7 +246,9 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
             const x = centerX - w / 2 + offsetX
             const y = centerY - h / 2 + offsetY
 
-            const preferredStyle = useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
+            const preferredStyle =
+              useUIStore.getState().toolStyles["IMAGE"] ||
+              DEFAULT_STYLES["IMAGE"]
             const style = {
               ...preferredStyle,
               assetUrl: result.url,
@@ -295,7 +321,8 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
           const x = worldX - w / 2 + offsetX
           const y = worldY - h / 2 + offsetY
 
-          const preferredStyle = useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
+          const preferredStyle =
+            useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
           const style = {
             ...preferredStyle,
             assetUrl: result.url,
@@ -323,13 +350,14 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
   if (stageSize.width === 0) return null
 
   // CSS grid background styles matching the Konva-based dots
-  const gridStyle = viewport.scale >= 0.22
-    ? {
-        backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1.5px)`,
-        backgroundSize: `${20 * viewport.scale}px ${20 * viewport.scale}px`,
-        backgroundPosition: `${viewport.x - 10 * viewport.scale}px ${viewport.y - 10 * viewport.scale}px`,
-      }
-    : {}
+  const gridStyle =
+    viewport.scale >= 0.22
+      ? {
+          backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1.5px)`,
+          backgroundSize: `${20 * viewport.scale}px ${20 * viewport.scale}px`,
+          backgroundPosition: `${viewport.x - 10 * viewport.scale}px ${viewport.y - 10 * viewport.scale}px`,
+        }
+      : {}
 
   return (
     <div
@@ -365,14 +393,26 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
         <ObjectsLayer mutations={mutations} />
 
         {/* Layer 2 — Selection handles (Transformer + lasso) */}
-        <SelectionLayer
-          stageRef={stageRef}
-          lassoSelect={lassoSelect}
-          transform={transform}
-        />
+        {!previewSnapshot && (
+          <SelectionLayer
+            stageRef={stageRef}
+            lassoSelect={lassoSelect}
+            transform={transform}
+          />
+        )}
 
         {/* Layer 3 — Drawing preview */}
         <DrawingPreview />
+
+        {/* Layer 4 — Local laser trail (ephemeral, never persisted) */}
+        <LaserLayer
+          pointsRef={laser.pointsRef}
+          viewport={viewport}
+          tick={laser.tick}
+        />
+
+        {/* Layer 5 — Remote users' laser trails */}
+        <RemoteLaserLayer viewport={viewport} />
       </Stage>
 
       {/* Text Editor Overlay */}
@@ -391,10 +431,17 @@ function getCursorStyle(tool: string): string {
       return "default"
     case "RECTANGLE":
     case "CIRCLE":
+    case "DIAMOND":
+    case "TRIANGLE":
+    case "POLYGON":
     case "LINE":
+    case "ARROW":
     case "PATH":
+    case "HIGHLIGHTER":
     case "ICON":
       return "crosshair"
+    case "LASER":
+      return "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNSIgZmlsbD0iI2ZmMjIzMyIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPjwvc3ZnPg==') 8 8, auto"
     case "TEXT":
       return "text"
 

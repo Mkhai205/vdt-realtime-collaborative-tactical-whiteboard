@@ -7,7 +7,6 @@ import {
   ServerEvents,
   type CursorMoveRequest,
 } from "@rctw/shared-contracts"
-import { AppException } from "../../../common/exceptions"
 
 @Injectable()
 export class CursorHandler {
@@ -15,12 +14,15 @@ export class CursorHandler {
    * Di chuyển cursor (realtime broadcast, không lưu DB)
    */
   async move(client: Socket, dto: CursorMoveRequest): Promise<void> {
-    const { boardId, x, y, viewportCenterX, viewportCenterY, viewportScale } = dto
+    const { boardId, x, y, viewportCenterX, viewportCenterY, viewportScale } =
+      dto
     const roomName = toBoardSocketName(boardId)
 
     const currentUser = client.data.currentUser as JwtPayload | undefined
     const userId = currentUser ? currentUser.sub : `guest_${client.id}`
-    const userName = currentUser ? currentUser.name : `Guest ${client.id.substring(0, 4)}`
+    const userName = currentUser
+      ? currentUser.name
+      : `Guest ${client.id.substring(0, 4)}`
 
     const event: CursorMovedEvent = {
       boardId,

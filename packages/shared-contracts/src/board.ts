@@ -40,6 +40,9 @@ export const objectTypeSchema = z.enum([
   "PATH",
   "ICON",
   "IMAGE",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
 ])
 export type ObjectType = z.infer<typeof objectTypeSchema>
 export const objectTypes = objectTypeSchema.enum
@@ -54,6 +57,10 @@ export const toolSchema = z.enum([
   "PATH",
   "ICON",
   "IMAGE",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
+  "LASER",
 ])
 export type Tool = z.infer<typeof toolSchema>
 export const tools = toolSchema.enum
@@ -85,9 +92,10 @@ export const updateBoardInfoRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(160).optional(),
     description: z.string().trim().max(2000).nullable().optional(),
+    thumbnailUrl: z.string().trim().url().max(2048).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
-    message: "At least one field (name or description) is required.",
+    message: "At least one field (name, description or thumbnailUrl) is required.",
   })
 export type UpdateBoardInfoRequest = z.infer<
   typeof updateBoardInfoRequestSchema
@@ -106,6 +114,7 @@ export type BoardSummary = {
   description: string | null
   visibility: BoardVisibility
   currentRevision: number
+  thumbnailUrl: string | null
   createdBy: UserSummary
   createdAt: string
   updatedAt: string
@@ -140,6 +149,7 @@ export const shapeStyleSchema = z
     assetUrl: z.string().optional(),
     scale: z.number().positive().optional(),
     label: z.string().optional(),
+    textAlign: z.enum(["left", "center", "right"]).optional(),
   })
   .catchall(z.unknown())
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>
@@ -268,3 +278,55 @@ export type BoardInvitationResponse = {
   createdAt: string
   invitedBy: UserSummary
 }
+
+// --- Board Snapshot schemas ---
+
+export type BoardSnapshotSummaryResponse = {
+  id: string
+  boardId: string
+  revision: number
+  createdAt: string
+}
+
+export type BoardSnapshotDetailResponse = {
+  id: string
+  boardId: string
+  revision: number
+  data: {
+    objects: BoardObjectDto[]
+  }
+  createdAt: string
+}
+
+// --- Import schemas ---
+
+export const importObjectSchema = z.object({
+  type: objectTypeSchema,
+  x: z.number(),
+  y: z.number(),
+  width: z.number().nullable().optional(),
+  height: z.number().nullable().optional(),
+  points: z.unknown().nullable().optional(),
+  text: z.string().nullable().optional(),
+  rotation: z.number().default(0),
+  style: shapeStyleSchema,
+  zIndex: z.number(),
+})
+
+export const importBoardRequestSchema = z.object({
+  name: nameSchema,
+  description: z.string().trim().max(500).nullable().optional(),
+  visibility: boardVisibilitySchema.default("PRIVATE"),
+  objects: z.array(importObjectSchema),
+})
+export type ImportBoardRequest = z.infer<typeof importBoardRequestSchema>
+
+export const importBoardObjectsRequestSchema = z.object({
+  mode: z.enum(["APPEND", "OVERWRITE"]),
+  objects: z.array(importObjectSchema),
+})
+export type ImportBoardObjectsRequest = z.infer<
+  typeof importBoardObjectsRequestSchema
+>
+
+

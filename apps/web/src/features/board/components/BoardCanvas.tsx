@@ -4,7 +4,7 @@ import dynamic from "next/dynamic"
 
 const CanvasStage = dynamic(
   () => import("./canvas/CanvasStage").then((mod) => mod.CanvasStage),
-  { ssr: false }
+  { ssr: false },
 )
 import { ZoomControls } from "./canvas/ZoomControls"
 import { ZoomIndicator } from "./canvas/ZoomIndicator"
@@ -12,16 +12,14 @@ import { UndoRedoControls } from "./canvas/UndoRedoControls"
 import { StylePanel } from "./toolbar/StylePanel"
 import { SelectionBadge } from "./canvas/SelectionBadge"
 import { useViewport } from "./canvas/useViewport"
+import { BackToContent } from "./canvas/BackToContent"
 
 import { useBoardSocket } from "../hooks/useBoardSocket"
 import { useObjectMutations } from "../hooks/useObjectMutations"
-import { useBoardStore } from "@/stores/board.store"
-import { useUIStore } from "@/stores/ui.store"
+import { useBoardThumbnail } from "../hooks/useBoardThumbnail"
 import { ConnectionStatus } from "./canvas/ConnectionStatus"
 import { CursorOverlay } from "@/features/cursor/components/CursorOverlay"
 import { BoardHeader } from "./BoardHeader"
-
-
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -54,19 +52,29 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
   const { connectionStatus } = useBoardSocket(boardId)
   const mutations = useObjectMutations(boardId)
 
+  // Auto-thumbnail capture hook
+  useBoardThumbnail(boardId, viewport.stageRef)
+
   return (
     <div
       id="board-canvas-root"
       className="board-canvas-root"
-      style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}
+      style={{
+        position: "relative",
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+      }}
     >
-
-
       {/* ── Header Top Bar ── */}
       <BoardHeader boardId={boardId} />
 
       {/* ── Canvas (absolute, full screen) ─── */}
-      <CanvasStage boardId={boardId} mutations={mutations} />
+      <CanvasStage
+        boardId={boardId}
+        mutations={mutations}
+        viewportHook={viewport}
+      />
 
       {/* ── Left: style panel (floating solo) ─── */}
       <div
@@ -106,6 +114,9 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
       {/* ── Transient zoom indicator ─── */}
       <ZoomIndicator />
 
+      {/* ── Back to Content float indicator ─── */}
+      <BackToContent viewport={viewport} />
+
       {/* ── Selection count badge (shown when 2+ objects selected) ─── */}
       <SelectionBadge mutations={mutations} />
 
@@ -117,4 +128,3 @@ export function BoardCanvas({ boardId }: BoardCanvasProps) {
     </div>
   )
 }
-

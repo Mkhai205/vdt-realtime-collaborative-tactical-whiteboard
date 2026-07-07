@@ -19,6 +19,9 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpToLine,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import { DEFAULT_STYLES } from "../canvas/objects/shapeDefaults"
@@ -115,9 +118,14 @@ const DRAWING_TOOLS = new Set([
   "RECTANGLE",
   "CIRCLE",
   "LINE",
+  "ARROW",
   "PATH",
+  "HIGHLIGHTER",
   "ICON",
   "TEXT",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
 ])
 
 export function StylePanel({ mutations }: StylePanelProps) {
@@ -320,7 +328,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
   const hasFill =
     selectedObjects.length > 0
       ? selectedObjects.every((o) => o.type !== "LINE" && o.type !== "PATH" && o.type !== "IMAGE")
-      : activeTool !== "LINE" && activeTool !== "PATH" && activeTool !== "IMAGE"
+      : activeTool !== "LINE" && activeTool !== "ARROW" && activeTool !== "PATH" && activeTool !== "HIGHLIGHTER" && activeTool !== "IMAGE"
 
   const hasStroke =
     selectedObjects.length > 0
@@ -337,10 +345,14 @@ export function StylePanel({ mutations }: StylePanelProps) {
       ? selectedObjects.some((o) => o.type === "TEXT")
       : activeTool === "TEXT"
 
-  const allLine =
+  const allArrow =
     selectedObjects.length > 0
-      ? selectedObjects.every((o) => o.type === "LINE")
-      : activeTool === "LINE"
+      ? selectedObjects.every(
+          (o) =>
+            o.type === "LINE" &&
+            (!!(o.style as any)?.arrowStart || !!(o.style as any)?.arrowEnd),
+        )
+      : activeTool === "ARROW"
 
   const handleSelectIcon = (iconName: string) => {
     applyStyle({ iconKey: iconName })
@@ -430,6 +442,38 @@ export function StylePanel({ mutations }: StylePanelProps) {
               B
             </button>
           </div>
+          <div className="style-row">
+            <span className="style-label">Align</span>
+            <div style={{ display: "flex", gap: "4px", width: "100%" }}>
+              <button
+                className={`style-toggle ${(firstStyle.textAlign ?? "left") === "left" ? "style-toggle--active" : ""}`}
+                onClick={() => applyStyle({ textAlign: "left" })}
+                aria-pressed={(firstStyle.textAlign ?? "left") === "left"}
+                style={{ flex: 1, padding: "6px", display: "flex", justifyContent: "center" }}
+                title="Align Left"
+              >
+                <AlignLeft size={14} />
+              </button>
+              <button
+                className={`style-toggle ${(firstStyle.textAlign ?? "left") === "center" ? "style-toggle--active" : ""}`}
+                onClick={() => applyStyle({ textAlign: "center" })}
+                aria-pressed={(firstStyle.textAlign ?? "left") === "center"}
+                style={{ flex: 1, padding: "6px", display: "flex", justifyContent: "center" }}
+                title="Align Center"
+              >
+                <AlignCenter size={14} />
+              </button>
+              <button
+                className={`style-toggle ${(firstStyle.textAlign ?? "left") === "right" ? "style-toggle--active" : ""}`}
+                onClick={() => applyStyle({ textAlign: "right" })}
+                aria-pressed={(firstStyle.textAlign ?? "left") === "right"}
+                style={{ flex: 1, padding: "6px", display: "flex", justifyContent: "center" }}
+                title="Align Right"
+              >
+                <AlignRight size={14} />
+              </button>
+            </div>
+          </div>
           <div className="style-row style-row--col">
             <span className="style-label">Font</span>
             <select
@@ -482,7 +526,7 @@ export function StylePanel({ mutations }: StylePanelProps) {
       )}
 
       {/* ── LINE-only: arrow type ── */}
-      {allLine && (
+      {allArrow && (
         <>
           <div className="style-sep" aria-hidden />
           <div className="style-row">

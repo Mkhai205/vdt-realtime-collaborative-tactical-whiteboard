@@ -89,19 +89,32 @@ export function BoardCard({ board }: BoardCardProps) {
       className="group relative select-none"
     >
       <Link href={`/board/${board.id}`}>
-        <Card className="overflow-hidden border border-slate-200 bg-card transition-all duration-300 hover:shadow-lg dark:border-slate-800 dark:hover:shadow-slate-950/40">
+        <Card className="overflow-hidden rounded-2xl border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:hover:shadow-black/40">
           {/* Card Thumbnail Area */}
-          <div
-            className={`relative aspect-video w-full bg-linear-to-tr ${gradient} flex items-center justify-center overflow-hidden p-6 text-white`}
-          >
-            <div className="absolute inset-0 bg-black/10 transition-colors duration-300 group-hover:bg-black/20" />
+          <div className="relative aspect-video w-full overflow-hidden border-b bg-muted/40">
+            {board.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={board.thumbnailUrl}
+                alt={board.name}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+              />
+            ) : (
+              <div
+                className={`relative h-full w-full bg-linear-to-tr ${gradient} flex items-center justify-center p-6`}
+              >
+                <div className="absolute inset-0 bg-black/10 transition-colors duration-300 group-hover:bg-black/20" />
+                {/* Visual background lines */}
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-size-[14px_14px] opacity-10" />
+                <span className="relative z-10 line-clamp-2 max-w-full px-4 text-center text-lg font-bold tracking-tight drop-shadow-sm select-none">
+                  {board.name}
+                </span>
+              </div>
+            )}
 
-            {/* Visual background lines */}
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-size-[14px_24px] opacity-20" />
-
-            <span className="relative z-10 line-clamp-2 max-w-full px-4 text-center text-xl font-bold tracking-tight drop-shadow-md">
-              {board.name}
-            </span>
+            {/* Dark tint overlay for card styling */}
+            <div className="pointer-events-none absolute inset-0 bg-black/2 dark:bg-black/10" />
 
             {/* Hover Actions Overlay */}
             <AnimatePresence>
@@ -111,14 +124,14 @@ export function BoardCard({ board }: BoardCardProps) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute inset-0 z-20 flex items-center justify-center gap-2 bg-black/40 backdrop-blur-[2px]"
+                  className="absolute inset-0 z-20 flex items-center justify-center gap-2.5 bg-black/40 backdrop-blur-[3px]"
                 >
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         size="icon"
                         variant="secondary"
-                        className="h-10 w-10 rounded-full shadow-md transition-transform hover:scale-105"
+                        className="hover: h-9.5 w-9.5 rounded-xl border border-white/20 bg-white/10 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:bg-white/20 dark:border-border/40 dark:bg-muted/40"
                         onClick={handleCopyLink}
                       >
                         <Copy className="h-4 w-4" />
@@ -129,7 +142,7 @@ export function BoardCard({ board }: BoardCardProps) {
 
                   <Button
                     variant="default"
-                    className="flex h-10 items-center gap-1.5 rounded-full px-4 font-medium shadow-md transition-transform hover:scale-105"
+                    className="flex h-9.5 items-center gap-1.5 rounded-xl border border-violet-500 bg-violet-600 px-4 font-semibold shadow-lg shadow-violet-500/20 transition-all duration-200 hover:scale-105 hover:bg-violet-500"
                   >
                     Open <ArrowUpRight className="h-4 w-4" />
                   </Button>
@@ -140,7 +153,7 @@ export function BoardCard({ board }: BoardCardProps) {
                         <Button
                           size="icon"
                           variant="destructive"
-                          className="h-10 w-10 rounded-full shadow-md transition-transform hover:scale-105"
+                          className="hover: h-9.5 w-9.5 rounded-xl border border-red-500/30 bg-red-600/10 text-red-200 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:bg-red-600"
                           disabled={isDeleting}
                           onClick={handleDelete}
                         >
@@ -168,17 +181,17 @@ export function BoardCard({ board }: BoardCardProps) {
                   className="absolute inset-0 z-30 flex flex-col items-center justify-center p-4 text-center backdrop-blur-sm"
                   onClick={(e) => e.preventDefault()}
                 >
-                  <p className="mb-1 text-xs font-semibold tracking-wider text-red-200 uppercase">
+                  <p className="mb-1 font-semibold tracking-wider text-red-200 uppercase">
                     Are you sure?
                   </p>
-                  <p className="mb-3 line-clamp-2 px-2 text-sm font-medium text-slate-100">
+                  <p className="mb-3 line-clamp-2 px-2 text-sm font-medium text-white/90">
                     This will delete all whiteboard history permanently.
                   </p>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       onClick={confirmDelete}
-                      className="bg-red-600 text-white hover:bg-red-600/90"
+                      className="bg-red-600 hover:bg-red-600/90"
                     >
                       Delete
                     </Button>
@@ -198,26 +211,26 @@ export function BoardCard({ board }: BoardCardProps) {
           {/* Card Info Area */}
           <div className="flex flex-col gap-2 p-4">
             <div className="flex items-start justify-between gap-2">
-              <span className="line-clamp-1 font-semibold text-slate-800 dark:text-slate-200">
+              <span className="line-clamp-1 font-semibold text-foreground">
                 {board.name}
               </span>
               <Badge
                 variant={isOwner ? "default" : "secondary"}
                 className={
                   isOwner
-                    ? "bg-violet-600 text-white hover:bg-violet-600/90"
-                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                    ? "bg-violet-600 hover:bg-violet-600/90"
+                    : "bg-muted text-muted-foreground"
                 }
               >
                 {isOwner ? "OWNER" : "COLLABORATOR"}
               </Badge>
             </div>
 
-            <p className="line-clamp-2 min-h-8 text-xs text-slate-500 dark:text-slate-400">
+            <p className="line-clamp-2 min-h-8">
               {board.description || "No description provided."}
             </p>
 
-            <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-400 dark:border-slate-800/80 dark:text-slate-500">
+            <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 {board.visibility === "PUBLIC" ? (
                   <>
