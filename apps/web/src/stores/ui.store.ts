@@ -29,7 +29,7 @@ export type DrawingStartPoint = { x: number; y: number }
 
 interface UIState {
   /** Currently active drawing/interaction tool */
-  activeTool: Tool
+  activeTool: Tool | "HIGHLIGHTER"
 
   /** IDs of currently selected canvas objects */
   selectedIds: Set<string>
@@ -63,10 +63,13 @@ interface UIState {
 
   /** Preferred default styles for each drawing tool */
   toolStyles: Record<string, ShapeStyle>
+
+  /** If true, keep the currently active tool selected after drawing instead of switching to SELECT */
+  keepToolActive: boolean
 }
 
 interface UIActions {
-  setActiveTool: (tool: Tool) => void
+  setActiveTool: (tool: Tool | "HIGHLIGHTER") => void
 
   /** Replace selection with exactly this set of IDs */
   setSelectedIds: (ids: Set<string>) => void
@@ -96,7 +99,9 @@ interface UIActions {
 
   setJustCreatedShape: (val: boolean) => void
 
-  setToolStyle: (tool: Tool, patch: Partial<ShapeStyle>) => void
+  setToolStyle: (tool: Tool | "HIGHLIGHTER", patch: Partial<ShapeStyle>) => void
+
+  setKeepToolActive: (val: boolean) => void
 }
 
 type UIStore = UIState & UIActions
@@ -127,9 +132,16 @@ export const useUIStore = create<UIStore>()((set) => ({
     CIRCLE: { ...DEFAULT_STYLES.CIRCLE },
     LINE: { ...DEFAULT_STYLES.LINE },
     PATH: { ...DEFAULT_STYLES.PATH },
+    HIGHLIGHTER: {
+      stroke: "#facc15",
+      fill: "transparent",
+      strokeWidth: 14,
+      opacity: 0.35,
+    },
     ICON: { ...DEFAULT_STYLES.ICON },
     TEXT: { ...DEFAULT_STYLES.TEXT },
   },
+  keepToolActive: false,
 
   // ── Actions ──
   setActiveTool: (tool) =>
@@ -204,13 +216,18 @@ export const useUIStore = create<UIStore>()((set) => ({
   setJustCreatedShape: (justCreatedShape) => set({ justCreatedShape }),
 
   setToolStyle: (tool, patch) =>
-    set((state) => ({
-      toolStyles: {
-        ...state.toolStyles,
-        [tool]: {
-          ...state.toolStyles[tool],
-          ...patch,
+    set((state) => {
+      const currentToolStyle = state.toolStyles[tool] || {}
+      return {
+        toolStyles: {
+          ...state.toolStyles,
+          [tool]: {
+            ...currentToolStyle,
+            ...patch,
+          },
         },
-      },
-    })),
+      }
+    }),
+
+  setKeepToolActive: (keepToolActive) => set({ keepToolActive }),
 }))

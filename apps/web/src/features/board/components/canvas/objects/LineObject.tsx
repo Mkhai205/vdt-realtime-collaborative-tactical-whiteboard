@@ -57,15 +57,8 @@ export const LineObject = memo(function LineObject({
   const borderStroke = editingUser ? getAvatarColor(editingUser.id) : EDIT_LOCK_STROKE
   const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
 
-  const strokeColor = isSelected
-    ? SELECTION_STROKE
-    : isEditedByOther
-      ? borderStroke
-      : s.stroke
-
-  const strokeWidth = isSelected
-    ? Math.max(s.strokeWidth, 2)
-    : s.strokeWidth
+  const strokeColor = isEditedByOther ? borderStroke : s.stroke
+  const strokeWidth = s.strokeWidth
 
   // Find bounds of the points to place editing badge and compute size
   const xCoords = rawPoints.filter((_, idx) => idx % 2 === 0)

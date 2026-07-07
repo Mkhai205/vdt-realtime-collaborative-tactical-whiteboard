@@ -18,6 +18,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     assetUrl: "",
     scale: 1,
     label: "",
+    textAlign: "left",
   },
   CIRCLE: {
     fill: "#ffffff",
@@ -34,6 +35,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     assetUrl: "",
     scale: 1,
     label: "",
+    textAlign: "left",
   },
   LINE: {
     fill: "transparent",
@@ -50,6 +52,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     assetUrl: "",
     scale: 1,
     label: "",
+    textAlign: "left",
   },
   TEXT: {
     fill: "transparent",
@@ -66,6 +69,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     assetUrl: "",
     scale: 1,
     label: "",
+    textAlign: "left",
   },
   PATH: {
     fill: "transparent",
@@ -82,6 +86,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     assetUrl: "",
     scale: 1,
     label: "",
+    textAlign: "left",
   },
   ICON: {
     fill: "#6366f1",
@@ -98,6 +103,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     assetUrl: "",
     scale: 1,
     label: "",
+    textAlign: "left",
   },
   IMAGE: {
     fill: "transparent",
@@ -114,6 +120,7 @@ export const DEFAULT_STYLES: Record<ObjectType, Required<ShapeStyle>> = {
     assetUrl: "",
     scale: 1,
     label: "",
+    textAlign: "left",
   },
 }
 

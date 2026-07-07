@@ -6,12 +6,12 @@ import type { Tool } from "@rctw/shared-contracts"
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface ToolButtonProps {
-  tool: Tool
+  tool: Tool | "HIGHLIGHTER"
   Icon: LucideIcon
   shortcut: string
   label: string
   isActive: boolean
-  onClick: (tool: Tool) => void
+  onClick: (tool: Tool | "HIGHLIGHTER") => void
   disabled?: boolean
   disabledTooltip?: string
 }

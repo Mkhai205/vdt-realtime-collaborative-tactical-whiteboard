@@ -140,6 +140,7 @@ export const shapeStyleSchema = z
     assetUrl: z.string().optional(),
     scale: z.number().positive().optional(),
     label: z.string().optional(),
+    textAlign: z.enum(["left", "center", "right"]).optional(),
   })
   .catchall(z.unknown())
 export type ShapeStyle = z.infer<typeof shapeStyleSchema>

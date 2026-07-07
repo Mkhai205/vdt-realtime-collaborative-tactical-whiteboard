@@ -34,6 +34,7 @@ const DRAW_TOOLS = new Set([
   "CIRCLE",
   "LINE",
   "PATH",
+  "HIGHLIGHTER",
   "ICON",
   "TEXT",
 ])

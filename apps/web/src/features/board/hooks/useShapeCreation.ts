@@ -10,6 +10,7 @@ import type {
 import { useUIStore, type PreviewShape } from "@/stores/ui.store"
 import { useBoardStore } from "@/stores/board.store"
 import { DEFAULT_STYLES } from "../components/canvas/objects/shapeDefaults"
+import { simplifyFlatPoints } from "../utils/pathUtils"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ function buildPreview(
   points: number[] | undefined,
   style: ShapeStyle,
 ): PreviewShape {
-  const type = tool as ObjectType
+  const type = (tool === "HIGHLIGHTER" ? "PATH" : tool) as ObjectType
   return {
     type,
     x,
@@ -73,6 +74,7 @@ const DRAW_TOOLS = new Set<string>([
   "CIRCLE",
   "LINE",
   "PATH",
+  "HIGHLIGHTER",
   "ICON",
   "TEXT",
 ])
@@ -89,7 +91,7 @@ const DRAW_TOOLS = new Set<string>([
  */
 export function useShapeCreation(
   stageRef: React.RefObject<Konva.Stage | null>,
-  createObject: (payload: ObjectCreatePayload) => string | undefined,
+  createObject: (payload: ObjectCreatePayload, selectMode?: "replace" | "add" | "none") => string | undefined,
 ): UseShapeCreationReturn {
   const { activeTool } = useUIStore()
 
@@ -114,8 +116,9 @@ export function useShapeCreation(
       width: number,
       height: number,
       points: number[] | undefined,
+      customStyle?: ShapeStyle,
     ) => {
-      const preferredStyle = useUIStore.getState().toolStyles[type] || DEFAULT_STYLES[type]
+      const preferredStyle = customStyle || useUIStore.getState().toolStyles[type] || DEFAULT_STYLES[type]
       const style: ShapeStyle = { ...preferredStyle }
       if (type === "TEXT") {
         style.autoWidth = true
@@ -134,11 +137,15 @@ export function useShapeCreation(
         zIndex: useBoardStore.getState().objects.size,
       }
 
-      const tempId = createObject(payload)
+      const tempId = createObject(payload, "none")
 
-      // After creating any shape (except PATH mid-stroke), switch back to SELECT
-      if (type !== "PATH") {
+      // Switch back to SELECT unless keepToolActive is enabled.
+      const keepToolActive = useUIStore.getState().keepToolActive
+      if (type !== "PATH" && !keepToolActive) {
         useUIStore.getState().setActiveTool("SELECT")
+      }
+
+      if (type !== "PATH") {
         useUIStore.getState().setJustCreatedShape(true)
         if (type === "TEXT" && tempId) {
           useUIStore.getState().setEditingTextId(tempId)
@@ -176,11 +183,11 @@ export function useShapeCreation(
       isCreatingRef.current = true
       startPointRef.current = wp
 
-      if (tool === "PATH") {
+      if (tool === "PATH" || tool === "HIGHLIGHTER") {
         pathPointsRef.current = [wp.x, wp.y]
       }
 
-      const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType]
+      const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType] || DEFAULT_STYLES["PATH"]
       previewRef.current = buildPreview(tool, wp.x, wp.y, 0, 0, [
         wp.x,
         wp.y,
@@ -207,18 +214,50 @@ export function useShapeCreation(
       const { x: sx, y: sy } = startPointRef.current
       const { x: ex, y: ey } = wp
 
-      const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType]
-      if (tool === "PATH") {
+      const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES[tool as ObjectType] || DEFAULT_STYLES["PATH"]
+      if (tool === "PATH" || tool === "HIGHLIGHTER") {
         const pts = pathPointsRef.current
         const lastX = pts[pts.length - 2] ?? sx
         const lastY = pts[pts.length - 1] ?? sy
         if (dist(lastX, lastY, ex, ey) >= PATH_SAMPLE_DIST) {
           pathPointsRef.current = [...pts, ex, ey]
         }
+
+        // Real-time Stroke Splitting
+        const MAX_POINTS = 500
+        const MAX_COORDS = MAX_POINTS * 2
+        if (pathPointsRef.current.length >= MAX_COORDS) {
+          const committedPoints = pathPointsRef.current.slice(0, MAX_COORDS)
+          const relativePts = committedPoints.map((val, idx) => idx % 2 === 0 ? val - sx : val - sy)
+          
+          const xCoords = relativePts.filter((_, idx) => idx % 2 === 0)
+          const yCoords = relativePts.filter((_, idx) => idx % 2 === 1)
+          const minX = Math.min(...xCoords)
+          const minY = Math.min(...yCoords)
+          const maxX = Math.max(...xCoords)
+          const maxY = Math.max(...yCoords)
+          const w = maxX - minX
+          const h = maxY - minY
+
+          // Optimize with RDP simplification
+          const optimizedRelativePts = simplifyFlatPoints(relativePts, 1.5)
+
+          // Adjust points to be relative to minX and minY to align with PathObject rendering origin
+          const finalPts = optimizedRelativePts.map((val, idx) => idx % 2 === 0 ? val - minX : val - minY)
+
+          commitShape("PATH", sx + minX, sy + minY, w, h, finalPts, preferredStyle)
+
+          const lastPointX = committedPoints[committedPoints.length - 2]!
+          const lastPointY = committedPoints[committedPoints.length - 1]!
+          const remainingPoints = pathPointsRef.current.slice(MAX_COORDS)
+          pathPointsRef.current = [lastPointX, lastPointY, ...remainingPoints]
+          startPointRef.current = { x: lastPointX, y: lastPointY }
+        }
+
         previewRef.current = buildPreview(
           tool,
-          sx,
-          sy,
+          startPointRef.current.x,
+          startPointRef.current.y,
           0,
           0,
           pathPointsRef.current,
@@ -264,19 +303,30 @@ export function useShapeCreation(
       const wp = getWorldPos(stage)
       const type = tool as ObjectType
 
-      if (tool === "PATH") {
+      if (tool === "PATH" || tool === "HIGHLIGHTER") {
         const pts = pathPointsRef.current
         if (pts.length >= 4) {
           const relativePts = pts.map((val, idx) => idx % 2 === 0 ? val - start.x : val - start.y)
-          const xCoords = relativePts.filter((_, idx) => idx % 2 === 0)
-          const yCoords = relativePts.filter((_, idx) => idx % 2 === 1)
-          const minX = Math.min(...xCoords)
-          const minY = Math.min(...yCoords)
-          const maxX = Math.max(...xCoords)
-          const maxY = Math.max(...yCoords)
-          const w = maxX - minX
-          const h = maxY - minY
-          commitShape("PATH", start.x, start.y, w, h, relativePts)
+          
+          // Optimize relativePts using RDP simplification
+          const optimizedRelativePts = simplifyFlatPoints(relativePts, 1.5)
+          
+          if (optimizedRelativePts.length >= 4) {
+            const xCoords = optimizedRelativePts.filter((_, idx) => idx % 2 === 0)
+            const yCoords = optimizedRelativePts.filter((_, idx) => idx % 2 === 1)
+            const minX = Math.min(...xCoords)
+            const minY = Math.min(...yCoords)
+            const maxX = Math.max(...xCoords)
+            const maxY = Math.max(...yCoords)
+            const w = maxX - minX
+            const h = maxY - minY
+
+            // Adjust points to be relative to minX and minY to align with PathObject rendering origin
+            const finalPts = optimizedRelativePts.map((val, idx) => idx % 2 === 0 ? val - minX : val - minY)
+
+            const preferredStyle = useUIStore.getState().toolStyles[tool] || DEFAULT_STYLES["PATH"]
+            commitShape("PATH", start.x + minX, start.y + minY, w, h, finalPts, preferredStyle)
+          }
         }
         pathPointsRef.current = []
       } else if (tool === "LINE") {
