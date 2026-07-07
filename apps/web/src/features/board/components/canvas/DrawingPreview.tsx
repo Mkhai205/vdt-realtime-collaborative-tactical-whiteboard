@@ -62,6 +62,52 @@ export const DrawingPreview = memo(function DrawingPreview() {
         />
       )}
 
+      {type === "DIAMOND" && width > 0 && height > 0 && (
+        <Line
+          points={[x + width / 2, y, x + width, y + height / 2, x + width / 2, y + height, x, y + height / 2]}
+          closed
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          opacity={opacity}
+          perfectDrawEnabled={false}
+          shadowEnabled={false}
+        />
+      )}
+
+      {type === "TRIANGLE" && width > 0 && height > 0 && (
+        <Line
+          points={[x + width / 2, y, x + width, y + height, x, y + height]}
+          closed
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          opacity={opacity}
+          perfectDrawEnabled={false}
+          shadowEnabled={false}
+        />
+      )}
+
+      {type === "POLYGON" && width > 0 && height > 0 && (
+        <Line
+          points={[
+            x + width * 0.5, y,
+            x + width, y + height * 0.25,
+            x + width, y + height * 0.75,
+            x + width * 0.5, y + height,
+            x, y + height * 0.75,
+            x, y + height * 0.25,
+          ]}
+          closed
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          opacity={opacity}
+          perfectDrawEnabled={false}
+          shadowEnabled={false}
+        />
+      )}
+
       {type === "LINE" && points && points.length >= 4 && (
         <Arrow
           points={points}

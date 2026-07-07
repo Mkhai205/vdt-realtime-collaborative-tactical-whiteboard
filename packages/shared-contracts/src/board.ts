@@ -40,6 +40,9 @@ export const objectTypeSchema = z.enum([
   "PATH",
   "ICON",
   "IMAGE",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
 ])
 export type ObjectType = z.infer<typeof objectTypeSchema>
 export const objectTypes = objectTypeSchema.enum
@@ -54,6 +57,9 @@ export const toolSchema = z.enum([
   "PATH",
   "ICON",
   "IMAGE",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
 ])
 export type Tool = z.infer<typeof toolSchema>
 export const tools = toolSchema.enum

@@ -130,6 +130,9 @@ export const useUIStore = create<UIStore>()((set) => ({
   toolStyles: {
     RECTANGLE: { ...DEFAULT_STYLES.RECTANGLE },
     CIRCLE: { ...DEFAULT_STYLES.CIRCLE },
+    DIAMOND: { ...DEFAULT_STYLES.DIAMOND },
+    TRIANGLE: { ...DEFAULT_STYLES.TRIANGLE },
+    POLYGON: { ...DEFAULT_STYLES.POLYGON },
     LINE: { ...DEFAULT_STYLES.LINE },
     ARROW: {
       stroke: "#374151",

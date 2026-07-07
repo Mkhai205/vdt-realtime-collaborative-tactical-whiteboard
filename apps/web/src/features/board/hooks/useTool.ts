@@ -17,6 +17,9 @@ const KEY_TO_TOOL: Record<string, Tool | "HIGHLIGHTER" | "ARROW"> = {
   i: "ICON",
   t: "TEXT",
   u: "IMAGE",
+  o: "DIAMOND",
+  y: "TRIANGLE",
+  g: "POLYGON",
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────────

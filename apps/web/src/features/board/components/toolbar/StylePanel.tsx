@@ -123,6 +123,9 @@ const DRAWING_TOOLS = new Set([
   "HIGHLIGHTER",
   "ICON",
   "TEXT",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
 ])
 
 export function StylePanel({ mutations }: StylePanelProps) {

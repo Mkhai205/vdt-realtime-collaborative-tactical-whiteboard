@@ -391,6 +391,9 @@ function getCursorStyle(tool: string): string {
       return "default"
     case "RECTANGLE":
     case "CIRCLE":
+    case "DIAMOND":
+    case "TRIANGLE":
+    case "POLYGON":
     case "LINE":
     case "ARROW":
     case "PATH":

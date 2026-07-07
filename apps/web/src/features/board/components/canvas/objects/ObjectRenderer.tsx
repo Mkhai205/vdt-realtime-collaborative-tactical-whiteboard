@@ -7,6 +7,9 @@ import { PathObject } from "./PathObject"
 import { IconObject } from "./IconObject"
 import { TextObject } from "./TextObject"
 import { ImageObject } from "./ImageObject"
+import { DiamondObject } from "./DiamondObject"
+import { TriangleObject } from "./TriangleObject"
+import { PolygonObject } from "./PolygonObject"
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -123,6 +126,45 @@ export const ObjectRenderer = memo(function ObjectRenderer({
     case "IMAGE":
       return (
         <ImageObject
+          object={object}
+          isSelected={isSelected}
+          editingUser={editingUser}
+          onSelect={onSelect}
+          onDragStart={onDragStart}
+          onDragMove={onDragMove}
+          onDragEnd={onDragEnd}
+        />
+      )
+
+    case "DIAMOND":
+      return (
+        <DiamondObject
+          object={object}
+          isSelected={isSelected}
+          editingUser={editingUser}
+          onSelect={onSelect}
+          onDragStart={onDragStart}
+          onDragMove={onDragMove}
+          onDragEnd={onDragEnd}
+        />
+      )
+
+    case "TRIANGLE":
+      return (
+        <TriangleObject
+          object={object}
+          isSelected={isSelected}
+          editingUser={editingUser}
+          onSelect={onSelect}
+          onDragStart={onDragStart}
+          onDragMove={onDragMove}
+          onDragEnd={onDragEnd}
+        />
+      )
+
+    case "POLYGON":
+      return (
+        <PolygonObject
           object={object}
           isSelected={isSelected}
           editingUser={editingUser}

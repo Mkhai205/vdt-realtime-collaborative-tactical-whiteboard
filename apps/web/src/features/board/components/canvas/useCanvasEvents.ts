@@ -38,6 +38,9 @@ const DRAW_TOOLS = new Set([
   "HIGHLIGHTER",
   "ICON",
   "TEXT",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
 ])
 
 // Suppress unused-var; PAN_TOOLS will be used for future cursor-override checks

@@ -79,6 +79,9 @@ const DRAW_TOOLS = new Set<string>([
   "HIGHLIGHTER",
   "ICON",
   "TEXT",
+  "DIAMOND",
+  "TRIANGLE",
+  "POLYGON",
 ])
 
 /**

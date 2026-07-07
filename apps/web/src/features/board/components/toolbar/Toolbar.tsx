@@ -13,6 +13,9 @@ import {
   Type,
   Image as ImageIcon,
   Pin,
+  Diamond,
+  Triangle,
+  Hexagon,
   type LucideIcon,
 } from "lucide-react"
 import { useBoardStore } from "@/stores/board.store"
@@ -42,6 +45,9 @@ const TOOL_GROUPS: Array<
   [
     { tool: "RECTANGLE", icon: Square, shortcut: "R", label: "Rectangle" },
     { tool: "CIRCLE", icon: Circle, shortcut: "C", label: "Circle" },
+    { tool: "DIAMOND", icon: Diamond, shortcut: "O", label: "Diamond" },
+    { tool: "TRIANGLE", icon: Triangle, shortcut: "Y", label: "Triangle" },
+    { tool: "POLYGON", icon: Hexagon, shortcut: "G", label: "Polygon" },
     { tool: "LINE", icon: Slash, shortcut: "L", label: "Line" },
     { tool: "ARROW", icon: ArrowRight, shortcut: "A", label: "Arrow" },
   ],
