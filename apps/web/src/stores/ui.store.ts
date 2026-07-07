@@ -29,7 +29,7 @@ export type DrawingStartPoint = { x: number; y: number }
 
 interface UIState {
   /** Currently active drawing/interaction tool */
-  activeTool: Tool | "HIGHLIGHTER" | "ARROW"
+  activeTool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER"
 
   /** IDs of currently selected canvas objects */
   selectedIds: Set<string>
@@ -69,7 +69,7 @@ interface UIState {
 }
 
 interface UIActions {
-  setActiveTool: (tool: Tool | "HIGHLIGHTER" | "ARROW") => void
+  setActiveTool: (tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER") => void
 
   /** Replace selection with exactly this set of IDs */
   setSelectedIds: (ids: Set<string>) => void
@@ -99,7 +99,7 @@ interface UIActions {
 
   setJustCreatedShape: (val: boolean) => void
 
-  setToolStyle: (tool: Tool | "HIGHLIGHTER" | "ARROW", patch: Partial<ShapeStyle>) => void
+  setToolStyle: (tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER", patch: Partial<ShapeStyle>) => void
 
   setKeepToolActive: (val: boolean) => void
 }

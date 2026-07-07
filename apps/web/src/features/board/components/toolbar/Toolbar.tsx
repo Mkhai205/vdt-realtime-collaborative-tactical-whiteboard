@@ -16,6 +16,7 @@ import {
   Diamond,
   Triangle,
   Hexagon,
+  Zap,
   type LucideIcon,
 } from "lucide-react"
 import { useBoardStore } from "@/stores/board.store"
@@ -32,7 +33,7 @@ import { DEFAULT_STYLES } from "../canvas/objects/shapeDefaults"
 
 const TOOL_GROUPS: Array<
   Array<{
-    tool: Tool | "HIGHLIGHTER" | "ARROW"
+    tool: Tool | "HIGHLIGHTER" | "ARROW" | "LASER"
     icon: LucideIcon
     shortcut: string
     label: string
@@ -57,6 +58,9 @@ const TOOL_GROUPS: Array<
     { tool: "ICON", icon: Smile, shortcut: "I", label: "Icon" },
     { tool: "TEXT", icon: Type, shortcut: "T", label: "Text" },
     { tool: "IMAGE", icon: ImageIcon, shortcut: "U", label: "Image" },
+  ],
+  [
+    { tool: "LASER", icon: Zap, shortcut: "K", label: "Laser Pointer" },
   ],
 ]
 

@@ -17,6 +17,10 @@ import { useShapeCreation } from "@/features/board/hooks/useShapeCreation"
 import { useLassoSelect } from "@/features/board/hooks/useLassoSelect"
 import { useTransform } from "@/features/board/hooks/useTransform"
 import { useKeyboardActions } from "@/features/board/hooks/useKeyboardActions"
+import { useLaserPointer } from "@/features/board/hooks/useLaserPointer"
+import { useLaserEmit } from "@/features/board/hooks/useLaserEmit"
+import { LaserLayer } from "./LaserLayer"
+import { RemoteLaserLayer } from "@/features/cursor/components/RemoteLaserLayer"
 
 import { type UseObjectMutationsReturn } from "@/features/board/hooks/useObjectMutations"
 import { useCursorEmit } from "@/features/board/hooks/useCursorEmit"
@@ -87,6 +91,10 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
   // Realtime Sync & mutations hooks
   const cursorEmit = useCursorEmit(boardId)
 
+  // Laser pointer hooks
+  const laser = useLaserPointer()
+  const laserEmit = useLaserEmit(boardId)
+
   const zoom = useZoom({ stageRef })
   const pan = usePan({ stageRef })
   const { setSpaceDown } = pan
@@ -101,6 +109,8 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
     shapeCreation,
     lassoSelect,
     cursorEmit,
+    laser,
+    laserEmit,
   })
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
@@ -153,6 +163,16 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
         ? "grabbing"
         : "grab"
       : getCursorStyle(activeTool)
+
+  // ── Clear laser trail when switching away from LASER tool ─────────────────
+
+  useEffect(() => {
+    if (activeTool !== "LASER") {
+      laser.clearPoints()
+      laserEmit.emitStop()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTool])
 
   // ── Prevent native scroll/zoom while canvas is active ─────────────────────
 
@@ -373,6 +393,16 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
         {/* Layer 3 — Drawing preview */}
         <DrawingPreview />
+
+        {/* Layer 4 — Local laser trail (ephemeral, never persisted) */}
+        <LaserLayer
+          pointsRef={laser.pointsRef}
+          viewport={viewport}
+          tick={laser.tick}
+        />
+
+        {/* Layer 5 — Remote users' laser trails */}
+        <RemoteLaserLayer viewport={viewport} />
       </Stage>
 
       {/* Text Editor Overlay */}
@@ -400,6 +430,8 @@ function getCursorStyle(tool: string): string {
     case "HIGHLIGHTER":
     case "ICON":
       return "crosshair"
+    case "LASER":
+      return "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNSIgZmlsbD0iI2ZmMjIzMyIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPjwvc3ZnPg==') 8 8, auto"
     case "TEXT":
       return "text"
 

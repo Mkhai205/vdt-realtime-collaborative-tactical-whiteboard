@@ -20,6 +20,7 @@ import {
   OperationHandler,
   PresenceHandler,
   SelectionHandler,
+  LaserHandler,
 } from "../handlers"
 import {
   ClientEvents,
@@ -34,6 +35,7 @@ import {
   type RedoRequest,
   type ObjectEditingRequest,
   type ObjectMoveEphemeralRequest,
+  type LaserMoveRequest,
   type JwtPayload,
   toBoardSocketName,
   ServerEvents,
@@ -65,6 +67,7 @@ export class BoardGateway
     private readonly operationHandler: OperationHandler,
     private readonly presenceHandler: PresenceHandler,
     private readonly selectionHandler: SelectionHandler,
+    private readonly laserHandler: LaserHandler,
     private readonly authService: AuthService,
     private readonly boardEventsService: BoardEventsService,
     private readonly prisma: PrismaService,
@@ -114,11 +117,12 @@ export class BoardGateway
         // Gửi lỗi permission denied
         socket.emit(ServerEvents.ERROR, {
           code: "PERMISSION_DENIED",
-          message: "This board has been set to private. You no longer have access.",
+          message:
+            "This board has been set to private. You no longer have access.",
         })
 
         // Rời khỏi phòng socket và ngắt kết nối
-        await socket.leave(roomName)
+        socket.leave(roomName)
         socket.disconnect(true)
       }
     }
@@ -237,12 +241,21 @@ export class BoardGateway
     return this.selectionHandler.handleObjectEditing(client, dto)
   }
 
-
   @SubscribeMessage(ClientEvents.OBJECT_MOVE_EPHEMERAL)
   async moveObjectEphemeral(
     @ConnectedSocket() client: Socket,
     @MessageBody() dto: ObjectMoveEphemeralRequest,
   ) {
     return this.objectHandler.moveEphemeral(client, dto)
+  }
+
+  // --- Laser Pointer ---
+
+  @SubscribeMessage(ClientEvents.LASER_MOVE)
+  async moveLaser(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() dto: LaserMoveRequest,
+  ) {
+    return this.laserHandler.move(client, dto)
   }
 }

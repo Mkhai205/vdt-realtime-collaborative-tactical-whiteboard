@@ -110,6 +110,18 @@ export const cursorMoveRequestSchema = z.object({
 })
 export type CursorMoveRequest = z.infer<typeof cursorMoveRequestSchema>
 
+// --- Laser pointer schemas ---
+
+export const laserMoveRequestSchema = z.object({
+  boardId: z.uuid(),
+  x: z.number(),
+  y: z.number(),
+  /** false when the user exits LASER tool — signals remote users to clear the trail */
+  isActive: z.boolean(),
+  strokeId: z.string().optional(),
+})
+export type LaserMoveRequest = z.infer<typeof laserMoveRequestSchema>
+
 // --- Awareness (object editing) schema ---
 
 export const objectEditingStatus = z.enum(["STARTED", "ENDED"])
@@ -259,6 +271,17 @@ export type CursorMovedEvent = {
   viewportScale?: number
 }
 
+/** laser:moved — broadcast khi user di chuyển laser (không persist) */
+export type LaserMovedEvent = {
+  boardId: string
+  user: Pick<UserSummary, "id" | "name">
+  x: number
+  y: number
+  isActive: boolean
+  avatarColor: string
+  strokeId?: string
+}
+
 /** object:editing — broadcast awareness khi user bắt đầu/kết thúc chỉnh sửa object */
 export type ObjectEditingEvent = {
   boardId: string
@@ -291,6 +314,7 @@ export const ClientEvents = {
   CURSOR_MOVE: "cursor:move",
   OBJECT_EDITING: "object:editing",
   OBJECT_MOVE_EPHEMERAL: "object:move-ephemeral",
+  LASER_MOVE: "laser:move",
 } as const
 export type ClientEvent = (typeof ClientEvents)[keyof typeof ClientEvents]
 
@@ -306,6 +330,7 @@ export const ServerEvents = {
   CURSOR_MOVED: "cursor:moved",
   OBJECT_EDITING: "object:editing",
   OBJECT_MOVE_EPHEMERAL: "object:move-ephemeral",
+  LASER_MOVED: "laser:moved",
   ERROR: "error",
 } as const
 export type ServerEvent = (typeof ServerEvents)[keyof typeof ServerEvents]

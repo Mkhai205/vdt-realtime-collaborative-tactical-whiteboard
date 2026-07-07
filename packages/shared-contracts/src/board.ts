@@ -60,6 +60,7 @@ export const toolSchema = z.enum([
   "DIAMOND",
   "TRIANGLE",
   "POLYGON",
+  "LASER",
 ])
 export type Tool = z.infer<typeof toolSchema>
 export const tools = toolSchema.enum

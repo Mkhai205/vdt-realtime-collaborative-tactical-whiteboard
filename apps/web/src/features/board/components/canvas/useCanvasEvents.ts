@@ -6,6 +6,8 @@ import type { UseZoomReturn } from "./useZoom"
 import type { UseShapeCreationReturn } from "@/features/board/hooks/useShapeCreation"
 import type { UseLassoSelectReturn } from "@/features/board/hooks/useLassoSelect"
 import type { UseCursorEmitReturn } from "@/features/board/hooks/useCursorEmit"
+import type { UseLaserPointerReturn } from "@/features/board/hooks/useLaserPointer"
+import type { UseLaserEmitReturn } from "@/features/board/hooks/useLaserEmit"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +18,8 @@ export type UseCanvasEventsOptions = {
   shapeCreation: UseShapeCreationReturn
   lassoSelect: UseLassoSelectReturn
   cursorEmit: UseCursorEmitReturn
+  laser: UseLaserPointerReturn
+  laserEmit: UseLaserEmitReturn
 }
 
 export type UseCanvasEventsReturn = {
@@ -62,9 +66,13 @@ export function useCanvasEvents({
   shapeCreation,
   lassoSelect,
   cursorEmit,
+  laser,
+  laserEmit,
 }: UseCanvasEventsOptions): UseCanvasEventsReturn {
   // RAF ref for mouse-move throttle
   const rafRef = useRef<number | null>(null)
+  const isDrawingLaserRef = useRef(false)
+  const currentStrokeIdRef = useRef<string | null>(null)
 
   // ── Mouse down ─────────────────────────────────────────────────────────────
 
@@ -81,6 +89,27 @@ export function useCanvasEvents({
       // Space-drag pan (checked via getIsPanning after handlePanStart returns)
       pan.handlePanStart(e)
       if (pan.getIsPanning()) return
+
+      // Laser pointer — click and hold to start drawing trail
+      if (tool === "LASER") {
+        isDrawingLaserRef.current = true
+        const strokeId = Date.now().toString()
+        currentStrokeIdRef.current = strokeId
+        laser.startNewStroke()
+
+        const stage = stageRef.current
+        if (stage) {
+          const pos = stage.getPointerPosition()
+          if (pos) {
+            const scale = stage.scaleX()
+            const worldX = (pos.x - stage.x()) / scale
+            const worldY = (pos.y - stage.y()) / scale
+            laser.addPoint(worldX, worldY)
+            laserEmit.emitMove(worldX, worldY, strokeId)
+          }
+        }
+        return
+      }
 
       // Drawing tools
       if (DRAW_TOOLS.has(tool)) {
@@ -119,6 +148,21 @@ export function useCanvasEvents({
 
         const tool = useUIStore.getState().activeTool
 
+        // Laser — capture world-coordinate point for trail only if drawing (mouse is down)
+        if (tool === "LASER") {
+          const strokeId = currentStrokeIdRef.current
+          if (!isDrawingLaserRef.current || !strokeId) return
+          const pos = stage?.getPointerPosition()
+          if (pos && stage) {
+            const scale = stage.scaleX()
+            const worldX = (pos.x - stage.x()) / scale
+            const worldY = (pos.y - stage.y()) / scale
+            laser.addPoint(worldX, worldY)
+            laserEmit.emitMove(worldX, worldY, strokeId)
+          }
+          return
+        }
+
         if (DRAW_TOOLS.has(tool)) {
           shapeCreation.onMouseMove(e)
           return
@@ -129,13 +173,21 @@ export function useCanvasEvents({
         }
       })
     },
-    [pan, shapeCreation, lassoSelect, cursorEmit, stageRef],
+    [pan, shapeCreation, lassoSelect, cursorEmit, laser, laserEmit, stageRef],
   )
 
   // ── Mouse up ───────────────────────────────────────────────────────────────
 
   const onMouseUp = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (isDrawingLaserRef.current) {
+        isDrawingLaserRef.current = false
+        if (currentStrokeIdRef.current) {
+          laserEmit.emitStop(currentStrokeIdRef.current)
+          currentStrokeIdRef.current = null
+        }
+      }
+
       if (pan.getIsPanning()) {
         pan.handlePanEnd()
         return
@@ -155,7 +207,7 @@ export function useCanvasEvents({
 
       pan.handlePanEnd()
     },
-    [pan, shapeCreation, lassoSelect],
+    [pan, shapeCreation, lassoSelect, laserEmit],
   )
 
   // ── Wheel ──────────────────────────────────────────────────────────────────
