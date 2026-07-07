@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react"
+import { useRef, useCallback, useEffect } from "react"
 import type Konva from "konva"
 import {
   useUIStore,
@@ -34,6 +34,15 @@ export function useViewport(): UseViewportReturn {
   const stageRef = useRef<Konva.Stage | null>(null)
   const setViewport = useUIStore((s) => s.setViewport)
   const patchViewport = useUIStore((s) => s.patchViewport)
+  const animationRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current)
+      }
+    }
+  }, [])
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -42,6 +51,48 @@ export function useViewport(): UseViewportReturn {
       patchViewport({ x, y })
     },
     [patchViewport],
+  )
+
+  /**
+   * Smoothly animates the viewport coordinates and scale over 300ms using
+   * requestAnimationFrame and easeInOutQuad.
+   */
+  const animateViewport = useCallback(
+    (targetX: number, targetY: number, targetScale: number) => {
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current)
+      }
+
+      const { x: startX, y: startY, scale: startScale } = useUIStore.getState().viewport
+      const duration = 300 // ms
+      const startTime = performance.now()
+
+      const step = (now: number) => {
+        const elapsed = now - startTime
+        const progress = Math.min(1, elapsed / duration)
+
+        // EaseInOutQuad
+        const ease =
+          progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2
+
+        const nextX = startX + (targetX - startX) * ease
+        const nextY = startY + (targetY - startY) * ease
+        const nextScale = startScale + (targetScale - startScale) * ease
+
+        setViewport({ x: nextX, y: nextY, scale: nextScale })
+
+        if (progress < 1) {
+          animationRef.current = requestAnimationFrame(step)
+        } else {
+          animationRef.current = null
+        }
+      }
+
+      animationRef.current = requestAnimationFrame(step)
+    },
+    [setViewport],
   )
 
   /**
@@ -84,15 +135,14 @@ export function useViewport(): UseViewportReturn {
     const stage = stageRef.current
     const cx = stage ? stage.width() / 2 : window.innerWidth / 2
     const cy = stage ? stage.height() / 2 : window.innerHeight / 2
-    setViewport({ x: cx - cx / 1, y: cy - cy / 1, scale: 1 })
-  }, [setViewport])
+    animateViewport(cx - cx / 1, cy - cy / 1, 1)
+  }, [animateViewport])
 
   const fitToObjects = useCallback(() => {
     const stage = stageRef.current
     if (!stage) return
 
-    // Objects layer is index 1 per the layer structure doc
-    const objectsLayer = stage.getLayers()[1]
+    const objectsLayer = stage.findOne("#objects-layer") as Konva.Layer | undefined
     if (!objectsLayer) return
 
     const children = objectsLayer.getChildren()
@@ -128,8 +178,8 @@ export function useViewport(): UseViewportReturn {
     const newX = (stage.width() - contentW * clampedScale) / 2 - (minX - PADDING) * clampedScale
     const newY = (stage.height() - contentH * clampedScale) / 2 - (minY - PADDING) * clampedScale
 
-    setViewport({ x: newX, y: newY, scale: clampedScale })
-  }, [resetZoom, setViewport])
+    animateViewport(newX, newY, clampedScale)
+  }, [resetZoom, animateViewport])
 
   // ── Coordinate conversion ──────────────────────────────────────────────────
 

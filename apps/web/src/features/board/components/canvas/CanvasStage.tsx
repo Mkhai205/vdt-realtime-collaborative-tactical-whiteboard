@@ -9,7 +9,7 @@ import { ObjectsLayer } from "./ObjectsLayer"
 import { DrawingPreview } from "./DrawingPreview"
 import { SelectionLayer } from "./SelectionLayer"
 import { TextEditorOverlay } from "./TextEditorOverlay"
-import { useViewport } from "./useViewport"
+import { type UseViewportReturn } from "./useViewport"
 import { useZoom } from "./useZoom"
 import { usePan } from "./usePan"
 import { useCanvasEvents } from "./useCanvasEvents"
@@ -27,12 +27,12 @@ import { useCursorEmit } from "@/features/board/hooks/useCursorEmit"
 import { boardApi } from "@/features/board/api/board.api"
 import { DEFAULT_STYLES } from "./objects/shapeDefaults"
 
-
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface CanvasStageProps {
   boardId: string
   mutations: UseObjectMutationsReturn
+  viewportHook: UseViewportReturn
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -51,7 +51,11 @@ interface CanvasStageProps {
  *      [2] Selection         (Transformer + lasso rect)
  *      [3] UI                (drawing preview)
  */
-export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
+export function CanvasStage({
+  boardId,
+  mutations,
+  viewportHook,
+}: CanvasStageProps) {
   // ── Stage dimensions ──────────────────────────────────────────────────────
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -77,7 +81,6 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
   // ── Viewport / hooks ──────────────────────────────────────────────────────
 
-  const viewportHook = useViewport()
   const { stageRef } = viewportHook
 
   const viewport = useUIStore((s) => s.viewport)
@@ -116,7 +119,7 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
 
-  useKeyboardActions(mutations)
+  useKeyboardActions(mutations, viewportHook)
 
   // ── Spacebar → pan override ───────────────────────────────────────────────
 
@@ -172,7 +175,7 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
       laser.clearPoints()
       laserEmit.emitStop()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTool])
 
   // ── Prevent native scroll/zoom while canvas is active ─────────────────────
@@ -243,7 +246,9 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
             const x = centerX - w / 2 + offsetX
             const y = centerY - h / 2 + offsetY
 
-            const preferredStyle = useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
+            const preferredStyle =
+              useUIStore.getState().toolStyles["IMAGE"] ||
+              DEFAULT_STYLES["IMAGE"]
             const style = {
               ...preferredStyle,
               assetUrl: result.url,
@@ -316,7 +321,8 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
           const x = worldX - w / 2 + offsetX
           const y = worldY - h / 2 + offsetY
 
-          const preferredStyle = useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
+          const preferredStyle =
+            useUIStore.getState().toolStyles["IMAGE"] || DEFAULT_STYLES["IMAGE"]
           const style = {
             ...preferredStyle,
             assetUrl: result.url,
@@ -344,13 +350,14 @@ export function CanvasStage({ boardId, mutations }: CanvasStageProps) {
   if (stageSize.width === 0) return null
 
   // CSS grid background styles matching the Konva-based dots
-  const gridStyle = viewport.scale >= 0.22
-    ? {
-        backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1.5px)`,
-        backgroundSize: `${20 * viewport.scale}px ${20 * viewport.scale}px`,
-        backgroundPosition: `${viewport.x - 10 * viewport.scale}px ${viewport.y - 10 * viewport.scale}px`,
-      }
-    : {}
+  const gridStyle =
+    viewport.scale >= 0.22
+      ? {
+          backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1.5px)`,
+          backgroundSize: `${20 * viewport.scale}px ${20 * viewport.scale}px`,
+          backgroundPosition: `${viewport.x - 10 * viewport.scale}px ${viewport.y - 10 * viewport.scale}px`,
+        }
+      : {}
 
   return (
     <div
