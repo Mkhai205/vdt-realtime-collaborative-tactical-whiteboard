@@ -13,6 +13,8 @@ import type {
   ObjectUpdatedEvent,
   ObjectDeletedAck,
   ObjectDeletedEvent,
+  ObjectDeletedBatchAck,
+  ObjectDeletedBatchEvent,
   UndoRedoEvent,
   PresenceUpdateEvent,
   ObjectEditingEvent,
@@ -29,6 +31,7 @@ export function useBoardEvents(boardId: string) {
     initBoard,
     upsertObject,
     removeObject,
+    removeObjects,
     applyUndoRedo,
     updatePresence,
     setEditingState,
@@ -103,13 +106,26 @@ export function useBoardEvents(boardId: string) {
       upsertObject(event.object)
     }
 
-    // ─── 4. Object Deleted ─────────────────────────────────────────────────────
+    // ─── 4. Object Deleted ───────────────────────────────────────────────────────
     const handleObjectDeletedAck = (event: ObjectDeletedAck) => {
       commitPendingOp(event.clientOpId)
     }
 
     const handleObjectDeleted = (event: ObjectDeletedEvent) => {
       removeObject(event.objectId)
+    }
+
+    // ─── 4b. Object Deleted Batch ──────────────────────────────────────────
+    const handleObjectDeletedBatchAck = (event: ObjectDeletedBatchAck) => {
+      // Commit per-object pending ops
+      for (const id of event.deletedIds) {
+        commitPendingOp(`${event.clientOpId}:${id}`)
+      }
+    }
+
+    const handleObjectDeletedBatch = (event: ObjectDeletedBatchEvent) => {
+      // Remove all deleted objects in 1 state update
+      removeObjects(event.deletedIds)
     }
 
     // ─── 5. Undo / Redo ───────────────────────────────────────────────────────
@@ -193,6 +209,16 @@ export function useBoardEvents(boardId: string) {
       }
     }
 
+    const onObjectDeletedBatch = (
+      event: ObjectDeletedBatchAck | ObjectDeletedBatchEvent,
+    ) => {
+      if ("clientOpId" in event) {
+        handleObjectDeletedBatchAck(event)
+      } else {
+        handleObjectDeletedBatch(event)
+      }
+    }
+
     const handleObjectMoveEphemeral = (event: ObjectMoveEphemeralEvent) => {
       const { objectId, ...coords } = event
       updateObjectFields(objectId, coords)
@@ -226,6 +252,7 @@ export function useBoardEvents(boardId: string) {
     socket.on(ServerEvents.OBJECT_CREATED, onObjectCreated)
     socket.on(ServerEvents.OBJECT_UPDATED, onObjectUpdated)
     socket.on(ServerEvents.OBJECT_DELETED, onObjectDeleted)
+    socket.on(ServerEvents.OBJECT_DELETED_BATCH, onObjectDeletedBatch)
     socket.on(ServerEvents.UNDO_REDO, handleUndoRedo)
     socket.on(ServerEvents.PRESENCE_UPDATE, handlePresence)
     socket.on(ServerEvents.OBJECT_EDITING, handleObjectEditing)
@@ -238,6 +265,7 @@ export function useBoardEvents(boardId: string) {
       socket.off(ServerEvents.OBJECT_CREATED, onObjectCreated)
       socket.off(ServerEvents.OBJECT_UPDATED, onObjectUpdated)
       socket.off(ServerEvents.OBJECT_DELETED, onObjectDeleted)
+      socket.off(ServerEvents.OBJECT_DELETED_BATCH, onObjectDeletedBatch)
       socket.off(ServerEvents.UNDO_REDO, handleUndoRedo)
       socket.off(ServerEvents.PRESENCE_UPDATE, handlePresence)
       socket.off(ServerEvents.OBJECT_EDITING, handleObjectEditing)
@@ -251,6 +279,7 @@ export function useBoardEvents(boardId: string) {
     initBoard,
     upsertObject,
     removeObject,
+    removeObjects,
     applyUndoRedo,
     updatePresence,
     setEditingState,

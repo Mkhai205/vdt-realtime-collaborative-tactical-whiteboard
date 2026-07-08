@@ -40,6 +40,7 @@ export function useKeyboardActions(
     ) => void
     updateObject: (id: string, patch: ObjectUpdatePatch) => void
     deleteObject: (id: string) => void
+    deleteObjectBatch: (ids: string[]) => void
     undo: () => void
     redo: () => void
   },
@@ -77,14 +78,19 @@ export function useKeyboardActions(
         return
       }
 
-      // ── Delete / Backspace — remove selected objects ────────────────────────
+      // ── Delete / Backspace — remove selected objects ─────────────────────
 
       if (e.key === "Delete" || e.key === "Backspace") {
         if (isViewer) return
         if (selectedIds.size === 0) return
         e.preventDefault()
-        for (const id of selectedIds) {
-          mutationsRef.current.deleteObject(id)
+        if (selectedIds.size === 1) {
+          // Single delete: giữ nguyên flow cũ (backward compatible)
+          const [singleId] = selectedIds
+          if (singleId) mutationsRef.current.deleteObject(singleId)
+        } else {
+          // Batch delete: 1 socket event cho tất cả
+          mutationsRef.current.deleteObjectBatch([...selectedIds])
         }
         clearSelection()
         return
