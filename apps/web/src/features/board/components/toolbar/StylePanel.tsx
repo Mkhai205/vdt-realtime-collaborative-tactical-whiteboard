@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useCallback, useState } from "react"
@@ -137,7 +138,8 @@ export function StylePanel({ mutations }: StylePanelProps) {
   const setToolStyle = useUIStore((s) => s.setToolStyle)
 
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
-  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+  const isViewer =
+    effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
   // Narrow selector: only triggers re-render when the selected objects themselves change.
   const selectedObjects = useBoardStore(
@@ -327,12 +329,20 @@ export function StylePanel({ mutations }: StylePanelProps) {
 
   const hasFill =
     selectedObjects.length > 0
-      ? selectedObjects.every((o) => o.type !== "LINE" && o.type !== "PATH" && o.type !== "IMAGE")
-      : activeTool !== "LINE" && activeTool !== "ARROW" && activeTool !== "PATH" && activeTool !== "HIGHLIGHTER" && activeTool !== "IMAGE"
+      ? selectedObjects.every(
+          (o) => o.type !== "LINE" && o.type !== "PATH" && o.type !== "IMAGE",
+        )
+      : activeTool !== "LINE" &&
+        activeTool !== "ARROW" &&
+        activeTool !== "PATH" &&
+        activeTool !== "HIGHLIGHTER" &&
+        activeTool !== "IMAGE"
 
   const hasStroke =
     selectedObjects.length > 0
-      ? selectedObjects.every((o) => o.type !== "ICON" && o.type !== "TEXT" && o.type !== "IMAGE")
+      ? selectedObjects.every(
+          (o) => o.type !== "ICON" && o.type !== "TEXT" && o.type !== "IMAGE",
+        )
       : activeTool !== "ICON" && activeTool !== "TEXT" && activeTool !== "IMAGE"
 
   const hasIcon =
@@ -433,7 +443,8 @@ export function StylePanel({ mutations }: StylePanelProps) {
               className={`style-toggle ${firstStyle.fontWeight === "bold" ? "style-toggle--active" : ""}`}
               onClick={() =>
                 applyStyle({
-                  fontWeight: firstStyle.fontWeight === "bold" ? "normal" : "bold",
+                  fontWeight:
+                    firstStyle.fontWeight === "bold" ? "normal" : "bold",
                 })
               }
               aria-pressed={firstStyle.fontWeight === "bold"}
@@ -449,7 +460,12 @@ export function StylePanel({ mutations }: StylePanelProps) {
                 className={`style-toggle ${(firstStyle.textAlign ?? "left") === "left" ? "style-toggle--active" : ""}`}
                 onClick={() => applyStyle({ textAlign: "left" })}
                 aria-pressed={(firstStyle.textAlign ?? "left") === "left"}
-                style={{ flex: 1, padding: "6px", display: "flex", justifyContent: "center" }}
+                style={{
+                  flex: 1,
+                  padding: "6px",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
                 title="Align Left"
               >
                 <AlignLeft size={14} />
@@ -458,7 +474,12 @@ export function StylePanel({ mutations }: StylePanelProps) {
                 className={`style-toggle ${(firstStyle.textAlign ?? "left") === "center" ? "style-toggle--active" : ""}`}
                 onClick={() => applyStyle({ textAlign: "center" })}
                 aria-pressed={(firstStyle.textAlign ?? "left") === "center"}
-                style={{ flex: 1, padding: "6px", display: "flex", justifyContent: "center" }}
+                style={{
+                  flex: 1,
+                  padding: "6px",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
                 title="Align Center"
               >
                 <AlignCenter size={14} />
@@ -467,7 +488,12 @@ export function StylePanel({ mutations }: StylePanelProps) {
                 className={`style-toggle ${(firstStyle.textAlign ?? "left") === "right" ? "style-toggle--active" : ""}`}
                 onClick={() => applyStyle({ textAlign: "right" })}
                 aria-pressed={(firstStyle.textAlign ?? "left") === "right"}
-                style={{ flex: 1, padding: "6px", display: "flex", justifyContent: "center" }}
+                style={{
+                  flex: 1,
+                  padding: "6px",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
                 title="Align Right"
               >
                 <AlignRight size={14} />

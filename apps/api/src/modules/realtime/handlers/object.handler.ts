@@ -8,11 +8,14 @@ import {
   type ObjectUpdatedEvent,
   type ObjectDeletedAck,
   type ObjectDeletedEvent,
+  type ObjectDeletedBatchAck,
+  type ObjectDeletedBatchEvent,
   toBoardSocketName,
   ServerEvents,
   type ObjectCreateRequest,
   type ObjectUpdateRequest,
   type ObjectDeleteRequest,
+  type ObjectDeleteBatchRequest,
   type ObjectMoveEphemeralRequest,
   type ObjectMoveEphemeralEvent,
 } from "@rctw/shared-contracts"
@@ -184,5 +187,79 @@ export class ObjectHandler {
 
     // Broadcast to other clients in the board (except sender)
     client.to(roomName).emit(ServerEvents.OBJECT_MOVE_EPHEMERAL, event)
+  }
+
+  /**
+   * Xóa nhiều objects cùng lúc (batch).
+   * Lock check: skip object bị lock, xóa phần còn lại (partial success).
+   */
+  async deleteBatch(
+    client: Socket,
+    dto: ObjectDeleteBatchRequest,
+  ): Promise<void> {
+    const { boardId, items, clientOpId } = dto
+    const roomName = toBoardSocketName(boardId)
+
+    const currentUser = client.data.currentUser as JwtPayload
+    if (!currentUser) throw AppException.unauthenticated()
+
+    // Kiểm tra lock từng object, skip các object bị lock bởi user khác
+    const skippedByLock: string[] = []
+    const itemsToDelete: typeof items = []
+
+    for (const item of items) {
+      const isLocked = await this.presenceService.isLockedByOther(
+        boardId,
+        item.objectId,
+        client.id,
+      )
+      if (isLocked) {
+        skippedByLock.push(item.objectId)
+      } else {
+        itemsToDelete.push(item)
+      }
+    }
+
+    // Nếu tất cả bị lock thì không có gì để làm
+    if (itemsToDelete.length === 0) {
+      const ack: ObjectDeletedBatchAck = {
+        clientOpId,
+        deletedIds: [],
+        skippedIds: skippedByLock,
+        operations: [],
+      }
+      client.emit(ServerEvents.OBJECT_DELETED_BATCH, ack)
+      return
+    }
+
+    const result = await this.mutationService.deleteObjectBatch(
+      currentUser,
+      boardId,
+      itemsToDelete,
+      clientOpId,
+      skippedByLock,
+    )
+
+    // 1. Gửi ACK về chính client gửi
+    const ack: ObjectDeletedBatchAck = {
+      clientOpId,
+      deletedIds: result.deletedIds,
+      skippedIds: result.skippedIds,
+      operations: result.operations,
+    }
+    client.emit(ServerEvents.OBJECT_DELETED_BATCH, ack)
+
+    // 2. Broadcast event tới các client khác trong board
+    if (result.deletedIds.length > 0) {
+      const event: ObjectDeletedBatchEvent = {
+        boardId,
+        deletedIds: result.deletedIds,
+        operations: result.operations,
+      }
+      client.to(roomName).emit(ServerEvents.OBJECT_DELETED_BATCH, event)
+    }
+
+    // 3. Trigger auto-snapshot check
+    void this.snapshotService.maybeAutoSnapshot(boardId)
   }
 }

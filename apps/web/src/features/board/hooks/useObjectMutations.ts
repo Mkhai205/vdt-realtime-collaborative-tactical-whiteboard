@@ -18,6 +18,7 @@ export function useObjectMutations(boardId: string) {
   const objects = useBoardStore((s) => s.objects)
   const upsertObject = useBoardStore((s) => s.upsertObject)
   const removeObject = useBoardStore((s) => s.removeObject)
+  const removeObjects = useBoardStore((s) => s.removeObjects)
   const addPendingOp = useBoardStore((s) => s.addPendingOp)
 
   const createObject = useCallback(
@@ -136,6 +137,46 @@ export function useObjectMutations(boardId: string) {
     [boardId, objects, removeObject, addPendingOp],
   )
 
+  const deleteObjectBatch = useCallback(
+    (objectIds: string[]) => {
+      if (objectIds.length === 0) return
+      const socket = getSocket()
+      const clientOpId = crypto.randomUUID()
+
+      const items: { objectId: string; baseVersion: number }[] = []
+      const localToDiscard: string[] = []
+
+      for (const objectId of objectIds) {
+        const current = objects.get(objectId)
+        if (!current) continue
+
+        if (objectId.startsWith("local-")) {
+          // Local-only object: mark as discarded, no server call needed
+          localToDiscard.push(objectId)
+          pendingLocalUpdates.delete(objectId)
+          discardedLocalOps.add(objectId.replace("local-", ""))
+          continue
+        }
+
+        // Save original state for per-object rollback
+        addPendingOp(`${clientOpId}:${objectId}`, current)
+        items.push({ objectId, baseVersion: current.version })
+      }
+
+      // Optimistic: remove all in 1 single state update (1 re-render)
+      removeObjects([...objectIds.filter((id) => objects.has(id))])
+
+      if (items.length === 0) return
+
+      socket.emit(ClientEvents.OBJECT_DELETE_BATCH, {
+        clientOpId,
+        boardId,
+        items,
+      })
+    },
+    [boardId, objects, removeObjects, addPendingOp],
+  )
+
   const undo = useCallback(() => {
     const socket = getSocket()
     socket.emit(ClientEvents.OPERATION_UNDO, { boardId })
@@ -164,6 +205,7 @@ export function useObjectMutations(boardId: string) {
     createObject,
     updateObject,
     deleteObject,
+    deleteObjectBatch,
     undo,
     redo,
     setObjectEditingState,

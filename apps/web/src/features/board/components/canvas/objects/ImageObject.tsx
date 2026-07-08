@@ -45,7 +45,9 @@ export const ImageObject = memo(function ImageObject({
   const h = object.height ?? 200
 
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null)
-  const [loadStatus, setLoadStatus] = useState<"loading" | "loaded" | "error">("loading")
+  const [loadStatus, setLoadStatus] = useState<"loading" | "loaded" | "error">(
+    "loading",
+  )
 
   useEffect(() => {
     if (!s.assetUrl) {
@@ -69,7 +71,8 @@ export const ImageObject = memo(function ImageObject({
   }, [s.assetUrl])
 
   const effectiveRole = useBoardStore((s) => s.effectiveRole)
-  const isViewer = effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
+  const isViewer =
+    effectiveRole === "VIEWER" || effectiveRole === "PUBLIC_VIEWER"
 
   const activeTool = useUIStore((s) => s.activeTool)
   const isSpacePressed = useUIStore((s) => s.isSpacePressed)
@@ -79,9 +82,15 @@ export const ImageObject = memo(function ImageObject({
   void isSelected
 
   const isEditedByOther = !!editingUser
-  const borderStroke = editingUser ? getAvatarColor(editingUser.id) : EDIT_LOCK_STROKE
-  const borderFill = editingUser ? `${getAvatarColor(editingUser.id)}14` : EDIT_LOCK_FILL
-  const badgeWidth = editingUser ? Math.max(editingUser.name.length * 7 + 12, 45) : 0
+  const borderStroke = editingUser
+    ? getAvatarColor(editingUser.id)
+    : EDIT_LOCK_STROKE
+  const borderFill = editingUser
+    ? `${getAvatarColor(editingUser.id)}14`
+    : EDIT_LOCK_FILL
+  const badgeWidth = editingUser
+    ? Math.max(editingUser.name.length * 7 + 12, 45)
+    : 0
 
   return (
     <Group

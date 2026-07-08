@@ -25,6 +25,12 @@ export type DeleteResult = {
   operation: BoardOperationDto
 }
 
+export type BatchDeleteResult = {
+  deletedIds: string[]
+  skippedIds: string[] // objects skipped due to version conflict or not found
+  operations: BoardOperationDto[]
+}
+
 export type UndoRedoResult =
   | { kind: "updated"; object: BoardObjectDto; operation: BoardOperationDto }
   | { kind: "deleted"; objectId: string; operation: BoardOperationDto }
@@ -265,6 +271,114 @@ export class WhiteboardMutationService {
       return {
         objectId,
         operation: this.toOperationDto(operation),
+      }
+    })
+  }
+
+  // ── Delete Batch ─────────────────────────────────────────────────────────────
+
+  /**
+   * Xóa nhiều objects cùng lúc trong 1 transaction duy nhất.
+   *
+   * - Tất cả N objects chia sẻ cùng 1 revision (1 hành động của user).
+   * - Partial success: nếu 1 object không tìm thấy hoặc version conflict, nó sẽ bị skip.
+   * - skippedIds: các objects bị skip do bị lock (truyền vào từ handler) hoặc version conflict.
+   */
+  async deleteObjectBatch(
+    currentUser: JwtPayload,
+    boardId: string,
+    items: Array<{ objectId: string; baseVersion: number }>,
+    clientOpId: string,
+    preSkippedIds: string[] = [],
+  ): Promise<BatchDeleteResult> {
+    await this.boardPermissionService.assertFormalEditor(
+      currentUser.sub,
+      boardId,
+    )
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Clear redo stack 1 lần duy nhất cho toàn batch
+      await tx.boardOperation.deleteMany({
+        where: {
+          boardId,
+          actorId: currentUser.sub,
+          type: operationTypes.OBJECT_RESTORE,
+        },
+      })
+
+      const ids = items.map((i) => i.objectId)
+
+      // 2. Fetch tất cả objects cùng 1 query
+      const existingObjects = await tx.boardObject.findMany({
+        where: { id: { in: ids }, boardId, deletedAt: null },
+      })
+
+      const existingMap = new Map(existingObjects.map((obj) => [obj.id, obj]))
+
+      // 3. Lọc ra các item hợp lệ (tồn tại + version khớp)
+      const validItems: Array<{ objectId: string; baseVersion: number }> = []
+      const skippedIds: string[] = [...preSkippedIds]
+
+      for (const item of items) {
+        const existing = existingMap.get(item.objectId)
+        if (!existing || existing.version !== item.baseVersion) {
+          skippedIds.push(item.objectId)
+          continue
+        }
+        validItems.push(item)
+      }
+
+      // Không có item hợp lệ nào để xóa
+      if (validItems.length === 0) {
+        return { deletedIds: [], skippedIds, operations: [] }
+      }
+
+      const validIds = validItems.map((i) => i.objectId)
+      const now = new Date()
+
+      // 4. Tăng revision 1 lần cho toàn bộ batch
+      const revision = await this.incrementRevision(tx, boardId)
+
+      // 5. Soft delete tất cả hợp lệ trong 1 query
+      await tx.boardObject.updateMany({
+        where: { id: { in: validIds } },
+        data: {
+          deletedAt: now,
+          updatedById: currentUser.sub,
+        },
+      })
+
+      // 6. Tạo operation logs trong 1 createMany query
+      await tx.boardOperation.createMany({
+        data: validItems.map((item) => {
+          const snapshot = existingMap.get(item.objectId)!
+          return {
+            clientOpId: `${clientOpId}:${item.objectId}`,
+            boardId,
+            actorId: currentUser.sub,
+            objectId: item.objectId,
+            revision,
+            type: operationTypes.OBJECT_DELETE,
+            baseObjectVersion: item.baseVersion,
+            payload: this.toJson({ objectId: item.objectId }),
+            inversePayload: this.toJson(toBoardObjectDto(snapshot)),
+          }
+        }),
+      })
+
+      // 7. Fetch lại operations vừa tạo (để lấy id được auto-generate)
+      const operations = await tx.boardOperation.findMany({
+        where: {
+          boardId,
+          actorId: currentUser.sub,
+          revision,
+        },
+      })
+
+      return {
+        deletedIds: validIds,
+        skippedIds,
+        operations: operations.map((op) => this.toOperationDto(op)),
       }
     })
   }

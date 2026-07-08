@@ -69,6 +69,9 @@ interface BoardActions {
   /** Remove an object from the map (soft delete already handled by server) */
   removeObject: (objectId: string) => void
 
+  /** Remove multiple objects from the map in one state update (avoids N re-renders) */
+  removeObjects: (objectIds: string[]) => void
+
   /**
    * Apply an undo/redo broadcast from the server.
    * - event.object !== null  → upsert the object
@@ -194,6 +197,16 @@ export const useBoardStore = create<BoardStore>()((set, get) => ({
     set((state) => {
       const next = new Map(state.objects)
       next.delete(objectId)
+      return { objects: next }
+    })
+  },
+
+  removeObjects: (objectIds) => {
+    set((state) => {
+      const next = new Map(state.objects)
+      for (const id of objectIds) {
+        next.delete(id)
+      }
       return { objects: next }
     })
   },

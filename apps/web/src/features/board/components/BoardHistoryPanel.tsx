@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, History, Plus, Eye, RotateCcw, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -35,7 +35,7 @@ export function BoardHistoryPanel({
   const previewSnapshot = useUIStore((s) => s.previewSnapshot)
   const setPreviewSnapshot = useUIStore((s) => s.setPreviewSnapshot)
 
-  const fetchSnapshots = async () => {
+  const fetchSnapshots = useCallback(async () => {
     setIsLoading(true)
     try {
       const data = await boardApi.listSnapshots(boardId)
@@ -47,7 +47,7 @@ export function BoardHistoryPanel({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [boardId])
 
   // Fetch snapshots when open
   useEffect(() => {
@@ -56,7 +56,7 @@ export function BoardHistoryPanel({
         fetchSnapshots()
       })
     }
-  }, [open, boardId])
+  }, [open, fetchSnapshots])
 
   const handleCreateSnapshot = async () => {
     setIsCreating(true)

@@ -3,7 +3,6 @@
 import { memo } from "react"
 import { Layer, Line, Circle } from "react-konva"
 import type { MutableRefObject } from "react"
-import type { Viewport } from "@/stores/ui.store"
 import type { LaserPoint } from "@/features/board/hooks/useLaserPointer"
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -16,7 +15,6 @@ const GLOW_COLOR = "rgba(255, 40, 50, 0.55)"
 interface LaserLayerProps {
   /** Ref holding world-coordinate trail points (mutated externally) */
   pointsRef: MutableRefObject<LaserPoint[][]>
-  viewport: Viewport
   /** Color override — used for remote users' lasers (avatarColor) */
   color?: string
   glowColor?: string
@@ -40,19 +38,13 @@ interface LaserLayerProps {
  */
 export const LaserLayer = memo(function LaserLayer({
   pointsRef,
-  viewport,
   color = LASER_COLOR,
   glowColor = GLOW_COLOR,
   tick: _tick, // consumed only to trigger re-render
 }: LaserLayerProps) {
+  void _tick
   const pts = pointsRef.current
   if (pts.length === 0) return null
-
-  /** World → screen coordinate transform */
-  const toScreen = (wx: number, wy: number) => ({
-    sx: wx * viewport.scale + viewport.x,
-    sy: wy * viewport.scale + viewport.y,
-  })
 
   const lastStroke = pts[pts.length - 1]!
   const lastPoint = lastStroke.length > 0 ? lastStroke[lastStroke.length - 1]! : null
@@ -65,8 +57,7 @@ export const LaserLayer = memo(function LaserLayer({
 
         const flatPoints: number[] = []
         stroke.forEach((p) => {
-          const { sx, sy } = toScreen(p.worldX, p.worldY)
-          flatPoints.push(sx, sy)
+          flatPoints.push(p.worldX, p.worldY)
         })
 
         return (
@@ -89,22 +80,19 @@ export const LaserLayer = memo(function LaserLayer({
       })}
 
       {/* ── Leading Cursor Dot (only at the tip of the current stroke) ─── */}
-      {lastPoint && (() => {
-        const { sx, sy } = toScreen(lastPoint.worldX, lastPoint.worldY)
-        return (
-          <Circle
-            x={sx}
-            y={sy}
-            radius={5}
-            fill={color}
-            shadowColor={color}
-            shadowBlur={22}
-            shadowOpacity={0.85}
-            listening={false}
-            perfectDrawEnabled={false}
-          />
-        )
-      })()}
+      {lastPoint && (
+        <Circle
+          x={lastPoint.worldX}
+          y={lastPoint.worldY}
+          radius={5}
+          fill={color}
+          shadowColor={color}
+          shadowBlur={22}
+          shadowOpacity={0.85}
+          listening={false}
+          perfectDrawEnabled={false}
+        />
+      )}
     </Layer>
   )
 })

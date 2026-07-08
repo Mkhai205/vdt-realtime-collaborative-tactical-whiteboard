@@ -30,6 +30,7 @@ import {
   type ObjectCreateRequest,
   type ObjectUpdateRequest,
   type ObjectDeleteRequest,
+  type ObjectDeleteBatchRequest,
   type CursorMoveRequest,
   type UndoRequest,
   type RedoRequest,
@@ -209,6 +210,14 @@ export class BoardGateway
     @MessageBody() dto: ObjectDeleteRequest,
   ) {
     return this.objectHandler.delete(client, dto)
+  }
+
+  @SubscribeMessage(ClientEvents.OBJECT_DELETE_BATCH)
+  async deleteObjectBatch(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() dto: ObjectDeleteBatchRequest,
+  ) {
+    return this.objectHandler.deleteBatch(client, dto)
   }
 
   // --- History ---

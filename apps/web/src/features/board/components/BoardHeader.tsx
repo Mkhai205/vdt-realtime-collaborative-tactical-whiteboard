@@ -190,7 +190,7 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
         className="pointer-events-none absolute top-0 right-0 left-0 z-30 flex h-16 items-start justify-between p-3 select-none"
       >
         {/* Left Section: Back & Board Name */}
-        <div className="pointer-events-auto flex min-w-0 items-center gap-3 rounded-xl border px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]">
+        <div className="pointer-events-auto flex min-w-0 items-center gap-3 rounded-xl border bg-accent/80 px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]">
           <Button
             size="icon"
             variant="ghost"
@@ -309,7 +309,7 @@ export function BoardHeader({ boardId }: BoardHeaderProps) {
         )}
 
         {/* Right Section: Presence, Share, Settings, User */}
-        <div className="pointer-events-auto flex items-center gap-3 rounded-xl border px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]">
+        <div className="pointer-events-auto flex items-center gap-3 rounded-xl border bg-accent/80 px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-md transition-all duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]">
           {/* Presence avatars list */}
           <PresenceBar />
 

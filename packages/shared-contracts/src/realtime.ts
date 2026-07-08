@@ -86,6 +86,24 @@ export const objectDeleteRequestSchema = z.object({
 })
 export type ObjectDeleteRequest = z.infer<typeof objectDeleteRequestSchema>
 
+/** Payload cho batch delete nhiều objects cùng lúc */
+export const objectDeleteBatchRequestSchema = z.object({
+  clientOpId: clientOpIdSchema,
+  boardId: z.uuid(),
+  items: z
+    .array(
+      z.object({
+        objectId: z.uuid(),
+        baseVersion: z.number().int().positive(),
+      }),
+    )
+    .min(1)
+    .max(100),
+})
+export type ObjectDeleteBatchRequest = z.infer<
+  typeof objectDeleteBatchRequestSchema
+>
+
 // --- Operation history schemas ---
 
 export const undoRequestSchema = z.object({
@@ -240,6 +258,25 @@ export type ObjectDeletedEvent = {
   operation: BoardOperationDto
 }
 
+/**
+ * ACK trả về cho client gửi object:delete-batch.
+ * deletedIds: các objectId xóa thành công (có thể ít hơn request nếu 1 số bị lock).
+ * skippedIds: các objectId bị skip (bị lock bởi user khác).
+ */
+export type ObjectDeletedBatchAck = {
+  clientOpId: string
+  deletedIds: string[]
+  skippedIds: string[]
+  operations: BoardOperationDto[]
+}
+
+/** Broadcast đến các client khác trong room sau object:delete-batch */
+export type ObjectDeletedBatchEvent = {
+  boardId: string
+  deletedIds: string[]
+  operations: BoardOperationDto[]
+}
+
 /** Broadcast sau undo — có thể là create/update/delete tùy inverse op */
 export type UndoRedoEvent = {
   boardId: string
@@ -309,6 +346,7 @@ export const ClientEvents = {
   OBJECT_CREATE: "object:create",
   OBJECT_UPDATE: "object:update",
   OBJECT_DELETE: "object:delete",
+  OBJECT_DELETE_BATCH: "object:delete-batch",
   OPERATION_UNDO: "operation:undo",
   OPERATION_REDO: "operation:redo",
   CURSOR_MOVE: "cursor:move",
@@ -325,6 +363,7 @@ export const ServerEvents = {
   OBJECT_CREATED: "object:created",
   OBJECT_UPDATED: "object:updated",
   OBJECT_DELETED: "object:deleted",
+  OBJECT_DELETED_BATCH: "object:deleted-batch",
   UNDO_REDO: "operation:undoredo",
   PRESENCE_UPDATE: "presence:update",
   CURSOR_MOVED: "cursor:moved",
