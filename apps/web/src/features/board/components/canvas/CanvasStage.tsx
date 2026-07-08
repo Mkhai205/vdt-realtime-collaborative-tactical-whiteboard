@@ -407,12 +407,11 @@ export function CanvasStage({
         {/* Layer 4 — Local laser trail (ephemeral, never persisted) */}
         <LaserLayer
           pointsRef={laser.pointsRef}
-          viewport={viewport}
           tick={laser.tick}
         />
 
         {/* Layer 5 — Remote users' laser trails */}
-        <RemoteLaserLayer viewport={viewport} />
+        <RemoteLaserLayer />
       </Stage>
 
       {/* Text Editor Overlay */}

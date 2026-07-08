@@ -2,17 +2,12 @@ import { useEffect, useState } from "react"
 import { Layer, Line, Circle, Group } from "react-konva"
 import { useLaserStore } from "@/features/cursor/store/laser.store"
 import type { RemoteLaserPoint } from "@/features/cursor/store/laser.store"
-import type { Viewport } from "@/stores/ui.store"
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
 const TRAIL_DURATION_MS = 1000
 
-// ─── Props ──────────────────────────────────────────────────────────────────────
-
-interface RemoteLaserLayerProps {
-  viewport: Viewport
-}
+// No props required for RemoteLaserLayer
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -25,9 +20,10 @@ interface RemoteLaserLayerProps {
  * Runs a requestAnimationFrame decay loop while there are active remote points
  * to ensure trails smoothly fade out.
  */
-export function RemoteLaserLayer({ viewport }: RemoteLaserLayerProps) {
+export function RemoteLaserLayer() {
   const lasers = useLaserStore((s) => s.lasers)
-  const [tick, setTick] = useState(0)
+  const [_tick, setTick] = useState(0)
+  void _tick
 
   useEffect(() => {
     const hasPoints = [...lasers.values()].some((l) =>
@@ -67,11 +63,6 @@ export function RemoteLaserLayer({ viewport }: RemoteLaserLayerProps) {
     return () => cancelAnimationFrame(rafId)
   }, [lasers])
 
-  const toScreen = (wx: number, wy: number) => ({
-    sx: wx * viewport.scale + viewport.x,
-    sy: wy * viewport.scale + viewport.y,
-  })
-
   return (
     <Layer id="remote-laser-layer" listening={false} perfectDrawEnabled={false}>
       {[...lasers.values()].map((laser) => {
@@ -91,23 +82,20 @@ export function RemoteLaserLayer({ viewport }: RemoteLaserLayerProps) {
           }
         }
 
-        const dotEl = lastPoint ? (() => {
-          const { sx, sy } = toScreen(lastPoint.x, lastPoint.y)
-          return (
-            <Circle
-              key={`${laser.userId}-dot`}
-              x={sx}
-              y={sy}
-              radius={5}
-              fill={color}
-              shadowColor={color}
-              shadowBlur={20}
-              shadowOpacity={0.85}
-              listening={false}
-              perfectDrawEnabled={false}
-            />
-          )
-        })() : null
+        const dotEl = lastPoint ? (
+          <Circle
+            key={`${laser.userId}-dot`}
+            x={lastPoint.x}
+            y={lastPoint.y}
+            radius={5}
+            fill={color}
+            shadowColor={color}
+            shadowBlur={20}
+            shadowOpacity={0.85}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        ) : null
 
         return (
           <Group key={laser.userId}>
@@ -116,8 +104,7 @@ export function RemoteLaserLayer({ viewport }: RemoteLaserLayerProps) {
 
               const flatPoints: number[] = []
               pts.forEach((p) => {
-                const { sx, sy } = toScreen(p.x, p.y)
-                flatPoints.push(sx, sy)
+                flatPoints.push(p.x, p.y)
               })
 
               return (
